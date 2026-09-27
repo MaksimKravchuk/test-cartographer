@@ -2,6 +2,7 @@ export * from './schema.ts';
 export * from './reach.ts';
 export * from './plan.ts';
 export * from './validate.ts';
+export * from './objects.ts';
 export * from './proposals.ts';
 export * from './coverage.ts';
 export * from './backlog.ts';

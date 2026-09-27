@@ -1,4 +1,4 @@
-import type { Backlog, BacklogCoverage, Coverage, Decision, Entity, Issue, Plan, Project, Proposal, ScenarioResult, Source, SourceKind } from '@tc/model';
+import type { Backlog, BacklogCoverage, Coverage, Decision, Entity, Issue, Plan, Project, Proposal, ScenarioResult, Source, SourceKind, Status } from '@tc/model';
 
 export type EntityState = {
   entity: Entity;
@@ -26,7 +26,16 @@ export type EntitySummary = {
   description: string;
   counts: { variants: number; states: number; actions: number; transitions: number; permits: number; rules: number; journeys: number; observations: number };
   totals: Coverage['totals'];
-  relations: { id: string; entity: string; title: string; requires: string | null }[];
+  // `title` and `requires` are the related entity's and state's titles.
+  relations: { id: string; entity: string; title: string; requires: string | null; kind: 'reference' | 'part-of' }[];
+  // The entity this one is part of: its part-of relation, when the target exists
+  // and following parents never leads back here. Null for top-level objects.
+  parent: string | null;
+  // Lifecycle states, rejected ones left out, in model order.
+  states: { id: string; title: string; initial: boolean; terminal: boolean; status: Status }[];
+  // Subjects: ids of roles named in `by` of the entity's transitions and permits
+  // (rejected ones left out), in the project's role order.
+  roles: string[];
   pendingProposals: number;
   errors: number;
 };
@@ -83,7 +92,8 @@ export const api = {
   forgetProject: (root: string) => call('/api/projects/forget', { method: 'POST', body: JSON.stringify({ root }) }),
   trashProject: (root: string) => call<{ trashedTo: string }>('/api/projects/trash', { method: 'POST', body: JSON.stringify({ root }) }),
   entities: () => call<EntitySummary[]>('/api/entities'),
-  createEntity: (input: { id: string; title: string; description?: string }) =>
+  // partOf — id of an existing entity; the new one gets a part-of relation to it.
+  createEntity: (input: { id: string; title: string; description?: string; partOf?: string }) =>
     call<EntityState>('/api/entities', { method: 'POST', body: JSON.stringify(input) }),
   deleteEntity: (id: string) => call(`/api/entities/${id}`, { method: 'DELETE' }),
   entity: (id: string) => call<EntityState>(`/api/entities/${id}`),
