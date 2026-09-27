@@ -6,7 +6,7 @@ import { serveStatic } from '@hono/node-server/serve-static';
 import { streamSSE } from 'hono/streaming';
 import { watch, existsSync, type FSWatcher } from 'node:fs';
 import { readFile } from 'node:fs/promises';
-import { dirname, relative, resolve } from 'node:path';
+import { dirname, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   applyDecisions, applyProjectDecisions, Backlog, backlogCoverage, buildPlan, conflicts, coverage, Decision, Entity, Project,
@@ -146,22 +146,27 @@ export function createApp(initial: Workspace) {
     return c.json({ root: ws.root });
   });
 
+  // The registry stores resolved paths; so does ws.root. A path sent as
+  // `shop/`, `.` or with `..` must compare equal to them.
+  const projectRoot = z.string().min(1).transform((p) => resolve(p));
+  const isOpen = (root: string) => root === ws.root || ws.root.startsWith(root.endsWith(sep) ? root : root + sep);
+
   app.post('/api/projects/pin', async (c) => {
-    const { root, pinned } = z.object({ root: z.string().min(1), pinned: z.boolean() }).parse(await c.req.json());
+    const { root, pinned } = z.object({ root: projectRoot, pinned: z.boolean() }).parse(await c.req.json());
     await pinProject(root, pinned).catch((e: Error) => { throw new HttpError(400, e.message); });
     return c.json({ ok: true });
   });
 
   app.post('/api/projects/forget', async (c) => {
-    const { root } = z.object({ root: z.string().min(1) }).parse(await c.req.json());
+    const { root } = z.object({ root: projectRoot }).parse(await c.req.json());
     if (root === ws.root) throw new HttpError(409, 'This project is open. Switch to another one first');
     await forgetProject(root);
     return c.json({ ok: true });
   });
 
   app.post('/api/projects/trash', async (c) => {
-    const { root } = z.object({ root: z.string().min(1) }).parse(await c.req.json());
-    if (root === ws.root || ws.root.startsWith(`${root}/`)) throw new HttpError(409, 'This project is open. Switch to another one first');
+    const { root } = z.object({ root: projectRoot }).parse(await c.req.json());
+    if (isOpen(root)) throw new HttpError(409, 'This project is open. Switch to another one first');
     const trashedTo = await trashProject(root).catch((e: Error) => { throw new HttpError(400, e.message); });
     return c.json({ trashedTo });
   });
