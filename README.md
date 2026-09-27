@@ -32,7 +32,7 @@ Engine CLI — `pnpm tc <command>`:
 
 The app is organized as **project → entities → scenarios**.
 
-- **Project** — a workspace folder with `cartographer.yaml`. The app remembers recent projects (`~/.test-cartographer/projects.json`), opens existing ones and creates new ones from a template with a guest and a signed-in role. A project anywhere on disk gets a link to the engine in its own `node_modules`, so its generated tests and action library resolve `@tc/engine`.
+- **Project** — a workspace folder with `cartographer.yaml`. The app remembers recent projects (`~/.test-cartographer/projects.json`), opens existing ones and creates new ones from a template with a guest and a signed-in role. The Projects page (“Manage projects…” in the project menu) lists them all: open, create, star as a favorite, remove from the list (the folder stays), or delete — which moves the folder to `~/.test-cartographer/trash`. Favorites stay pinned at the top of the project menu and are never trimmed from the recent list. A project anywhere on disk gets a link to the engine in its own `node_modules`, so its generated tests and action library resolve `@tc/engine`.
 - **Knowledge sources and the backlog** — a project can also hold what a person uploaded about the system (`sources.yaml` + `sources/`) and a backlog of epics, features and stories (`backlog.yaml`) — a view over the model, not a second one. See Onboarding and Backlog below.
 - **Entities** — one file each in `entities/`: an order, a quota, a user account. The Overview shows the catalog with the size of each model and how its tests stand. Removing an entity moves its files to `entities/.trash`.
 - **Scenarios** of an entity come in four kinds:

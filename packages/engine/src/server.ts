@@ -18,7 +18,7 @@ import { runTests } from './run.ts';
 import { exportMarkdown } from './export.ts';
 import { explore } from './agents/explore.ts';
 import { onboard } from './agents/onboard.ts';
-import { createEntity, createProject, openProject, recentProjects, rememberProject } from './projects.ts';
+import { createEntity, createProject, forgetProject, openProject, pinProject, recentProjects, rememberProject, trashProject } from './projects.ts';
 
 type Event =
   | { type: 'log'; job: string; line: string }
@@ -144,6 +144,26 @@ export function createApp(initial: Workspace) {
     const { root, name } = z.object({ root: z.string().min(1), name: z.string().min(1) }).parse(await c.req.json());
     switchTo(await createProject(root, name).catch((e: Error) => { throw new HttpError(400, e.message); }));
     return c.json({ root: ws.root });
+  });
+
+  app.post('/api/projects/pin', async (c) => {
+    const { root, pinned } = z.object({ root: z.string().min(1), pinned: z.boolean() }).parse(await c.req.json());
+    await pinProject(root, pinned).catch((e: Error) => { throw new HttpError(400, e.message); });
+    return c.json({ ok: true });
+  });
+
+  app.post('/api/projects/forget', async (c) => {
+    const { root } = z.object({ root: z.string().min(1) }).parse(await c.req.json());
+    if (root === ws.root) throw new HttpError(409, 'This project is open. Switch to another one first');
+    await forgetProject(root);
+    return c.json({ ok: true });
+  });
+
+  app.post('/api/projects/trash', async (c) => {
+    const { root } = z.object({ root: z.string().min(1) }).parse(await c.req.json());
+    if (root === ws.root || ws.root.startsWith(`${root}/`)) throw new HttpError(409, 'This project is open. Switch to another one first');
+    const trashedTo = await trashProject(root).catch((e: Error) => { throw new HttpError(400, e.message); });
+    return c.json({ trashedTo });
   });
 
   // The entity catalog: one row per entity with its size and test status.

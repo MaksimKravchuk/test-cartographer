@@ -476,6 +476,22 @@ pre.md { font-family: var(--mono); font-size: 12.5px; white-space: pre-wrap; bac
 .nav .switcher-item { display: grid; width: 100%; gap: 1px; border-radius: 0; padding: 8px 12px; }
 .nav .switcher-item[aria-current='true'] { background: var(--paper); }
 .switcher-item .id { font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.switcher-row { display: flex; align-items: stretch; }
+.switcher-row .switcher-item { flex: 1; min-width: 0; }
+.star { border: 0; background: none; cursor: pointer; color: var(--ink-3); font-size: 16px; line-height: 1; padding: 0 12px; }
+.star:hover { color: var(--ink); }
+.star.on { color: #d49b0b; }
+
+/* ── Projects page ───────────────────────────────────────── */
+.project-head { display: flex; align-items: flex-start; }
+.project-head .entity-open { min-width: 0; }
+.project-head .entity-open:disabled { cursor: default; }
+.project-head .entity-open:disabled:hover h2 { text-decoration: none; }
+.project-head .star { padding: 16px 16px 0; }
+.project-card .id { overflow-wrap: anywhere; }
+.project-card.missing h2 { color: var(--ink-3); }
+.page .section-title { font-size: 13px; font-weight: 600; color: var(--ink-2); margin: 24px 0 10px; }
+.page .section-title:first-of-type { margin-top: 0; }
 
 /* ── Header, entity page, tabs ───────────────────────────── */
 .crumbs { display: flex; gap: 8px; align-items: baseline; }

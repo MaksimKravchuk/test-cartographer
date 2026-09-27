@@ -1,23 +1,19 @@
 import { useEffect, useRef, useState } from 'react';
-import { api, type Projects } from '../api.ts';
+import { api, type Projects, type RecentProject } from '../api.ts';
 
-type Props = { name: string; root: string; disabled: boolean; onError(m: string): void };
+type Props = { name: string; root: string; disabled: boolean; onManage(): void; onError(m: string): void };
 
-// Project menu at the top of the sidebar: recent projects, open a folder,
-// create a new project from the template. The engine switches and the app
-// reloads on its “project” event.
-export function ProjectSwitcher({ name, root, disabled, onError }: Props) {
+// Project menu at the top of the sidebar: favorites pinned on top, then recent
+// projects. Creating, opening by path and deleting live on the Projects page.
+// The engine switches and the app reloads on its “project” event.
+export function ProjectSwitcher({ name, root, disabled, onManage, onError }: Props) {
   const [open, setOpen] = useState(false);
   const [projects, setProjects] = useState<Projects | null>(null);
-  const [mode, setMode] = useState<'list' | 'open' | 'create'>('list');
-  const [path, setPath] = useState('');
-  const [newName, setNewName] = useState('');
   const [busy, setBusy] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!open) return;
-    setMode('list');
     api.projects().then(setProjects).catch((e) => onError((e as Error).message));
     const close = (e: MouseEvent) => {
       if (!ref.current?.contains(e.target as Node)) setOpen(false);
@@ -26,10 +22,10 @@ export function ProjectSwitcher({ name, root, disabled, onError }: Props) {
     return () => document.removeEventListener('mousedown', close);
   }, [open, onError]);
 
-  const act = async (fn: () => Promise<unknown>) => {
+  const switchTo = async (to: string) => {
     setBusy(true);
     try {
-      await fn();
+      await api.openProject(to);
       setOpen(false);
     } catch (e) {
       onError((e as Error).message);
@@ -38,7 +34,36 @@ export function ProjectSwitcher({ name, root, disabled, onError }: Props) {
     }
   };
 
+  const pin = async (p: RecentProject) => {
+    try {
+      await api.pinProject(p.root, !p.pinned);
+      setProjects(await api.projects());
+    } catch (e) {
+      onError((e as Error).message);
+    }
+  };
+
+  const available = projects?.recent.filter((p) => !p.missing) ?? [];
+  const favorites = available.filter((p) => p.pinned);
+  const recent = available.filter((p) => !p.pinned);
   const folder = root.split('/').slice(-2).join('/');
+
+  const item = (p: RecentProject) => (
+    <div key={p.root} className="switcher-row">
+      <button
+        className="switcher-item"
+        aria-current={p.root === projects!.current}
+        disabled={busy || p.root === projects!.current}
+        onClick={() => switchTo(p.root)}
+      >
+        <span>{p.name}</span>
+        <span className="id">{p.root}</span>
+      </button>
+      <button className={`star ${p.pinned ? 'on' : ''}`} onClick={() => pin(p)} aria-pressed={!!p.pinned} title={p.pinned ? 'Remove from favorites' : 'Add to favorites'}>
+        {p.pinned ? '★' : '☆'}
+      </button>
+    </div>
+  );
 
   return (
     <div className="switcher" ref={ref}>
@@ -48,53 +73,29 @@ export function ProjectSwitcher({ name, root, disabled, onError }: Props) {
       </button>
       {open && (
         <div className="switcher-menu" role="dialog" aria-label="Projects">
-          {mode === 'list' && (
+          {favorites.length > 0 && (
             <>
-              <div className="switcher-section">Recent projects</div>
-              {projects?.recent.map((p) => (
-                <button
-                  key={p.root}
-                  className="switcher-item"
-                  aria-current={p.root === projects.current}
-                  disabled={busy || p.root === projects.current}
-                  onClick={() => act(() => api.openProject(p.root))}
-                >
-                  <span>{p.name}</span>
-                  <span className="id">{p.root}</span>
-                </button>
-              ))}
-              <div className="row" style={{ padding: 8, gap: 6 }}>
-                <button className="btn small" onClick={() => setMode('open')}>Open project…</button>
-                <button className="btn small" onClick={() => setMode('create')}>New project…</button>
-              </div>
+              <div className="switcher-section">Favorites</div>
+              {favorites.map(item)}
             </>
           )}
-          {mode !== 'list' && (
-            <form
-              style={{ padding: 12 }}
-              onSubmit={(e) => {
-                e.preventDefault();
-                void act(() => (mode === 'open' ? api.openProject(path) : api.createProject(path, newName)));
+          {recent.length > 0 && (
+            <>
+              <div className="switcher-section">Recent projects</div>
+              {recent.map(item)}
+            </>
+          )}
+          <div className="row" style={{ padding: 8, gap: 6, borderTop: '1px solid var(--rule)' }}>
+            <button
+              className="btn small"
+              onClick={() => {
+                setOpen(false);
+                onManage();
               }}
             >
-              <label className="field">
-                <span>{mode === 'open' ? 'Project folder (contains cartographer.yaml)' : 'Folder for the new project'}</span>
-                <input className="text" autoFocus value={path} onChange={(e) => setPath(e.target.value)} placeholder="/Users/you/projects/shop-tests" />
-              </label>
-              {mode === 'create' && (
-                <label className="field">
-                  <span>Project name</span>
-                  <input className="text" value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Marketplace" />
-                </label>
-              )}
-              <div className="row">
-                <button className="btn primary" disabled={busy || !path || (mode === 'create' && !newName)}>
-                  {mode === 'open' ? 'Open project' : 'Create project'}
-                </button>
-                <button type="button" className="btn" onClick={() => setMode('list')}>Back</button>
-              </div>
-            </form>
-          )}
+              Manage projects…
+            </button>
+          </div>
         </div>
       )}
     </div>

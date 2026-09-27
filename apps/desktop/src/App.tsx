@@ -13,6 +13,7 @@ import { BacklogView } from './views/BacklogView.tsx';
 import { ScenariosView } from './views/ScenariosView.tsx';
 import { SettingsView } from './views/SettingsView.tsx';
 import { ProjectSwitcher } from './views/ProjectSwitcher.tsx';
+import { ProjectsView } from './views/ProjectsView.tsx';
 
 type EntityTab = 'map' | 'scenarios' | 'coverage';
 type Route =
@@ -22,7 +23,8 @@ type Route =
   | { page: 'backlog' }
   | { page: 'proposals' }
   | { page: 'export' }
-  | { page: 'settings' };
+  | { page: 'settings' }
+  | { page: 'projects' };
 
 const tabTitles: Record<EntityTab, string> = { map: 'Map', scenarios: 'Scenarios', coverage: 'Coverage' };
 
@@ -205,6 +207,7 @@ export function App() {
           name={project.project.name}
           root={project.root}
           disabled={dirty || running}
+          onManage={() => go({ page: 'projects' })}
           onError={(m) => notify(m, true)}
         />
         <div className="nav-scroll">
@@ -348,6 +351,7 @@ export function App() {
             onError={(m) => notify(m, true)}
           />
         )}
+        {route.page === 'projects' && <ProjectsView disabled={dirty || running} onNotify={(m) => notify(m)} onError={(m) => notify(m, true)} />}
         {route.page === 'export' && <ExportView onError={(m) => notify(m, true)} />}
         {route.page === 'settings' && (
           <SettingsView

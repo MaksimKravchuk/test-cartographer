@@ -31,7 +31,8 @@ export type EntitySummary = {
   errors: number;
 };
 
-export type Projects = { current: string; recent: { root: string; name: string; openedAt: string }[] };
+export type RecentProject = { root: string; name: string; openedAt: string; pinned?: boolean; missing?: boolean };
+export type Projects = { current: string; recent: RecentProject[] };
 
 export type ProposalState = Proposal & { stale: boolean; conflicts: { op: number; message: string }[] };
 
@@ -78,6 +79,9 @@ export const api = {
   openProject: (root: string) => call<{ root: string }>('/api/projects/open', { method: 'POST', body: JSON.stringify({ root }) }),
   createProject: (root: string, name: string) =>
     call<{ root: string }>('/api/projects/create', { method: 'POST', body: JSON.stringify({ root, name }) }),
+  pinProject: (root: string, pinned: boolean) => call('/api/projects/pin', { method: 'POST', body: JSON.stringify({ root, pinned }) }),
+  forgetProject: (root: string) => call('/api/projects/forget', { method: 'POST', body: JSON.stringify({ root }) }),
+  trashProject: (root: string) => call<{ trashedTo: string }>('/api/projects/trash', { method: 'POST', body: JSON.stringify({ root }) }),
   entities: () => call<EntitySummary[]>('/api/entities'),
   createEntity: (input: { id: string; title: string; description?: string }) =>
     call<EntityState>('/api/entities', { method: 'POST', body: JSON.stringify(input) }),
