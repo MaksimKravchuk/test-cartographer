@@ -353,6 +353,12 @@ function Relations({ entity, state, onChange }: { entity: Entity; state: EntityS
                 Remove
               </button>
             </div>
+            <Select
+              label="Kind"
+              value={r.kind}
+              options={[['reference', 'Refers to'], ['part-of', 'Part of']]}
+              onChange={(kind) => set(i, { kind: kind as Relation['kind'] })}
+            />
             <Select label="Entity" value={r.entity} options={others.map(([id, e]): [string, string] => [id, e.title])} onChange={(v) => set(i, { entity: v, requires: undefined, variants: undefined })} />
             <Text label="Field with its key (in this entity's read result)" value={r.field} onChange={(field) => set(i, { field })} />
             <Select
@@ -393,7 +399,10 @@ function Relations({ entity, state, onChange }: { entity: Entity; state: EntityS
         disabled={!others.length}
         onClick={() => {
           const [id] = others[0];
-          onChange({ ...entity, relations: [...entity.relations, { id: nextId(id, entity.relations.map((r) => r.id)), entity: id, field: `${id.replace(/-(\w)/g, (_, c: string) => c.toUpperCase())}Id` }] });
+          onChange({
+            ...entity,
+            relations: [...entity.relations, { id: nextId(id, entity.relations.map((r) => r.id)), entity: id, field: `${id.replace(/-(\w)/g, (_, c: string) => c.toUpperCase())}Id`, kind: 'reference' }],
+          });
         }}
       >
         Add relation

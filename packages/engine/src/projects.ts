@@ -146,19 +146,34 @@ export async function createProject(root: string, name: string): Promise<Workspa
   return openProject(ws.root);
 }
 
+// Thrown by createEntity for a `partOf` that doesn't name an existing entity
+// — distinct from the "already exists" error so callers can tell them apart (see server.ts).
+export class UnknownParentError extends Error {}
+
+// "line-item" → "lineItem", for the part-of relation's field name.
+const camelCase = (id: string) => id.replace(/[-_]+([a-z0-9])/g, (_, c: string) => c.toUpperCase());
+
 // A new entity starts with one variant and no states. The reader points at an
 // allowed read tool named after the entity, or at a placeholder the validator
-// flags until someone picks the right tool.
-export async function createEntity(ws: Workspace, input: { id: string; title: string; description?: string }): Promise<Entity> {
+// flags until someone picks the right tool. With `partOf`, it starts nested
+// under that object: a part-of relation to it, keyed by its id.
+export async function createEntity(ws: Workspace, input: { id: string; title: string; description?: string; partOf?: string }): Promise<Entity> {
   if ((await ws.entityIds()).includes(input.id)) throw new Error(`Entity “${input.id}” already exists`);
   const project = await ws.project();
   const read = Object.entries(project.mcp).flatMap(([server, cfg]) => cfg.allow.read.map((t) => `${server}.${t}`));
+  let relations: Entity['relations'] = [];
+  if (input.partOf) {
+    if (!(await ws.entityIds()).includes(input.partOf)) throw new UnknownParentError(`Entity “${input.partOf}” doesn't exist`);
+    const { entity: parent } = await ws.entity(input.partOf);
+    relations = [{ id: input.partOf, title: parent.title, entity: input.partOf, field: `${camelCase(input.partOf)}Id`, kind: 'part-of' }];
+  }
   const entity = Entity.parse({
     ...input,
     reader: { tool: read.find((t) => t.includes(input.id.replace(/-/g, '_'))) ?? `mcp.get_${input.id.replace(/-/g, '_')}`, args: { id: '{{key}}' } },
     variants: [{ id: 'default', title: 'Default' }],
     actions: [],
     permits: [],
+    relations,
   });
   await ws.saveEntity(entity);
   return entity;

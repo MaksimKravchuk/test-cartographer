@@ -1,60 +1,27 @@
-import { useState } from 'react';
-import { api, type EntitySummary, type ProjectState } from '../api.ts';
-import { nextId } from '../graph.ts';
+import { type EntitySummary, type ProjectState } from '../api.ts';
 
 type Props = {
   project: ProjectState;
   entities: EntitySummary[];
   onOpen(id: string): void;
   onOpenOnboarding(): void;
-  onCreated(id: string): void;
-  onDeleted(): void;
-  onError(m: string): void;
+  onOpenObjects(): void;
 };
 
 // The project's entity catalog: what the model covers and how its tests stand.
-export function OverviewView({ project, entities, onOpen, onOpenOnboarding, onCreated, onDeleted, onError }: Props) {
-  const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
-
+export function OverviewView({ project, entities, onOpen, onOpenOnboarding, onOpenObjects }: Props) {
   const all = entities.reduce(
     (a, e) => ({ scenarios: a.scenarios + e.totals.scenarios, passed: a.passed + e.totals.passed, failed: a.failed + e.totals.failed }),
     { scenarios: 0, passed: 0, failed: 0 },
   );
-
-  const create = async () => {
-    const id = nextId(title, entities.map((e) => e.id));
-    setBusy(true);
-    try {
-      await api.createEntity({ id, title: title.trim(), description: description.trim() || undefined });
-      setTitle('');
-      setDescription('');
-      onCreated(id);
-    } catch (e) {
-      onError((e as Error).message);
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const remove = async (id: string) => {
-    try {
-      await api.deleteEntity(id);
-      setConfirmDelete(null);
-      onDeleted();
-    } catch (e) {
-      onError((e as Error).message);
-    }
-  };
 
   return (
     <div className="page">
       <h1>{project.project.name}</h1>
       <p className="lede">
         {entities.length} {entities.length === 1 ? 'entity' : 'entities'}, {all.scenarios} scenarios: {all.passed} passed
-        {all.failed > 0 && <>, <span style={{ color: 'var(--fail)' }}>{all.failed} failed</span></>}.
+        {all.failed > 0 && <>, <span style={{ color: 'var(--fail)' }}>{all.failed} failed</span></>}.{' '}
+        <button className="btn link" onClick={onOpenObjects}>Open the objects map</button>
       </p>
 
       {entities.length === 0 && (
@@ -87,11 +54,12 @@ export function OverviewView({ project, entities, onOpen, onOpenOnboarding, onCr
                 {(e.relations.length > 0 || entities.some((x) => x.relations.some((r) => r.entity === e.id))) && (
                   <div className="entity-relations">
                     {e.relations.map((r) => (
-                      <span key={r.id}>Needs <b>{r.title}</b>{r.requires && <> in {r.requires}</>}</span>
+                      <span key={r.id}>{r.kind === 'part-of' ? 'Part of' : 'Needs'} <b>{r.title}</b>{r.requires && <> in {r.requires}</>}</span>
                     ))}
-                    {entities.filter((x) => x.relations.some((r) => r.entity === e.id)).map((x) => (
-                      <span key={x.id} className="muted">Used by {x.title}</span>
-                    ))}
+                    {entities.filter((x) => x.relations.some((r) => r.entity === e.id)).map((x) => {
+                      const rel = x.relations.find((r) => r.entity === e.id)!;
+                      return <span key={x.id} className="muted">{rel.kind === 'part-of' ? 'Has part' : 'Used by'} {x.title}</span>;
+                    })}
                   </div>
                 )}
                 <div className="entity-status">
@@ -110,41 +78,9 @@ export function OverviewView({ project, entities, onOpen, onOpenOnboarding, onCr
                   </div>
                 )}
               </button>
-              <div className="entity-actions">
-                {confirmDelete === e.id ? (
-                  <>
-                    <span className="muted">Move to entities/.trash?</span>
-                    <button className="btn small danger" onClick={() => remove(e.id)}>Remove</button>
-                    <button className="btn small" onClick={() => setConfirmDelete(null)}>Keep</button>
-                  </>
-                ) : (
-                  <button className="btn small" onClick={() => setConfirmDelete(e.id)}>Remove…</button>
-                )}
-              </div>
             </article>
           );
         })}
-
-        <form
-          className="entity-card new-entity"
-          onSubmit={(e) => {
-            e.preventDefault();
-            void create();
-          }}
-        >
-          <h2>New entity</h2>
-          <p className="muted">Something with a lifecycle: an order, a quota, a user account.</p>
-          <label className="field">
-            <span>Name</span>
-            <input className="text" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Quota" />
-          </label>
-          <label className="field">
-            <span>Description</span>
-            <input className="text" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Monthly order limit of a buyer" />
-          </label>
-          {title.trim() && <p className="muted" style={{ marginTop: 0 }}>File: <span className="id">entities/{nextId(title, entities.map((x) => x.id))}.yaml</span></p>}
-          <button className="btn primary" disabled={busy || !title.trim()}>Create entity</button>
-        </form>
       </div>
     </div>
   );

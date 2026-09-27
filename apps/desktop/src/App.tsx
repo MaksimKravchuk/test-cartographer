@@ -8,6 +8,7 @@ import { ProposalsView } from './views/ProposalsView.tsx';
 import { CoverageView } from './views/CoverageView.tsx';
 import { ExportView } from './views/ExportView.tsx';
 import { OverviewView } from './views/OverviewView.tsx';
+import { ObjectsView } from './views/ObjectsView.tsx';
 import { OnboardingView } from './views/OnboardingView.tsx';
 import { BacklogView } from './views/BacklogView.tsx';
 import { ScenariosView } from './views/ScenariosView.tsx';
@@ -18,6 +19,7 @@ import { ProjectsView } from './views/ProjectsView.tsx';
 type EntityTab = 'map' | 'scenarios' | 'coverage';
 type Route =
   | { page: 'overview' }
+  | { page: 'objects' }
   | { page: 'entity'; id: string; tab: EntityTab }
   | { page: 'onboarding' }
   | { page: 'backlog' }
@@ -184,7 +186,7 @@ export function App() {
         <div className="brand">Test Cartographer</div>
         {route.page === 'entity' && (
           <div className="crumbs">
-            <span className="muted">{project.project.name}</span>
+            <button className="btn link" onClick={() => go({ page: 'objects' })}>Objects</button>
             <span className="muted">/</span>
             <strong>{summary(route.id)?.title ?? route.id}</strong>
           </div>
@@ -212,27 +214,9 @@ export function App() {
         />
         <div className="nav-scroll">
         <button aria-current={route.page === 'overview' ? 'page' : undefined} onClick={() => go({ page: 'overview' })}>Overview</button>
-
-        <h4>Entities</h4>
-        {entities.map((e) => {
-          const t = e.totals;
-          const status = t.failed ? 'failed' : t.scenarios && t.passed === t.scenarios ? 'passed' : t.blocked ? 'blocked' : '';
-          return (
-            <button
-              key={e.id}
-              aria-current={route.page === 'entity' && route.id === e.id ? 'page' : undefined}
-              onClick={() => go({ page: 'entity', id: e.id, tab: route.page === 'entity' ? route.tab : 'map' })}
-            >
-              <span className="row" style={{ gap: 8 }}>
-                <span className={`dot ${status}`} />
-                {e.title}
-              </span>
-              <span className="muted">{t.passed}/{t.scenarios}</span>
-            </button>
-          );
-        })}
-        {entities.length === 0 && <p className="muted" style={{ padding: '0 10px', margin: 0 }}>No entities yet.</p>}
-        <button className="muted" onClick={() => go({ page: 'overview' })}>New entity</button>
+        <button aria-current={route.page === 'objects' || route.page === 'entity' ? 'page' : undefined} onClick={() => go({ page: 'objects' })}>
+          Objects <span className="muted">{entities.length}</span>
+        </button>
 
         <h4>Project</h4>
         <button aria-current={route.page === 'onboarding' ? 'page' : undefined} onClick={() => go({ page: 'onboarding' })}>Onboarding</button>
@@ -251,6 +235,16 @@ export function App() {
             project={project}
             entities={entities}
             onOpen={(id) => go({ page: 'entity', id, tab: 'map' })}
+            onOpenOnboarding={() => go({ page: 'onboarding' })}
+            onOpenObjects={() => go({ page: 'objects' })}
+          />
+        )}
+
+        {route.page === 'objects' && (
+          <ObjectsView
+            project={project}
+            entities={entities}
+            onOpen={(id, tab) => go({ page: 'entity', id, tab: tab ?? 'map' })}
             onOpenOnboarding={() => go({ page: 'onboarding' })}
             onCreated={async (id) => {
               setEntities(await api.entities());

@@ -193,6 +193,34 @@ export function validateEntity(entity: Entity, project: Project, actions?: Set<s
       if (!target.variants.some((x) => x.id === theirs)) err(p, `${target.title} has no variant “${theirs}”`);
     }
   }
+  // Part-of: an object can't be its own parent, has at most one parent (the
+  // first part-of relation wins — see objectParents), and parents can't cycle
+  // back to the object they started from.
+  const partOfs = entity.relations.filter((r) => r.kind === 'part-of');
+  for (const [i, r] of partOfs.entries()) {
+    const p = `relations.${r.id}.kind`;
+    if (r.entity === entity.id) err(p, "An object can't be part of itself");
+    else if (i > 0) err(p, `Already part of ${catalog?.[partOfs[0].entity]?.title ?? partOfs[0].entity}; an object has one parent`);
+  }
+  const first = partOfs[0];
+  if (catalog && first && first.entity !== entity.id) {
+    const chain = [entity.id, first.entity];
+    const seen = new Set([entity.id]);
+    let cur = first.entity;
+    for (;;) {
+      if (cur === entity.id) {
+        err(`relations.${first.id}.kind`, `Part-of cycle: ${chain.join(' → ')}`);
+        break;
+      }
+      if (seen.has(cur)) break;
+      seen.add(cur);
+      const next = catalog[cur]?.relations.find((x) => x.kind === 'part-of');
+      if (!next) break;
+      cur = next.entity;
+      chain.push(cur);
+    }
+  }
+
   const relationIds = new Set(entity.relations.map((r) => r.id));
   for (const t of entity.transitions)
     for (const e of t.effects) if (e.relation && !relationIds.has(e.relation)) err(`transitions.${t.id}`, `Unknown relation “${e.relation}”`);

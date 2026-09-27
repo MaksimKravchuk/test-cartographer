@@ -9,7 +9,7 @@ import { readFile } from 'node:fs/promises';
 import { dirname, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
-  applyDecisions, applyProjectDecisions, Backlog, backlogCoverage, buildPlan, conflicts, coverage, Decision, Entity, Project,
+  applyDecisions, applyProjectDecisions, Backlog, backlogCoverage, buildPlan, conflicts, coverage, Decision, Entity, objectParents, Project,
   RevisionConflict, SourceKind, validateBacklog, validateEntity, validateProject, type ProjectState, type Workspace,
 } from '@tc/model';
 import { z } from 'zod';
@@ -18,7 +18,7 @@ import { runTests } from './run.ts';
 import { exportMarkdown } from './export.ts';
 import { explore } from './agents/explore.ts';
 import { onboard } from './agents/onboard.ts';
-import { createEntity, createProject, forgetProject, openProject, pinProject, recentProjects, rememberProject, trashProject } from './projects.ts';
+import { createEntity, createProject, forgetProject, openProject, pinProject, recentProjects, rememberProject, trashProject, UnknownParentError } from './projects.ts';
 
 type Event =
   | { type: 'log'; job: string; line: string }
@@ -174,14 +174,18 @@ export function createApp(initial: Workspace) {
   // The entity catalog: one row per entity with its size and test status.
   app.get('/api/entities', async (c) => {
     const project = await ws.project();
-  const catalog = await ws.catalog();
+    const catalog = await ws.catalog();
     const results = await ws.latestResults();
     const proposals = await ws.proposals();
+    const parents = objectParents(Object.values(catalog));
     const out = [];
     for (const id of await ws.entityIds()) {
-      const { entity } = await ws.entity(id);
+      const entity = catalog[id];
       const plan = buildPlan(entity, project, catalog);
       const cov = coverage(entity, plan, results, project);
+      const roleIds = new Set<string>();
+      for (const t of entity.transitions) if (t.status !== 'rejected') for (const r of t.by) roleIds.add(r);
+      for (const p of entity.permits) if (p.status !== 'rejected') for (const r of p.by) roleIds.add(r);
       out.push({
         id,
         title: entity.title,
@@ -202,7 +206,11 @@ export function createApp(initial: Workspace) {
           entity: r.entity,
           title: catalog[r.entity]?.title ?? r.entity,
           requires: catalog[r.entity]?.states.find((x) => x.id === r.requires)?.title ?? r.requires ?? null,
+          kind: r.kind,
         })),
+        parent: parents[id] ?? null,
+        states: entity.states.filter((s) => s.status !== 'rejected').map((s) => ({ id: s.id, title: s.title, initial: s.initial ?? false, terminal: s.terminal ?? false, status: s.status })),
+        roles: project.roles.filter((r) => roleIds.has(r.id)).map((r) => r.id),
         pendingProposals: proposals.filter((p) => p.entity === id && p.status === 'pending').length,
         errors: validateEntity(entity, project, undefined, catalog).filter((i) => i.level === 'error').length,
       });
@@ -211,8 +219,10 @@ export function createApp(initial: Workspace) {
   });
 
   app.post('/api/entities', async (c) => {
-    const input = z.object({ id: z.string().regex(/^[a-z][a-z0-9_-]*$/), title: z.string().min(1), description: z.string().optional() }).parse(await c.req.json());
-    const entity = await createEntity(ws, input).catch((e: Error) => { throw new HttpError(409, e.message); });
+    const input = z
+      .object({ id: z.string().regex(/^[a-z][a-z0-9_-]*$/), title: z.string().min(1), description: z.string().optional(), partOf: z.string().optional() })
+      .parse(await c.req.json());
+    const entity = await createEntity(ws, input).catch((e: Error) => { throw new HttpError(e instanceof UnknownParentError ? 400 : 409, e.message); });
     return c.json(await entityState(entity.id));
   });
 
