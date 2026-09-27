@@ -8,7 +8,7 @@ function duplicates(ids: string[]): string[] {
   return ids.filter((id) => (seen.has(id) ? true : (seen.add(id), false)));
 }
 
-function toolAllowed(project: Project, tool: string, kind: 'prepare' | 'read'): boolean {
+function toolAllowed(project: Project, tool: string, kind: 'prepare' | 'read' | 'trigger'): boolean {
   const [server, name] = tool.split('.');
   return !!project.mcp[server]?.allow[kind].includes(name);
 }
@@ -20,9 +20,13 @@ export function validateProject(project: Project, actions?: Set<string>): Issue[
     issues.push({ level: 'error', path: `interfaces.${d}`, message: 'Duplicate interface id' });
   for (const d of duplicates(project.roles.map((r) => r.id)))
     issues.push({ level: 'error', path: `roles.${d}`, message: 'Duplicate role id' });
-  for (const r of project.roles)
-    if (!ifaces.has(r.interface))
-      issues.push({ level: 'error', path: `roles.${r.id}`, message: `Unknown interface “${r.interface}”` });
+  for (const r of project.roles) {
+    const p = `roles.${r.id}`;
+    if (r.kind === 'human' && !r.interface) issues.push({ level: 'error', path: p, message: 'A human role needs an interface' });
+    if (r.interface && !ifaces.has(r.interface)) issues.push({ level: 'error', path: p, message: `Unknown interface “${r.interface}”` });
+    if (r.kind === 'system' && r.login)
+      issues.push({ level: 'warning', path: p, message: 'A system role has no interface to sign in through — login is ignored' });
+  }
   for (const r of project.roles)
     if (r.login && actions && !actions.has(r.login.action))
       issues.push({ level: 'warning', path: `roles.${r.id}`, message: `Login action “${r.login.action}” is not implemented in the actions/ library` });
@@ -38,14 +42,16 @@ export function validateEntity(entity: Entity, project: Project, actions?: Set<s
 
   const variants = new Set(entity.variants.map((v) => v.id));
   const states = new Map(entity.states.map((s) => [s.id, s]));
+  const entityActions = new Map(entity.actions.map((a) => [a.id, a]));
   const transitions = new Map(entity.transitions.map((t) => [t.id, t]));
-  const roles = new Set(project.roles.map((r) => r.id));
+  const roles = new Map(project.roles.map((r) => [r.id, r]));
 
   for (const [kind, list] of [
     ['variants', entity.variants],
     ['states', entity.states],
+    ['actions', entity.actions],
     ['transitions', entity.transitions],
-    ['forbidden', entity.forbidden],
+    ['permits', entity.permits],
     ['scenarios', entity.scenarios],
     ['rules', entity.rules],
     ['relations', entity.relations],
@@ -74,6 +80,14 @@ export function validateEntity(entity: Entity, project: Project, actions?: Set<s
     }
   }
 
+  for (const a of entity.actions) {
+    const p = `actions.${a.id}`;
+    if (!a.run && !a.invoke) warn(p, `Action “${a.title}” can't be performed in a test: give it a run entry, an invoke tool, or both`);
+    if (a.invoke && !toolAllowed(project, a.invoke.tool, 'trigger'))
+      err(p, `Trigger tool “${a.invoke.tool}” is not allowed (mcp.*.allow.trigger)`);
+    if (a.run && actions && !actions.has(a.run)) warn(p, `Action “${a.run}” is not implemented in the actions/ library`);
+  }
+
   for (const t of entity.transitions) {
     const p = `transitions.${t.id}`;
     checkVariants(p, t.variants);
@@ -81,18 +95,31 @@ export function validateEntity(entity: Entity, project: Project, actions?: Set<s
     const to = states.get(t.to);
     if (!from && t.from !== NEW) err(p, `Unknown state “${t.from}”`);
     if (!to) err(p, `Unknown state “${t.to}”`);
-    if (!roles.has(t.role)) err(p, `Unknown role “${t.role}”`);
-    if (actions && !actions.has(t.action)) warn(p, `Action “${t.action}” is not implemented in the actions/ library`);
+    const action = entityActions.get(t.action);
+    if (!action) err(p, `Unknown action “${t.action}”`);
+    for (const roleId of t.by) {
+      const role = roles.get(roleId);
+      if (!role) {
+        err(p, `Unknown role “${roleId}”`);
+        continue;
+      }
+      if (action && role.kind === 'human' && !action.run) warn(p, `Role “${roleId}” is human, but action “${t.action}” has no run entry`);
+      if (action && role.kind === 'system' && !action.invoke) warn(p, `Role “${roleId}” is system, but action “${t.action}” has no invoke tool`);
+    }
+    if (action?.kind === 'create' && t.from !== NEW) err(p, `Action “${t.action}” creates the instance; the transition must start from “${NEW}”`);
+    if (action && action.kind !== 'create' && t.from === NEW) err(p, `A transition from “${NEW}” must use a create action`);
     if (isActive(t) && ((from && !isActive(from)) || (to && !isActive(to))))
       warn(p, "A confirmed transition references a state that isn't a requirement — it won't be planned");
   }
 
-  for (const f of entity.forbidden) {
-    const p = `forbidden.${f.id}`;
-    checkVariants(p, f.variants);
-    if (!states.has(f.state) && f.state !== NEW) err(p, `Unknown state “${f.state}”`);
-    if (!transitions.has(f.transition)) err(p, `Unknown transition “${f.transition}”`);
-    if (!roles.has(f.role)) err(p, `Unknown role “${f.role}”`);
+  for (const permit of entity.permits) {
+    const p = `permits.${permit.id}`;
+    checkVariants(p, permit.variants);
+    const action = entityActions.get(permit.action);
+    if (!action) err(p, `Unknown action “${permit.action}”`);
+    if (action?.kind === 'create') err(p, `A create action needs a transition from “${NEW}”, not a permit`);
+    for (const roleId of permit.by) if (!roles.has(roleId)) err(p, `Unknown role “${roleId}”`);
+    for (const stateId of permit.states ?? []) if (!states.has(stateId)) err(p, `Unknown state “${stateId}”`);
   }
 
   for (const j of entity.scenarios) {
@@ -117,11 +144,22 @@ export function validateEntity(entity: Entity, project: Project, actions?: Set<s
   for (const r of entity.rules) {
     const p = `rules.${r.id}`;
     checkVariants(p, r.variants);
-    if (!transitions.has(r.transition)) err(p, `Unknown transition “${r.transition}”`);
+    const t = transitions.get(r.transition);
+    if (!t) err(p, `Unknown transition “${r.transition}”`);
     for (const c of r.requires) {
-      if (c.kind === 'roles') for (const id of c.roles) if (!roles.has(id)) err(p, `Unknown role “${id}”`);
-      if (c.kind === 'authenticated' && !project.roles.some((x) => !x.login))
-        warn(p, 'No role without login (a guest), so the negative case of this rule can’t be checked');
+      if (c.kind === 'roles') {
+        for (const id of c.roles) if (!roles.has(id)) err(p, `Unknown role “${id}”`);
+        if (t) for (const roleId of t.by) if (!c.roles.includes(roleId)) err(p, `Role “${roleId}” performs the transition but is outside this rule's roles`);
+      }
+      if (c.kind === 'authenticated') {
+        if (!project.roles.some((x) => x.kind === 'human' && !x.login))
+          warn(p, 'No role without login (a guest), so the negative case of this rule can’t be checked');
+        if (t)
+          for (const roleId of t.by) {
+            const role = roles.get(roleId);
+            if (role?.kind === 'human' && !role.login) err(p, `Role “${roleId}” performs the transition but has no login`);
+          }
+      }
       if (c.kind === 'entity-state') {
         const rel = entity.relations.find((x) => x.id === c.relation);
         if (!rel) err(p, `Unknown relation “${c.relation}”`);
@@ -153,7 +191,7 @@ export function validateEntity(entity: Entity, project: Project, actions?: Set<s
 
   for (const v of entity.variants.filter(isActive))
     for (const s of entity.states.filter(isActive))
-      if ((!s.variants || s.variants.includes(v.id)) && !arrange(entity, v.id, s.id, new Set(), { catalog }))
+      if ((!s.variants || s.variants.includes(v.id)) && !arrange(entity, v.id, s.id, new Set(), { catalog, project }))
         warn(`states.${s.id}`, `State unreachable for variant “${v.id}”: no setup recipe, no path, or a related instance that can't be prepared`);
 
   return issues;

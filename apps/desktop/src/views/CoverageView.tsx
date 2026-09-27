@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { Cell } from '@tc/model';
 import type { EntityState, ProjectState } from '../api.ts';
+import { AccessMatrix, VariantTabs } from './AccessMatrix.tsx';
 
 const cellText = { passed: 'passed', failed: 'failed', blocked: 'blocked', skipped: 'skipped', 'not-run': 'not run' };
 const stateText = { verified: 'verified', reachable: 'reachable', unreachable: 'unreachable', 'n/a': 'n/a' };
@@ -8,8 +9,14 @@ const stateText = { verified: 'verified', reachable: 'reachable', unreachable: '
 export function CoverageView({ state, project, running, onRun }: { state: EntityState; project: ProjectState; running: boolean; onRun(): void }) {
   const c = state.coverage;
   const [detail, setDetail] = useState<Cell | null>(null);
+  const [accessVariant, setAccessVariant] = useState(c.variants[0] ?? '');
+  // Falls back to the first variant if the entity changed under us (a
+  // stale variant id from a previously opened entity, or a saved one that's gone).
+  const effectiveVariant = c.variants.includes(accessVariant) ? accessVariant : (c.variants[0] ?? '');
   const variantTitle = (id: string) => state.entity.variants.find((v) => v.id === id)?.title ?? id;
   const roleTitle = (id: string) => project.project.roles.find((r) => r.id === id)?.title ?? id;
+  const byTitles = (ids: string[]) => ids.map(roleTitle).join(', ');
+  const actionTitle = (id: string) => state.entity.actions.find((a) => a.id === id)?.title ?? id;
 
   const cell = (x: Cell | null, key: string) =>
     x ? (
@@ -30,7 +37,8 @@ export function CoverageView({ state, project, running, onRun }: { state: Entity
     <div className="page">
       <h1>Coverage: {state.entity.title}</h1>
       <p className="lede">
-        The plan is built only from confirmed model elements: each transition and forbidden action is tested for every variant it applies to.
+        The plan is built only from confirmed model elements: each transition and permit is tested for every variant it applies to; the Access
+        section below shows the closed-world matrix — everything not explicitly allowed is denied.
       </p>
       <div className="totals">
         <div><b>{c.totals.scenarios}</b><span>scenarios in plan</span></div>
@@ -53,12 +61,12 @@ export function CoverageView({ state, project, running, onRun }: { state: Entity
         </div>
       )}
 
-      <h3>Transitions and forbidden actions</h3>
+      <h3>Transitions</h3>
       <table className="matrix">
         <thead>
           <tr>
             <th>Transition</th>
-            <th>Role</th>
+            <th>Performed by</th>
             {c.variants.map((v) => <th key={v}>{variantTitle(v)}</th>)}
           </tr>
         </thead>
@@ -66,19 +74,52 @@ export function CoverageView({ state, project, running, onRun }: { state: Entity
           {c.transitions.map((t) => (
             <tr key={t.id}>
               <td className="name">{t.title} <span className="id">{t.from} → {t.to}</span></td>
-              <td className="name muted">{roleTitle(t.role)}</td>
+              <td className="name muted">{byTitles(t.by)}</td>
               {c.variants.map((v) => <td key={v}>{cell(t.cells[v], v)}</td>)}
-            </tr>
-          ))}
-          {c.forbidden.map((f) => (
-            <tr key={f.id}>
-              <td className="name"><span style={{ color: 'var(--fail)' }}>⊘</span> <span className="id">{f.id}</span></td>
-              <td className="name muted">{roleTitle(f.role)}</td>
-              {c.variants.map((v) => <td key={v}>{cell(f.cells[v], v)}</td>)}
             </tr>
           ))}
         </tbody>
       </table>
+
+      {c.permits.length > 0 && (
+        <>
+          <h3>Permits</h3>
+          <p className="muted" style={{ marginTop: -4 }}>Permission for an action that leaves the state as it is: read, update, some commands.</p>
+          <table className="matrix">
+            <thead>
+              <tr>
+                <th>Permit</th>
+                <th>Action</th>
+                <th>Performed by</th>
+                {c.variants.map((v) => <th key={v}>{variantTitle(v)}</th>)}
+              </tr>
+            </thead>
+            <tbody>
+              {c.permits.map((p) => (
+                <tr key={p.id}>
+                  <td className="name">{p.title}</td>
+                  <td className="name muted">{actionTitle(p.action)}</td>
+                  <td className="name muted">{byTitles(p.by)}</td>
+                  {c.variants.map((v) => <td key={v}>{cell(p.cells[v], v)}</td>)}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </>
+      )}
+
+      <h3>Access (closed world)</h3>
+      <p className="muted" style={{ marginTop: -4 }}>
+        Every (role, action, state) triple not decided by a confirmed transition or permit is denied. One variant at a time — the grid is dense.
+      </p>
+      {c.variants.length > 0 && (
+        <>
+          <div style={{ marginBottom: 10 }}>
+            <VariantTabs variants={c.variants} titleOf={variantTitle} value={effectiveVariant} onChange={setAccessVariant} />
+          </div>
+          <AccessMatrix coverage={c} entity={state.entity} project={project} variant={effectiveVariant} />
+        </>
+      )}
 
       {c.rules.length > 0 && (
         <>

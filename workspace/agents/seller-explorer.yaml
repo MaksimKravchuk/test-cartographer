@@ -40,11 +40,13 @@ steps:
         straight to Delivered via “Issue key”, and an accepted pre-order moves into a separate
         Awaiting stock state.
       ops:
-        - { op: add, kind: transition, evidence: [e1, e2], value: { id: deliver-key, title: Issue key, from: paid, to: delivered, role: seller, action: order.deliver-key, variants: [digital] } }
+        - { op: add, kind: action, evidence: [e1], value: { id: deliver-key, title: Issue key, run: order.deliver-key } }
+        - { op: add, kind: transition, evidence: [e1, e2], value: { id: deliver-key, title: Issue key, from: paid, to: delivered, action: deliver-key, by: [seller], variants: [digital] } }
         - { op: add, kind: variant, evidence: [e3], value: { id: preorder, title: Pre-order } }
         - { op: add, kind: state, evidence: [e4, e5], value: { id: awaiting-stock, title: Awaiting stock, variants: [preorder], match: { status: awaiting_stock } } }
-        - { op: add, kind: transition, evidence: [e3, e4], value: { id: accept-preorder, title: Accept pre-order, from: paid, to: awaiting-stock, role: seller, action: order.accept, variants: [preorder] } }
-        - { op: add, kind: transition, evidence: [e5, e6], value: { id: stock-arrived, title: Stock arrived, from: awaiting-stock, to: accepted, role: seller, action: order.stock, variants: [preorder] } }
+        - { op: add, kind: transition, evidence: [e3, e4], value: { id: accept-preorder, title: Accept pre-order, from: paid, to: awaiting-stock, action: accept, by: [seller], variants: [preorder] } }
+        - { op: add, kind: action, evidence: [e5], value: { id: stock, title: Stock arrived, run: order.stock } }
+        - { op: add, kind: transition, evidence: [e5, e6], value: { id: stock-arrived, title: Stock arrived, from: awaiting-stock, to: accepted, action: stock, by: [seller], variants: [preorder] } }
         - { op: update, kind: state, id: accepted, evidence: [e6], set: { variants: [standard, preorder] } }
         - { op: update, kind: state, id: shipped, evidence: [e7], set: { variants: [standard, preorder] } }
         - { op: update, kind: transition, id: reject, evidence: [e3], set: { variants: [standard, preorder] } }

@@ -67,13 +67,53 @@ states:
     terminal: true
     match:
       status: cancelled
+actions:
+  - id: place
+    title: Place order
+    kind: create
+    run: order.place
+  - id: pay
+    title: Pay
+    run: order.pay
+  - id: cancel
+    title: Cancel
+    run: order.cancel
+  - id: accept
+    title: Accept
+    run: order.accept
+  - id: reject
+    title: Reject
+    run: order.reject
+  - id: ship
+    title: Ship
+    run: order.ship
+  - id: confirm
+    title: Confirm receipt
+    run: order.confirm
+  # No run entry: nobody opens a page to do this, a background job does. No
+  # human ever performs it, so it never shows up in the access matrix.
+  - id: expire
+    title: Expire
+    description: An unpaid order times out and is cancelled by the shop itself.
+    invoke:
+      tool: shop.run_jobs
+      args:
+        only: "{{key}}"
+        advanceMinutes: 31
+    trigger: >-
+      A "created" order nobody paid for within 30 minutes is cancelled automatically;
+      the shop checks every minute.
+  - id: view
+    title: View order
+    kind: read
+    run: order.view
 transitions:
   - id: place-order
     title: Place order
     from: "@new"
     to: created
-    role: client
-    action: order.place
+    action: place
+    by: [client]
     effects:
       - description: Nothing is charged yet
         field: payment
@@ -82,8 +122,8 @@ transitions:
     title: Pay
     from: created
     to: paid
-    role: client
-    action: order.pay
+    action: pay
+    by: [client]
     effects:
       - description: Payment captured
         field: payment
@@ -97,8 +137,18 @@ transitions:
     title: Cancel
     from: created
     to: cancelled
-    role: client
-    action: order.cancel
+    action: cancel
+    by: [client]
+    effects:
+      - description: No money was charged
+        field: payment
+        equals: none
+  - id: expire
+    title: Expire
+    from: created
+    to: cancelled
+    action: expire
+    by: [system]
     effects:
       - description: No money was charged
         field: payment
@@ -107,15 +157,15 @@ transitions:
     title: Accept
     from: paid
     to: accepted
-    role: seller
-    action: order.accept
+    action: accept
+    by: [seller]
     variants: [standard]
   - id: reject
     title: Reject
     from: paid
     to: cancelled
-    role: seller
-    action: order.reject
+    action: reject
+    by: [seller]
     variants: [standard]
     guards:
       - The item is out of stock or the seller can't fulfill the order
@@ -128,21 +178,22 @@ transitions:
     title: Ship
     from: accepted
     to: shipped
-    role: seller
-    action: order.ship
+    action: ship
+    by: [seller]
   - id: confirm
     title: Confirm receipt
     from: shipped
     to: delivered
-    role: client
-    action: order.confirm
-forbidden:
-  - id: client-cannot-ship
-    role: client
-    state: accepted
-    transition: ship
-    variants: [standard]
-    note: Only the seller ships orders
+    action: confirm
+    by: [client]
+permits:
+  # Any signed-in buyer or seller can open any order's page in any state (the
+  # demo has no per-user ownership check on the read side) — a guest is
+  # redirected to sign in before the page ever renders. See server.ts routeSide().
+  - id: view-order
+    title: View order
+    action: view
+    by: [client, seller]
 rules:
   - id: only-published-listings
     title: Only published listings can be bought

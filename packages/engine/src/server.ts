@@ -94,7 +94,7 @@ export function createApp(initial: Workspace) {
       layout: await ws.layout(id),
       issues: validateEntity(entity, project, new Set(Object.keys(actions)), catalog),
       plan,
-      coverage: coverage(entity, plan, latest),
+      coverage: coverage(entity, plan, latest, project),
       results: Object.fromEntries(plan.scenarios.flatMap((sc) => (latest[sc.id] ? [[sc.id, latest[sc.id]]] : []))),
       // Titles, states and variants of every entity, for relation editors.
       catalog: Object.fromEntries(
@@ -155,7 +155,7 @@ export function createApp(initial: Workspace) {
     for (const id of await ws.entityIds()) {
       const { entity } = await ws.entity(id);
       const plan = buildPlan(entity, project, catalog);
-      const cov = coverage(entity, plan, results);
+      const cov = coverage(entity, plan, results, project);
       out.push({
         id,
         title: entity.title,
@@ -163,10 +163,12 @@ export function createApp(initial: Workspace) {
         counts: {
           variants: entity.variants.filter((v) => v.status === 'confirmed').length,
           states: entity.states.filter((s) => s.status === 'confirmed').length,
+          actions: entity.actions.filter((a) => a.status === 'confirmed').length,
           transitions: entity.transitions.filter((t) => t.status === 'confirmed').length,
+          permits: entity.permits.filter((p) => p.status === 'confirmed').length,
           rules: entity.rules.filter((r) => r.status === 'confirmed').length,
           journeys: entity.scenarios.filter((j) => j.status === 'confirmed').length,
-          observations: [...entity.states, ...entity.transitions, ...entity.forbidden, ...entity.rules].filter((x) => x.status === 'observed').length,
+          observations: [...entity.states, ...entity.actions, ...entity.transitions, ...entity.permits, ...entity.rules].filter((x) => x.status === 'observed').length,
         },
         totals: cov.totals,
         relations: entity.relations.map((r) => ({

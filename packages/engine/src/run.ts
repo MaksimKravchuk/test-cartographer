@@ -70,11 +70,14 @@ export async function runTests(ws: Workspace, opts: RunOptions = {}): Promise<Ru
         const r = t.results.at(-1);
         if (!scenario || !r) continue;
         const status = blocked.has(scenario) ? 'blocked' : r.status === 'passed' ? 'passed' : r.status === 'skipped' ? 'skipped' : 'failed';
+        // A blocked scenario never actually runs — test.fixme() records why as a
+        // 'fixme' annotation (see defineSuite() in runtime/index.ts) instead of an error.
+        const fixmeReason = t.annotations.find((a) => a.type === 'fixme')?.description;
         results[scenario] = {
           status,
           durationMs: r.duration,
           at: r.startTime,
-          error: r.error?.message ? stripAnsi(r.error.message) : undefined,
+          error: r.error?.message ? stripAnsi(r.error.message) : status === 'blocked' ? fixmeReason : undefined,
           trace: r.attachments?.find((a) => a.name === 'trace')?.path,
         };
       }

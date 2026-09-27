@@ -71,4 +71,23 @@ server.registerTool(
   async ({ id }) => call(`/api/listings/${encodeURIComponent(id)}`),
 );
 
+server.registerTool(
+  'run_jobs',
+  {
+    description:
+      'Run the shop background jobs now, as if advanceMinutes had passed since this moment (test only). ' +
+      'Currently just "unpaid orders expire". Returns { processed: [...ids] } (JSON).',
+    inputSchema: {
+      only: z.string().optional().describe('Only run the job for this order id, so parallel tests stay isolated'),
+      advanceMinutes: z.number().optional().describe('Minutes to simulate as having passed since now (default 0)'),
+    },
+  },
+  async ({ only, advanceMinutes }) =>
+    call('/test/jobs', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-test-token': TEST_TOKEN },
+      body: JSON.stringify({ only, advanceMinutes }),
+    }),
+);
+
 await server.connect(new StdioServerTransport());

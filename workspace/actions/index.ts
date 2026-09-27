@@ -1,11 +1,12 @@
-// Demo shop action library: how a role performs a transition through its interface.
-// Generated tests refer to actions by name (`transition.action` in the model).
+// Demo shop action library: how a role performs an entity action through its
+// interface. Generated tests reach an entry by its key, the `run` an
+// `entity.actions[]` entry names (not the entity action id itself).
 import { defineActions, type ActionContext, type ActionDef } from '@tc/engine/actions';
 
 // A button on an entity page in the role's interface. `path` builds the page path
 // (relative to the role's interface baseUrl) from the entity key, `statusTestId`
 // is the element that tells the page has loaded. Both interfaces use the same
-// test ids, so available() also works for checking forbidden actions.
+// test ids, so available() also works for checking deny scenarios.
 function pageButton(
   path: (key: string) => string,
   statusTestId: string,
@@ -31,6 +32,25 @@ function pageButton(
 
 const orderButton = (testId: string, description: string) =>
   pageButton((key) => `/orders/${key}`, 'order-status', testId, description);
+
+// A read action: opening the page is the whole action, nothing to click. Same
+// "is it even there" check as pageButton, against the page's own status testid
+// instead of a button — a guest redirected to sign-in never sees it either.
+function pageView(path: (key: string) => string, statusTestId: string, description: string): ActionDef {
+  const open = (ctx: ActionContext) => ctx.open(path(ctx.key));
+  return {
+    description,
+    async run(ctx) {
+      await open(ctx);
+      await ctx.page.getByTestId(statusTestId).waitFor();
+    },
+    async available(ctx) {
+      await open(ctx);
+      await ctx.page.waitForLoadState('domcontentloaded');
+      return (await ctx.page.getByTestId(statusTestId).count()) > 0;
+    },
+  };
+}
 
 // The buyer's catalog page shows a published listing without any buttons.
 const listingButton = (testId: string, description: string) =>
@@ -70,10 +90,11 @@ export default defineActions({
   'order.ship': orderButton('ship', 'Seller ships the order'),
   'order.stock': orderButton('stock', 'Seller marks stock as arrived'),
   'order.deliver-key': orderButton('deliver-key', 'Seller issues the digital key'),
+  'order.view': pageView((key) => `/orders/${key}`, 'order-status', 'Open the order page'),
 
   'listing.publish': listingButton('publish', 'Seller publishes the listing'),
   'listing.unpublish': listingButton('unpublish', 'Seller moves the listing back to draft'),
   'listing.archive': listingButton('archive', 'Seller archives the listing'),
   'listing.restock': listingButton('restock', 'Seller restocks the listing'),
-  'listing.sell-out': listingButton('set-out-of-stock', 'Stock runs out (seller marks the listing out of stock)'),
+  'listing.mark-out-of-stock': listingButton('set-out-of-stock', 'Seller marks the listing out of stock'),
 });

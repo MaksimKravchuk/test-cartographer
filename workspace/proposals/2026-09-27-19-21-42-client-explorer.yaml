@@ -37,8 +37,9 @@ ops:
       title: Cancel paid order
       from: paid
       to: cancelled
-      role: client
-      action: order.cancel
+      action: cancel
+      by:
+        - client
       variants:
         - standard
       effects:
@@ -55,8 +56,9 @@ ops:
       title: Cancel accepted order
       from: accepted
       to: cancelled
-      role: client
-      action: order.cancel
+      action: cancel
+      by:
+        - client
       variants:
         - standard
       effects:
@@ -66,18 +68,6 @@ ops:
     evidence:
       - e3
       - e4
-  - op: add
-    kind: forbidden
-    value:
-      id: client-cannot-cancel-paid-digital
-      role: client
-      state: paid
-      transition: cancel-paid
-      variants:
-        - digital
-      note: A digital order can't be cancelled after payment
-    evidence:
-      - e5
 findings:
   - kind: contradiction
     note: "Cancelling after the seller has accepted is probably not a requirement: the seller may already be packing the order. Suggest recording it as an observation and checking with product."
@@ -86,5 +76,11 @@ findings:
     evidence:
       - e3
       - e4
+  - kind: question
+    note: "Confirmed: a digital order can't be cancelled after payment. Once cancel-paid is scoped to variants: [standard] the closed world already denies it for digital — does that absence still deserve its own rule, for documentation, or is the matrix enough?"
+    refs:
+      - cancel-paid
+    evidence:
+      - e5
 status: pending
 decisions: []

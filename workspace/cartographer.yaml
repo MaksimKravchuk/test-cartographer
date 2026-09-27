@@ -9,9 +9,11 @@ interfaces:
 roles:
   - id: guest
     title: Guest
+    kind: human
     interface: client-ui
   - id: client
     title: Buyer
+    kind: human
     interface: client-ui
     # Demo test account; for a real system use {{env.NAME}} placeholders.
     login:
@@ -21,12 +23,18 @@ roles:
         password: buyer-pass
   - id: seller
     title: Seller
+    kind: human
     interface: marketplace-ui
     login:
       action: auth.login
       args:
         username: seller
         password: seller-pass
+  # No interface, no login: it only acts through actions with an `invoke` tool
+  # (the unpaid-order timeout, the auto out-of-stock reaction).
+  - id: system
+    title: Shop backend (jobs and reactions)
+    kind: system
 mcp:
   shop:
     command: node
@@ -36,6 +44,7 @@ mcp:
     allow:
       prepare: [create_order, create_listing]
       read: [get_order, get_listing]
+      trigger: [run_jobs]
 contracts:
   - id: shop-openapi
     title: Demo shop OpenAPI

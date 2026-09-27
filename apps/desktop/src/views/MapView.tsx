@@ -28,7 +28,6 @@ type StateData = {
   dim: boolean;
   selected: boolean;
   unreachable: boolean;
-  forbids: number;
 };
 
 type EdgeData = {
@@ -37,7 +36,9 @@ type EdgeData = {
   dim: boolean;
   selected: boolean;
   result: string | null;
+  actionTitle: string;
   roleTitle: string;
+  systemOnly: boolean;
   offset: number;
   onPick(): void;
 };
@@ -66,38 +67,43 @@ function StateNode({ data }: NodeProps<Node<StateData>>) {
         {data.ghost && <span className="flag" style={{ color: 'var(--proposed)' }}>proposed</span>}
         {s.variants && <span className="flag">{s.variants.length === 1 ? s.variants[0] : `${s.variants.length} variants`}</span>}
         {data.unreachable && <span className="flag warn">no setup</span>}
-        {data.forbids > 0 && <span className="flag forbid">⊘ {data.forbids}</span>}
       </div>
       <Handle type="source" position={Position.Bottom} />
     </div>
   );
 }
 
-const stroke = (status: string, ghost: boolean) =>
+// Non-confirmed statuses keep their own look; a confirmed transition that only
+// a system role can perform gets a distinct dashed style so a person can tell
+// at a glance what the system does on its own.
+const stroke = (status: string, ghost: boolean, systemOnly: boolean) =>
   ghost || status === 'proposed'
     ? { stroke: 'var(--proposed)', strokeDasharray: '5 4' }
     : status === 'observed'
       ? { stroke: 'var(--observed)', strokeDasharray: '7 5' }
       : status === 'rejected'
         ? { stroke: 'var(--ink-3)', strokeDasharray: '1.5 4' }
-        : { stroke: 'var(--ink)' };
+        : systemOnly
+          ? { stroke: 'var(--ink-2)', strokeDasharray: '2 3' }
+          : { stroke: 'var(--ink)' };
 
 function TransitionEdge(props: EdgeProps<Edge<EdgeData>>) {
   const d = props.data!;
   const [path, lx, ly] = getBezierPath({ ...props, curvature: 0.3 + d.offset * 0.25 });
-  const style = { ...stroke(d.transition.status, !!d.ghost), strokeWidth: d.selected ? 2.5 : 1.5, opacity: d.dim ? 0.25 : 1 };
+  const style = { ...stroke(d.transition.status, !!d.ghost, d.systemOnly), strokeWidth: d.selected ? 2.5 : 1.5, opacity: d.dim ? 0.25 : 1 };
   return (
     <>
       <BaseEdge path={path} markerEnd={props.markerEnd} style={style} />
       <EdgeLabelRenderer>
         <div
-          className={`edge-label nodrag nopan ${d.ghost ? 'ghost' : ''} ${d.selected ? 'selected' : ''}`}
+          className={`edge-label nodrag nopan ${d.ghost ? 'ghost' : ''} ${d.selected ? 'selected' : ''} ${d.systemOnly ? 'system' : ''}`}
           style={{ transform: `translate(-50%, -50%) translate(${lx}px, ${ly + d.offset * 26}px)`, opacity: d.dim ? 0.35 : 1 }}
           onClick={d.onPick}
           title={d.transition.guards.join('\n') || undefined}
         >
           {!d.ghost && <span className={`dot ${d.result ?? ''}`} aria-label={d.result ?? 'not run'} />}
-          <span>{d.transition.title}</span>
+          {d.systemOnly && <span className="system-marker" title="Performed by the system, not a person">⚙</span>}
+          <span>{d.actionTitle}</span>
           <span className="role">{d.roleTitle}</span>
         </div>
       </EdgeLabelRenderer>
@@ -166,7 +172,7 @@ function Map(props: Props) {
         const ghost = { proposal: p.id, op: i };
         if (op.kind === 'state') states.push({ state: { match: {}, setup: [], status: 'proposed', title: '', ...op.value } as unknown as State, ghost });
         if (op.kind === 'transition')
-          transitions.push({ transition: { guards: [], effects: [], status: 'proposed', title: '', ...op.value } as unknown as Transition, ghost });
+          transitions.push({ transition: { by: [], guards: [], effects: [], status: 'proposed', title: '', ...op.value } as unknown as Transition, ghost });
       });
     return { states, transitions };
   }, [proposals, showProposals]);
@@ -211,11 +217,10 @@ function Map(props: Props) {
             dim: !applies(s, variant),
             selected: selection?.kind === 'state' && selection.id === s.id,
             unreachable: !ghost && s.status === 'confirmed' && unreachable.has(s.id),
-            forbids: entity.forbidden.filter((f) => f.state === s.id && applies(f, variant)).length,
           },
         };
       }),
-    [allStates, positions, variant, selection, unreachable, entity.forbidden],
+    [allStates, positions, variant, selection, unreachable],
   );
 
   const [nodes, setNodes] = useState<Node<StateData>[]>(() => buildNodes([]));
@@ -241,6 +246,7 @@ function Map(props: Props) {
   };
 
   const roleTitle = (id: string) => project.project.roles.find((r) => r.id === id)?.title ?? id;
+  const actionTitle = (id: string) => entity.actions.find((a) => a.id === id)?.title ?? id;
 
   const edges: Edge<EdgeData>[] = useMemo(() => {
     const pairs: Record<string, number> = {};
@@ -249,19 +255,25 @@ function Map(props: Props) {
       const offset = pairs[pair] ?? 0;
       pairs[pair] = offset + 1;
       const pick = () => props.onSelect(ghost ? { kind: 'ghost', ...ghost } : { kind: 'transition', id: t.id });
+      // Inlined rather than importing reach.ts's roleKind(): any *value* import
+      // from '@tc/model' pulls in its whole index (including the Node-only
+      // workspace.ts) and breaks the browser build — see AccessMatrix.tsx too.
+      const systemOnly = t.by.length > 0 && t.by.every((r) => (project.project.roles.find((x) => x.id === r)?.kind ?? 'human') === 'system');
       return {
         id: ghost ? `ghost:${ghost.proposal}:${ghost.op}` : t.id,
         source: t.from,
         target: t.to,
         type: 'transition',
-        markerEnd: { type: MarkerType.ArrowClosed, width: 16, height: 16, color: ghost || t.status === 'proposed' ? 'var(--proposed)' : t.status === 'observed' ? 'var(--observed)' : 'var(--ink)' },
+        markerEnd: { type: MarkerType.ArrowClosed, width: 16, height: 16, color: ghost || t.status === 'proposed' ? 'var(--proposed)' : t.status === 'observed' ? 'var(--observed)' : systemOnly ? 'var(--ink-2)' : 'var(--ink)' },
         data: {
           transition: t,
           ghost,
           dim: !applies(t, variant),
           selected: selection?.kind === 'transition' && selection.id === t.id,
           result: ghost ? null : resultOf(state, t.id, variant),
-          roleTitle: roleTitle(t.role),
+          actionTitle: actionTitle(t.action) || t.action,
+          roleTitle: t.by.map(roleTitle).join(', '),
+          systemOnly,
           offset,
           onPick: pick,
         },
@@ -276,8 +288,8 @@ function Map(props: Props) {
     if (c.source !== NEW && !entity.states.some((s) => s.id === c.source)) return;
     const id = nextId(`${c.source}-to-${c.target}`, entity.transitions.map((t) => t.id));
     const t: Transition = {
-      id, title: 'New transition', from: c.source, to: c.target, role: project.project.roles[0].id,
-      action: '', guards: [], effects: [], status: 'confirmed', provenance: { source: 'human', evidence: [] },
+      id, title: 'New transition', from: c.source, to: c.target, by: [project.project.roles[0].id],
+      action: entity.actions[0]?.id ?? '', guards: [], effects: [], status: 'confirmed', provenance: { source: 'human', evidence: [] },
     };
     props.onChange({ ...entity, transitions: [...entity.transitions, t] });
     props.onSelect({ kind: 'transition', id });
@@ -341,6 +353,8 @@ function Map(props: Props) {
         <span>Observation — not a requirement</span>
         <svg width="34" height="6"><line x1="0" y1="3" x2="34" y2="3" stroke="var(--proposed)" strokeWidth="2" strokeDasharray="5 4" /></svg>
         <span>Proposed by an agent</span>
+        <svg width="34" height="6"><line x1="0" y1="3" x2="34" y2="3" stroke="var(--ink-2)" strokeWidth="2" strokeDasharray="2 3" /></svg>
+        <span>⚙ System acts on its own — no person involved</span>
       </div>
     </div>
   );

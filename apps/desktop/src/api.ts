@@ -24,7 +24,7 @@ export type EntitySummary = {
   id: string;
   title: string;
   description: string;
-  counts: { variants: number; states: number; transitions: number; rules: number; journeys: number; observations: number };
+  counts: { variants: number; states: number; actions: number; transitions: number; permits: number; rules: number; journeys: number; observations: number };
   totals: Coverage['totals'];
   relations: { id: string; entity: string; title: string; requires: string | null }[];
   pendingProposals: number;

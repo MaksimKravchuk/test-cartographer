@@ -39,14 +39,23 @@ evidence:
     url: http://localhost:4400/api/openapi.json
 ops:
   - op: add
+    kind: action
+    value:
+      id: deliver-key
+      title: Issue key
+      run: order.deliver-key
+    evidence:
+      - e1
+  - op: add
     kind: transition
     value:
       id: deliver-key
       title: Issue key
       from: paid
       to: delivered
-      role: seller
-      action: order.deliver-key
+      action: deliver-key
+      by:
+        - seller
       variants:
         - digital
     evidence:
@@ -78,13 +87,22 @@ ops:
       title: Accept pre-order
       from: paid
       to: awaiting-stock
-      role: seller
-      action: order.accept
+      action: accept
+      by:
+        - seller
       variants:
         - preorder
     evidence:
       - e3
       - e4
+  - op: add
+    kind: action
+    value:
+      id: stock
+      title: Stock arrived
+      run: order.stock
+    evidence:
+      - e5
   - op: add
     kind: transition
     value:
@@ -92,8 +110,9 @@ ops:
       title: Stock arrived
       from: awaiting-stock
       to: accepted
-      role: seller
-      action: order.stock
+      action: stock
+      by:
+        - seller
       variants:
         - preorder
     evidence:

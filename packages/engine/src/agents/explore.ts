@@ -24,7 +24,12 @@ const system = (p: {
 }) => `You are exploring a web application as the role “${p.role}” through the interface “${p.iface}” (${p.baseUrl}).
 Goal: ${p.goal}
 
-Your task is to reconstruct the behavior of the entity “${p.entity}” — its variants, states, transitions and forbidden actions — and propose changes to the model.
+Your task is to reconstruct the behavior of the entity “${p.entity}” — its variants, states, actions and transitions — and propose changes to the model.
+
+The model is a closed world: for a human role, anything not allowed by a confirmed transition or permit is already
+denied — you do NOT need to propose what a role can't do. Instead, if you see the role given an action the model
+doesn't allow (or an action denied by the model that the role can in fact perform), report it as a finding
+(kind=contradiction), with evidence, so a person can look at the gap.
 
 Rules:
 - Observed behavior is not a requirement. You report what you saw and attach evidence; a person decides.
@@ -39,8 +44,14 @@ ${p.contracts.length ? `- Available contracts: ${p.contracts.join(', ')}.` : ''}
 Element shapes for ops (op=add, value):
 - variant: { id, title }
 - state: { id, title, variants?: [id], match: { <field from read()>: <value> } }
-- transition: { id, title, from, to, role, action: "<entity>.<action>", variants?: [id], guards?: [text], effects?: [{ description, field?, equals? }] }
-- forbidden: { id, role, state, transition, variants?: [id], note? }
+- action: { id, title, kind?: "create"|"read"|"update"|"command"|"delete", run?: "<action-library name>" }
+  A verb the role can apply to the entity, named after what it does — not tied to a state or a permission yet.
+  A UI verb you haven't seen before is proposed as an action op (its \`run\` is the name you'd give it in the
+  actions/ library), together with the transition or permit op(s) that use it.
+- transition: { id, title, from, to, action: "<action id>", by: ["${p.role}"], variants?: [id], guards?: [text], effects?: [{ description, field?, equals? }] }
+  \`action\` refers to an action op's id (new or existing), \`by\` lists every role that may perform it.
+- permit: { id, title, action: "<action id>", by: ["${p.role}"], states?: [id], variants?: [id], effects?: [...] }
+  Use a permit instead of a transition for an action that leaves the state as it is (read, update, a command with no state change).
 For op=update: { kind, id, set: { fields } }. For op=remove: { kind, id }.`;
 
 export async function explore(ws: Workspace, agentId: string, opts: ExploreOptions = {}): Promise<Proposal> {

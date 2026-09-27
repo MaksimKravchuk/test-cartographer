@@ -51,9 +51,17 @@ switch (cmd) {
   case 'plan': {
     const project = await ws.project();
     const catalog = await ws.catalog();
-    for (const e of await entities(arg))
-      for (const s of buildPlan(e, project, catalog).scenarios)
-        console.log(`${s.blocked ? '⛔' : '•'} ${s.id.padEnd(44)} ${s.preparation ?? '—'}  ${s.blocked ?? s.title}`);
+    const kinds = ['transition', 'permit', 'deny', 'journey', 'rule'] as const;
+    for (const e of await entities(arg)) {
+      const scenarios = buildPlan(e, project, catalog).scenarios;
+      console.log(`\n${e.title}`);
+      for (const kind of kinds) {
+        const group = scenarios.filter((s) => s.kind === kind);
+        if (!group.length) continue;
+        console.log(`  ${kind} (${plural(group.length, 'scenario')})`);
+        for (const s of group) console.log(`    ${s.blocked ? '⛔' : '•'} ${s.id.padEnd(42)} ${s.preparation ?? '—'}  ${s.blocked ?? s.title}`);
+      }
+    }
     break;
   }
   case 'compile': {
@@ -73,13 +81,25 @@ switch (cmd) {
     const project = await ws.project();
     const catalog = await ws.catalog();
     const results = await ws.latestResults();
+    const mark: Record<string, string> = { passed: '✅', failed: '❌', skipped: '⏭ ', blocked: '⛔', 'not-run': '⚪' };
     for (const e of await entities(arg)) {
-      const c = coverage(e, buildPlan(e, project, catalog), results);
+      const c = coverage(e, buildPlan(e, project, catalog), results, project);
       console.log(`\n${e.title}: ${c.totals.passed}/${c.totals.scenarios} passed, ${c.totals.failed} failed, ${c.totals.blocked} blocked, ${c.totals['not-run']} not run`);
-      const mark = { passed: '✅', failed: '❌', skipped: '⏭ ', blocked: '⛔', 'not-run': '⚪' };
       console.log('  ' + ''.padEnd(28) + c.variants.map((v) => v.padEnd(10)).join(''));
-      for (const t of [...c.transitions, ...c.forbidden, ...c.rules, ...c.journeys])
+      for (const t of [...c.transitions, ...c.permits, ...c.rules, ...c.journeys])
         console.log('  ' + t.id.padEnd(28) + c.variants.map((v) => (t.cells[v] ? mark[t.cells[v]!.status] : ' ·').padEnd(10)).join(''));
+
+      // Closed-world access matrix: per-variant counts, plus the denied cells' own results.
+      for (const v of c.variants) {
+        const rows = c.access.flatMap((a) => (a.cells[v] ? [{ ...a, cell: a.cells[v]! }] : []));
+        const counts = { allowed: 0, undecided: 0, denied: 0 };
+        for (const r of rows) counts[r.cell.decision]++;
+        console.log(`  access [${v}]: ${counts.allowed} allowed, ${counts.undecided} undecided, ${counts.denied} denied`);
+        for (const r of rows) {
+          if (r.cell.decision !== 'denied') continue;
+          console.log(`    ${r.cell.result ? mark[r.cell.result.status] : '⚪'} ${r.role} “${r.action}” @ ${r.state}`);
+        }
+      }
     }
     break;
   }

@@ -38,9 +38,8 @@ steps:
         The buyer can cancel a paid standard order and gets a refund — and, unexpectedly, can also
         cancel an order the seller has already accepted. A paid digital order can't be cancelled.
       ops:
-        - { op: add, kind: transition, evidence: [e1, e2], value: { id: cancel-paid, title: Cancel paid order, from: paid, to: cancelled, role: client, action: order.cancel, variants: [standard], effects: [{ description: Money refunded, field: payment, equals: refunded }] } }
-        - { op: add, kind: transition, evidence: [e3, e4], value: { id: cancel-accepted, title: Cancel accepted order, from: accepted, to: cancelled, role: client, action: order.cancel, variants: [standard], effects: [{ description: Money refunded, field: payment, equals: refunded }] } }
-        - { op: add, kind: forbidden, evidence: [e5], value: { id: client-cannot-cancel-paid-digital, role: client, state: paid, transition: cancel-paid, variants: [digital], note: A digital order can't be cancelled after payment } }
+        - { op: add, kind: transition, evidence: [e1, e2], value: { id: cancel-paid, title: Cancel paid order, from: paid, to: cancelled, action: cancel, by: [client], variants: [standard], effects: [{ description: Money refunded, field: payment, equals: refunded }] } }
+        - { op: add, kind: transition, evidence: [e3, e4], value: { id: cancel-accepted, title: Cancel accepted order, from: accepted, to: cancelled, action: cancel, by: [client], variants: [standard], effects: [{ description: Money refunded, field: payment, equals: refunded }] } }
       findings:
         - kind: contradiction
           note: >-
@@ -48,3 +47,10 @@ steps:
             already be packing the order. Suggest recording it as an observation and checking with product.
           refs: [cancel-accepted]
           evidence: [e3, e4]
+        - kind: question
+          note: >-
+            Confirmed: a digital order can't be cancelled after payment. Once cancel-paid is scoped to
+            variants: [standard] the closed world already denies it for digital — does that absence still
+            deserve its own rule, for documentation, or is the matrix enough?
+          refs: [cancel-paid]
+          evidence: [e5]

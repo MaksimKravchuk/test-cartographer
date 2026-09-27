@@ -69,30 +69,53 @@ export function SettingsView({ project, onSaved, onError }: Props) {
 
       <h2>Roles</h2>
       <p className="muted">
-        A role with a sign-in action logs in before it acts. A role without one acts as a guest — rules like “only signed-in users” are checked with it.
-        Use <span className="id">{'{{env.NAME}}'}</span> in credentials to keep real passwords out of the file.
+        A human role works through an interface and may sign in before it acts; without a sign-in action it acts as a guest — rules like “only
+        signed-in users” are checked with it. A system role (cron, scheduler, integration) has no interface and acts only through actions with an
+        invoke tool. Use <span className="id">{'{{env.NAME}}'}</span> in credentials to keep real passwords out of the file.
       </p>
       <table className="grid">
-        <thead><tr><th>ID</th><th>Title</th><th>Interface</th><th>Sign-in action</th><th>Credentials</th><th /></tr></thead>
+        <thead><tr><th>ID</th><th>Title</th><th>Kind</th><th>Interface</th><th>Sign-in action</th><th>Credentials</th><th /></tr></thead>
         <tbody>
           {draft.roles.map((r, i) => (
             <tr key={i}>
               <td><input className="text id" value={r.id} onChange={(e) => setRole(i, { id: e.target.value })} /></td>
               <td><input className="text" value={r.title} onChange={(e) => setRole(i, { title: e.target.value })} /></td>
               <td>
-                <select className="text" value={r.interface} onChange={(e) => setRole(i, { interface: e.target.value })}>
-                  {draft.interfaces.map((x) => <option key={x.id} value={x.id}>{x.title}</option>)}
+                <select
+                  className="text"
+                  style={{ minWidth: 100 }}
+                  value={r.kind}
+                  onChange={(e) => {
+                    const kind = e.target.value as 'human' | 'system';
+                    setRole(i, kind === 'system' ? { kind, interface: undefined, login: undefined } : { kind, interface: r.interface ?? draft.interfaces[0]?.id });
+                  }}
+                >
+                  <option value="human">Person</option>
+                  <option value="system">System</option>
                 </select>
               </td>
               <td>
-                <select
-                  className="text"
-                  value={r.login?.action ?? ''}
-                  onChange={(e) => setRole(i, { login: e.target.value ? { action: e.target.value, args: r.login?.args ?? {} } : undefined })}
-                >
-                  <option value="">Guest — no sign-in</option>
-                  {[...new Set([...loginActions, ...(r.login ? [r.login.action] : [])])].map((a) => <option key={a} value={a}>{a}</option>)}
-                </select>
+                {r.kind === 'human' ? (
+                  <select className="text" value={r.interface} onChange={(e) => setRole(i, { interface: e.target.value })}>
+                    {draft.interfaces.map((x) => <option key={x.id} value={x.id}>{x.title}</option>)}
+                  </select>
+                ) : (
+                  <span className="muted">— no interface —</span>
+                )}
+              </td>
+              <td>
+                {r.kind === 'human' ? (
+                  <select
+                    className="text"
+                    value={r.login?.action ?? ''}
+                    onChange={(e) => setRole(i, { login: e.target.value ? { action: e.target.value, args: r.login?.args ?? {} } : undefined })}
+                  >
+                    <option value="">Guest — no sign-in</option>
+                    {[...new Set([...loginActions, ...(r.login ? [r.login.action] : [])])].map((a) => <option key={a} value={a}>{a}</option>)}
+                  </select>
+                ) : (
+                  <span className="muted">—</span>
+                )}
               </td>
               <td>
                 {r.login && (
@@ -120,14 +143,14 @@ export function SettingsView({ project, onSaved, onError }: Props) {
           ))}
         </tbody>
       </table>
-      <button className="btn small" onClick={() => setDraft({ ...draft, roles: [...draft.roles, { id: nextId('role', draft.roles.map((x) => x.id)), title: 'New role', interface: draft.interfaces[0].id }] })}>
+      <button className="btn small" onClick={() => setDraft({ ...draft, roles: [...draft.roles, { id: nextId('role', draft.roles.map((x) => x.id)), title: 'New role', kind: 'human', interface: draft.interfaces[0].id }] })}>
         Add role
       </button>
 
       <h2>Data tools (MCP)</h2>
       <p className="muted">Edit these in cartographer.yaml. The engine only calls the tools listed here.</p>
       <table className="grid">
-        <thead><tr><th>Server</th><th>Command</th><th>Setup tools</th><th>Read tools</th></tr></thead>
+        <thead><tr><th>Server</th><th>Command</th><th>Setup tools</th><th>Read tools</th><th>Trigger tools</th></tr></thead>
         <tbody>
           {Object.entries(draft.mcp).map(([id, m]) => (
             <tr key={id}>
@@ -135,9 +158,10 @@ export function SettingsView({ project, onSaved, onError }: Props) {
               <td className="id">{[m.command, ...m.args].join(' ')}</td>
               <td className="id">{m.allow.prepare.join(', ') || '—'}</td>
               <td className="id">{m.allow.read.join(', ') || '—'}</td>
+              <td className="id">{m.allow.trigger.join(', ') || '—'}</td>
             </tr>
           ))}
-          {Object.keys(draft.mcp).length === 0 && <tr><td colSpan={4} className="muted">No data tools yet. Without one, states can only be reached through transitions and can't be verified by reading.</td></tr>}
+          {Object.keys(draft.mcp).length === 0 && <tr><td colSpan={5} className="muted">No data tools yet. Without one, states can only be reached through transitions and can't be verified by reading.</td></tr>}
         </tbody>
       </table>
 

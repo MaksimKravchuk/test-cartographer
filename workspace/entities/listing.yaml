@@ -45,13 +45,39 @@ states:
     terminal: true
     match:
       status: archived
+actions:
+  - id: publish
+    title: Publish
+    run: listing.publish
+  - id: unpublish
+    title: Unpublish
+    run: listing.unpublish
+  # archive-draft and archive-published are one action: the seller archives a
+  # listing from either state, and the two transitions only differ in `from`.
+  - id: archive
+    title: Archive
+    run: listing.archive
+  - id: mark-out-of-stock
+    title: Mark out of stock
+    description: The seller manually marks a published listing out of stock (independent of actual stock count).
+    run: listing.mark-out-of-stock
+  - id: restock
+    title: Restock
+    run: listing.restock
+  # No run entry, no invoke tool: nothing in the test API fires this in
+  # isolation, so its transition is planned but stays blocked. See ListingStore.sell()
+  # in domain.ts — it's a side effect of an order being paid for, not a call anyone makes.
+  - id: stock-depleted
+    title: Stock depleted
+    description: The last unit of a physical listing being paid for takes it out of stock.
+    trigger: A paid order that empties a physical listing's stock takes it out of stock automatically.
 transitions:
   - id: publish
     title: Publish
     from: draft
     to: published
-    role: seller
-    action: listing.publish
+    action: publish
+    by: [seller]
     guards:
       - A physical listing must have stock > 0
     effects:
@@ -60,26 +86,26 @@ transitions:
     title: Unpublish
     from: published
     to: draft
-    role: seller
-    action: listing.unpublish
+    action: unpublish
+    by: [seller]
   - id: archive-draft
     title: Archive a draft
     from: draft
     to: archived
-    role: seller
-    action: listing.archive
+    action: archive
+    by: [seller]
   - id: archive-published
     title: Archive a published listing
     from: published
     to: archived
-    role: seller
-    action: listing.archive
-  - id: sell-out
-    title: Sell out
+    action: archive
+    by: [seller]
+  - id: mark-out-of-stock
+    title: Mark out of stock
     from: published
     to: out-of-stock
-    role: seller
-    action: listing.sell-out
+    action: mark-out-of-stock
+    by: [seller]
     variants: [physical]
     effects:
       - description: Stock drops to zero
@@ -89,16 +115,21 @@ transitions:
     title: Restock
     from: out-of-stock
     to: published
-    role: seller
-    action: listing.restock
+    action: restock
+    by: [seller]
     variants: [physical]
     effects:
       - description: Stock is replenished
         field: stock
         equals: 10
-forbidden:
-  - id: client-cannot-archive
-    role: client
-    state: published
-    transition: archive-published
-    note: Only the seller archives listings
+  - id: auto-out-of-stock
+    title: Sells out
+    from: published
+    to: out-of-stock
+    action: stock-depleted
+    by: [system]
+    variants: [physical]
+    effects:
+      - description: Stock reaches zero
+        field: stock
+        equals: 0

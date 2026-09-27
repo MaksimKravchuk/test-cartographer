@@ -34,16 +34,26 @@ export function ScenariosView({ entity, state, project, running, onChange, onRun
   const unsaved = JSON.stringify(entity) !== JSON.stringify(state.entity);
 
   const stateTitle = (id: string) => (id === NEW ? 'New' : (entity.states.find((s) => s.id === id)?.title ?? id));
+  // Deny scenario titles use “before it exists” instead of “New” for @new.
+  const denyStateTitle = (id: string) => (id === NEW ? 'before it exists' : stateTitle(id));
   const roleTitle = (id: string) => project.project.roles.find((r) => r.id === id)?.title ?? id;
   const variantTitle = (id: string) => entity.variants.find((v) => v.id === id)?.title ?? id;
+  const actionTitle = (id: string) => entity.actions.find((a) => a.id === id)?.title ?? id;
 
   const stepText = (s: Step): string => {
     switch (s.do) {
       case 'prepare': return `Prepare with ${s.tool} in “${stateTitle(s.state)}”`;
-      case 'transition': return `${roleTitle(s.role)}: ${s.title} (${stateTitle(s.from)} → ${stateTitle(s.to)})`;
+      case 'transition':
+        return s.invoke
+          ? `${roleTitle(s.role)} (system): ${s.title} via ${s.invoke.tool} (${stateTitle(s.from)} → ${stateTitle(s.to)})`
+          : `${roleTitle(s.role)}: ${s.title} (${stateTitle(s.from)} → ${stateTitle(s.to)})`;
+      case 'perform':
+        return s.invoke
+          ? `${roleTitle(s.role)} (system): ${s.title} via ${s.invoke.tool}, stays in “${stateTitle(s.state)}”`
+          : `${roleTitle(s.role)}: ${s.title}, stays in “${stateTitle(s.state)}”`;
       case 'expectState': return `State “${stateTitle(s.state)}” confirmed by reading`;
       case 'expectField': return `${s.description}: ${s.field} = ${JSON.stringify(s.equals)}`;
-      case 'expectUnavailable': return `${roleTitle(s.role)} can't ${s.action} in “${stateTitle(s.state)}”`;
+      case 'expectUnavailable': return `${roleTitle(s.role)} can't ${actionTitle(s.action)} in “${stateTitle(s.state)}”`;
       case 'manual': return `Manual check: ${s.description}`;
       case 'related': return `Prepare the related ${state.catalog[s.entity]?.title ?? s.entity} (${s.variant}) in “${state.catalog[s.entity]?.states.find((x) => x.id === s.state)?.title ?? s.state}”`;
       case 'expectRelated':
@@ -53,16 +63,27 @@ export function ScenariosView({ entity, state, project, running, onChange, onRun
 
   const setList = <K extends 'scenarios' | 'rules'>(key: K, list: Entity[K]) => onChange({ ...entity, [key]: list });
 
-  // Variant chips for a group of scenarios with the same target.
-  const Chips = ({ target }: { target: string }) => {
+  // Deny scenarios don't have a unique `target` per role (target is
+  // `<action>@<state>`, independent of role), so a chip/detail key includes
+  // the role when scoping to one — otherwise two roles denied the same
+  // action in the same state would bleed into each other's row.
+  const chipKey = (role: string | undefined, target: string, variant: string) => `${role ?? ''}|${target}|${variant}`;
+
+  // A scenario belongs to `target` either directly, or — for a business rule
+  // whose only conditions are roles/authenticated — as a deny scenario that
+  // carries the rule's id in `rules` (see plan.ts's ruleTagsFor()).
+  const forTarget = (target: string) => (x: Scenario) => x.target === target || x.rules.includes(target);
+
+  // Variant chips for a group of scenarios with the same target (optionally scoped to one role).
+  const Chips = ({ target, role }: { target: string; role?: string }) => {
     const byVariant = new Map<string, Scenario[]>();
-    for (const sc of plan.filter((x) => x.target === target)) byVariant.set(sc.variant, [...(byVariant.get(sc.variant) ?? []), sc]);
+    for (const sc of plan.filter((x) => forTarget(target)(x) && (!role || x.role === role))) byVariant.set(sc.variant, [...(byVariant.get(sc.variant) ?? []), sc]);
     if (!byVariant.size) return <span className="muted">not in the plan</span>;
     return (
       <span className="chips">
         {[...byVariant].map(([v, list]) => {
           const st = worst(list.map((sc) => runStatus(state, sc)));
-          const key = `${target}:${v}`;
+          const key = chipKey(role, target, v);
           return (
             <button key={v} className={`chip ${st}`} aria-expanded={open === key} onClick={() => setOpen(open === key ? null : key)} title={statusText[st]}>
               <span className={`dot ${st}`} />
@@ -75,10 +96,11 @@ export function ScenariosView({ entity, state, project, running, onChange, onRun
   };
 
   // Steps of the scenarios behind an opened chip.
-  const Details = ({ target }: { target: string }) => {
-    if (!open?.startsWith(`${target}:`)) return null;
-    const variant = open.slice(target.length + 1);
-    const list = plan.filter((x) => x.target === target && x.variant === variant);
+  const Details = ({ target, role }: { target: string; role?: string }) => {
+    if (!open) return null;
+    const [keyRole, keyTarget, keyVariant] = open.split('|');
+    if (keyTarget !== target || (role ? keyRole !== role : keyRole !== '')) return null;
+    const list = plan.filter((x) => forTarget(target)(x) && x.variant === keyVariant && (!role || x.role === role));
     return (
       <div className="scenario-details">
         {list.map((sc) => {
@@ -116,7 +138,15 @@ export function ScenariosView({ entity, state, project, running, onChange, onRun
 
   const generated = useMemo(() => {
     const seen = new Set<string>();
-    return plan.filter((sc) => (sc.kind === 'transition' || sc.kind === 'forbidden') && !seen.has(sc.target) && seen.add(sc.target));
+    return plan.filter((sc) => (sc.kind === 'transition' || sc.kind === 'permit') && !seen.has(sc.target) && seen.add(sc.target));
+  }, [plan]);
+
+  // Deny scenarios: closed-world negatives, one per (role, action, state) ×
+  // variant — they can number in the hundreds, so group by role and collapse.
+  const deniesByRole = useMemo(() => {
+    const map = new Map<string, Scenario[]>();
+    for (const sc of plan) if (sc.kind === 'deny') map.set(sc.role, [...(map.get(sc.role) ?? []), sc]);
+    return map;
   }, [plan]);
 
   const addJourney = () => {
@@ -141,7 +171,8 @@ export function ScenariosView({ entity, state, project, running, onChange, onRun
         <div>
           <h1>Scenarios</h1>
           <p className="lede">
-            Journeys and business rules are written by people. Everything else is generated from the model: one scenario per transition and forbidden action, for each variant.
+            Journeys and business rules are written by people. Everything else is generated from the model: one scenario per transition and permit for each
+            role and variant, plus one denied scenario per (role, action, state) the closed world doesn't allow.
           </p>
         </div>
         <button className="btn primary" disabled={running || unsaved} onClick={() => onRun({ entity: entity.id })}>Run all {plan.length}</button>
@@ -179,7 +210,7 @@ export function ScenariosView({ entity, state, project, running, onChange, onRun
                     const t = entity.transitions.find((x) => x.id === id);
                     return (
                       <span key={i} className="path-step">
-                        <span className="path-arrow">{t ? `${t.title} · ${roleTitle(t.role)}` : `unknown “${id}”`}</span>
+                        <span className="path-arrow">{t ? `${t.title} · ${t.by.map(roleTitle).join(', ')}` : `unknown “${id}”`}</span>
                         <span className="path-state">{t ? stateTitle(t.to) : '?'}</span>
                       </span>
                     );
@@ -242,20 +273,23 @@ export function ScenariosView({ entity, state, project, running, onChange, onRun
         <header>
           <h2>Generated from the model</h2>
         </header>
-        {generated.length === 0 && <p className="muted">Add confirmed transitions on the map to generate scenarios.</p>}
+        {generated.length === 0 && <p className="muted">Add confirmed transitions or permits on the map to generate scenarios.</p>}
         {generated.map((sc) => {
           const t = sc.kind === 'transition' ? entity.transitions.find((x) => x.id === sc.target) : undefined;
-          const f = sc.kind === 'forbidden' ? entity.forbidden.find((x) => x.id === sc.target) : undefined;
+          const p = sc.kind === 'permit' ? entity.permits.find((x) => x.id === sc.target) : undefined;
+          const by = t?.by ?? p?.by ?? [];
           return (
             <div key={sc.target} className="scenario-row">
               <div className="scenario-main">
-                <div className="scenario-title">
-                  {f && <span style={{ color: 'var(--fail)' }}>⊘ </span>}
-                  {t ? t.title : `${roleTitle(f?.role ?? '')} can't “${entity.transitions.find((x) => x.id === f?.transition)?.title ?? f?.transition}”`}
-                </div>
+                <div className="scenario-title">{t ? t.title : p ? p.title : sc.target}</div>
                 <div className="muted">
-                  {t ? `${stateTitle(t.from)} → ${stateTitle(t.to)} · ${roleTitle(t.role)}` : `in “${stateTitle(f?.state ?? '')}”`}
+                  {t
+                    ? `${stateTitle(t.from)} → ${stateTitle(t.to)} · ${by.map(roleTitle).join(', ')}`
+                    : p
+                      ? `“${actionTitle(p.action)}”, stays in state · ${by.map(roleTitle).join(', ')}`
+                      : ''}
                 </div>
+                <RuleChips ids={sc.rules} entity={entity} />
               </div>
               <div className="scenario-side">
                 <Chips target={sc.target} />
@@ -265,7 +299,62 @@ export function ScenariosView({ entity, state, project, running, onChange, onRun
           );
         })}
       </section>
+
+      <section className="scenario-section">
+        <header>
+          <h2>Denied (closed world)</h2>
+          <span className="muted">
+            {[...deniesByRole.values()].reduce((n, l) => n + l.length, 0)} scenarios across {deniesByRole.size} {deniesByRole.size === 1 ? 'role' : 'roles'}
+          </span>
+        </header>
+        {deniesByRole.size === 0 && <p className="muted">Nothing is denied yet — add a project on Settings and confirm some transitions or permits.</p>}
+        {[...deniesByRole].map(([role, all]) => {
+          const seen = new Set<string>();
+          const reps = all.filter((sc) => !seen.has(sc.target) && seen.add(sc.target));
+          const worstOfRole = worst(all.map((sc) => runStatus(state, sc)));
+          return (
+            <details key={role} className="deny-group">
+              <summary>
+                <span className={`dot ${worstOfRole}`} />
+                <b>{roleTitle(role)}</b>
+                <span className="muted">{reps.length} denied {reps.length === 1 ? 'action/state' : 'actions/states'}, {all.length} scenarios across variants</span>
+              </summary>
+              <div className="deny-list">
+                {reps.map((rep) => {
+                  const [action, s] = rep.target.split('@');
+                  return (
+                    <div key={rep.target} className="scenario-row deny-row">
+                      <div className="scenario-main">
+                        <div className="scenario-title">Can't “{actionTitle(action)}” in {denyStateTitle(s)}</div>
+                        <RuleChips ids={rep.rules} entity={entity} />
+                      </div>
+                      <div className="scenario-side">
+                        <Chips target={rep.target} role={role} />
+                      </div>
+                      <Details target={rep.target} role={role} />
+                    </div>
+                  );
+                })}
+              </div>
+            </details>
+          );
+        })}
+      </section>
     </div>
+  );
+}
+
+// A business rule's ids a scenario checks — traceability from the scenario
+// back to the product wording that motivated it.
+function RuleChips({ ids, entity }: { ids: string[]; entity: Entity }) {
+  if (!ids.length) return null;
+  return (
+    <span className="rule-chips">
+      {ids.map((id) => {
+        const r = entity.rules.find((x) => x.id === id);
+        return <span key={id} className="chip rule" title={r?.text}>{r?.title ?? id}</span>;
+      })}
+    </span>
   );
 }
 
@@ -338,7 +427,7 @@ function JourneyEditor(props: {
             const t = entity.transitions.find((x) => x.id === id);
             return (
               <li key={i}>
-                {t ? `${t.title} · ${roleTitle(t.role)} → ${stateTitle(t.to)}` : `unknown “${id}”`}
+                {t ? `${t.title} · ${t.by.map(roleTitle).join(', ')} → ${stateTitle(t.to)}` : `unknown “${id}”`}
                 {i === j.path.length - 1 && (
                   <button className="btn small" style={{ marginLeft: 8 }} onClick={() => set({ path: j.path.slice(0, -1) })}>Remove</button>
                 )}
@@ -354,7 +443,7 @@ function JourneyEditor(props: {
             aria-label="Add a step"
           >
             <option value="">Add a step from “{stateTitle(cur)}”…</option>
-            {next.map((t) => <option key={t.id} value={t.id}>{t.title} · {roleTitle(t.role)} → {stateTitle(t.to)}</option>)}
+            {next.map((t) => <option key={t.id} value={t.id}>{t.title} · {t.by.map(roleTitle).join(', ')} → {stateTitle(t.to)}</option>)}
           </select>
         ) : (
           <span className="muted">The path ends in “{stateTitle(cur)}”: no transitions go further.</span>

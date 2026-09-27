@@ -6,6 +6,8 @@
 //     (a bug or a rule? a person decides).
 // Orders are placed from published listings and keep a reference to them;
 // paying for an order from a physical listing takes one item off its stock.
+// A background job expires unpaid orders: one left in "created" for more
+// than 30 minutes is cancelled by the system, with no payment ever taken.
 
 export type Variant = 'standard' | 'digital' | 'preorder';
 export type Status =
@@ -23,7 +25,8 @@ export type Order = {
   item: string;
   listingId: string | null;
   tag: string | null;
-  history: { at: string; by: Side | 'test-api'; action: string; from: Status | null; to: Status }[];
+  createdAt: string;
+  history: { at: string; by: Side | 'test-api' | 'system'; action: string; from: Status | null; to: Status }[];
 };
 
 type Action = {
@@ -119,6 +122,7 @@ export class Store {
       item,
       listingId,
       tag,
+      createdAt: new Date().toISOString(),
       history: [{ at: new Date().toISOString(), by, action: 'create', from: null, to: 'created' }],
     };
     this.orders.set(order.id, order);
@@ -158,6 +162,27 @@ export class Store {
     if (!listing) throw new StoreError(404, 'Listing not found');
     if (!this.listings.buyable(listing)) throw new StoreError(409, `Listing ${listing.sku} can't be bought right now`);
     return this.create(listing.variant === 'digital' ? 'digital' : 'standard', by, listing.tag, listing.id);
+  }
+
+  // Background job: a "created" order nobody paid for within 30 minutes is
+  // abandoned and expires on its own (payment was never captured, so it
+  // stays "none"). `advanceMinutes` lets tests fast-forward the clock instead
+  // of waiting for real time to pass; `only` scopes a run to one order so
+  // parallel tests never touch each other's data. Returns the changed ids.
+  private static EXPIRE_AFTER_MS = 30 * 60 * 1000;
+
+  expireUnpaidOrders({ only, advanceMinutes = 0 }: { only?: string; advanceMinutes?: number } = {}): string[] {
+    const fakeNow = Date.now() + advanceMinutes * 60_000;
+    const candidates = only ? [this.orders.get(only)].filter((o): o is Order => !!o) : [...this.orders.values()];
+    const processed: string[] = [];
+    for (const order of candidates) {
+      if (order.status !== 'created') continue;
+      if (fakeNow - new Date(order.createdAt).getTime() <= Store.EXPIRE_AFTER_MS) continue;
+      order.status = 'cancelled';
+      order.history.push({ at: new Date().toISOString(), by: 'system', action: 'expire', from: 'created', to: 'cancelled' });
+      processed.push(order.id);
+    }
+    return processed;
   }
 }
 

@@ -37,10 +37,15 @@ export const test = base.extend<object, { tcWorkspace: string; tc: Worker }>({
 
 const phaseTitle = { arrange: 'Arrange', act: 'Act', assert: 'Assert' } as const;
 
+// A step's actor label: the role's own id, or “system” for one that acts
+// through invoke (no browser, no role identity worth naming in the title).
+const actor = (s: { role: string; invoke?: unknown }) => (s.invoke ? 'system' : s.role);
+
 function stepTitle(s: Step): string {
   switch (s.do) {
     case 'prepare': return `${s.tool} → ${s.state}`;
-    case 'transition': return `${s.role}: ${s.title} (${s.from} → ${s.to})`;
+    case 'transition': return `${actor(s)}: ${s.title} (${s.from} → ${s.to})`;
+    case 'perform': return `${actor(s)}: ${s.title} (${s.state})`;
     case 'expectState': return `state ${s.state}`;
     case 'expectField': return `${s.field} = ${JSON.stringify(s.equals)}`;
     case 'expectUnavailable': return `${s.role} cannot ${s.action} in ${s.state}`;
@@ -98,9 +103,12 @@ export async function runScenario(suite: Suite, sc: Scenario, actions: Actions, 
   };
 
   // Each role has its own browser context: sessions and cookies don't overlap.
+  // Only a human role has an interface — a system role acts through invoke,
+  // never through the browser, so a step that asks for its context is a bug.
   const contextFor = async (roleId: string, inst: Instance): Promise<ActionContext> => {
     const role = tc.project.roles.find((r) => r.id === roleId);
     if (!role) throw new Error(`Unknown role “${roleId}”`);
+    if (role.kind !== 'human' || !role.interface) throw new Error(`Role “${roleId}” has no interface: it can't act through the browser`);
     const iface = tc.project.interfaces.find((i) => i.id === role.interface)!;
     let entry = pages.get(roleId);
     const fresh = !entry;
@@ -122,6 +130,25 @@ export async function runScenario(suite: Suite, sc: Scenario, actions: Actions, 
       await test.step(`Sign in: ${role.title}`, () => action(role.login!.action).run({ ...ctx, args }).then(() => undefined));
     }
     return ctx;
+  };
+
+  // Related values right before the act, so `expectRelated` can check a change
+  // relative to them. Shared by transitions and permits — both are “acts”.
+  const rememberBaseline = async (inst: Instance) => {
+    for (const [relation, rel] of Object.entries(inst.relations)) {
+      const key = inst.related[relation] ?? (inst.key ? (getPath(inst.snapshot, rel.field) as string | undefined) : undefined);
+      if (key) inst.baseline[relation] = await readEntity(rel.entity, String(key), inst.variant);
+    }
+  };
+
+  // Performs a transition's or permit's act: `invoke` calls the MCP trigger
+  // tool (a system role); otherwise `run` calls the action library in the
+  // role's browser context (a human role). Returns whatever came back — only
+  // a creating transition's `run` result is used, by the 'transition' case.
+  const performAct = async (step: { role: string; run?: string; invoke?: ToolCall }, inst: Instance): Promise<void | string | unknown> => {
+    if (step.invoke) return tc.mcp.call(step.invoke.tool, template(step.invoke.args, { key: inst.key, variant: inst.variant, runTag, rel: inst.related }), 'trigger');
+    if (!step.run) throw new Error(`Role “${step.role}” has no run or invoke binding for this act`);
+    return action(step.run).run(await contextFor(step.role, inst));
   };
 
   const runSteps = async (steps: (Step & { phase?: keyof typeof phaseTitle })[], inst: Instance, prefix = ''): Promise<void> => {
@@ -163,18 +190,20 @@ export async function runScenario(suite: Suite, sc: Scenario, actions: Actions, 
             break;
           }
           case 'transition': {
-            // Remember related values before the act, so effects can be checked as changes.
-            for (const [relation, rel] of Object.entries(inst.relations)) {
-              const key = inst.related[relation] ?? (inst.key ? (getPath(inst.snapshot, rel.field) as string | undefined) : undefined);
-              if (key) inst.baseline[relation] = await readEntity(rel.entity, String(key), inst.variant);
-            }
-            const created = await action(step.action).run(await contextFor(step.role, inst));
+            await rememberBaseline(inst);
+            const created = await performAct(step, inst);
             if (step.from === NEW) {
               if (typeof created !== 'string' || !created)
                 throw new Error(`Action “${step.action}” creates the instance but didn't return its key`);
               inst.key = created;
               if (inst === main) info.annotations.push({ type: 'tc-key', description: inst.key });
             }
+            break;
+          }
+          case 'perform': {
+            // A permit never changes the instance's state or key — only its effects (if any) are checked after it.
+            await rememberBaseline(inst);
+            await performAct(step, inst);
             break;
           }
           case 'expectRelated': {
@@ -196,8 +225,8 @@ export async function runScenario(suite: Suite, sc: Scenario, actions: Actions, 
             break;
           }
           case 'expectUnavailable': {
-            const a = action(step.action);
-            if (!a.available) throw new Error(`Action “${step.action}” has no available(): the forbidden action can't be checked`);
+            const a = action(step.run);
+            if (!a.available) throw new Error(`Action “${step.run}” has no available(): the denied action can't be checked`);
             const ctx = await contextFor(step.role, inst);
             expect(await a.available(ctx), `${step.role} sees action ${step.action}`).toBe(false);
             break;
@@ -225,7 +254,7 @@ export function defineSuite(suite: Suite, actions: Actions) {
   test.describe(suite.title, () => {
     for (const sc of suite.scenarios) {
       const details = {
-        tag: [`@${sc.kind}`, `@variant:${sc.variant}`, `@role:${sc.role || 'none'}`, `@id:${sc.id}`],
+        tag: [`@${sc.kind}`, `@variant:${sc.variant}`, `@role:${sc.role || 'none'}`, `@id:${sc.id}`, ...sc.rules.map((r) => `@rule:${r}`)],
         annotation: [
           { type: 'tc-scenario', description: sc.id },
           { type: 'tc-source', description: `${suite.source}@${suite.revision}` },

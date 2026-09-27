@@ -4,7 +4,7 @@ import { resolve } from 'node:path';
 import type { Project } from '@tc/model';
 export { template } from '@tc/model';
 
-export type ToolKind = 'prepare' | 'read';
+export type ToolKind = 'prepare' | 'read' | 'trigger';
 
 export class ToolError extends Error {}
 
@@ -51,7 +51,7 @@ export class McpPool {
   }
 
   async call(tool: string, args: Record<string, unknown>, kind: ToolKind): Promise<unknown> {
-    if (!this.allowed(tool, kind)) throw new ToolError(`Tool “${tool}” is not allowed for ${kind === 'prepare' ? 'setup' : 'reading'}`);
+    if (!this.allowed(tool, kind)) throw new ToolError(`Tool “${tool}” is not allowed for ${kind === 'prepare' ? 'setup' : kind === 'read' ? 'reading' : 'triggering'}`);
     const [server, name] = tool.split('.');
     const client = await this.client(server);
     const res = (await client.callTool({ name, arguments: args })) as { content?: { type: string; text?: string }[]; isError?: boolean };

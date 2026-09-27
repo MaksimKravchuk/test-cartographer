@@ -136,7 +136,7 @@ function prune(v: unknown): unknown {
     const out: Record<string, unknown> = {};
     for (const [k, x] of Object.entries(v)) {
       if (x === undefined) continue;
-      if (Array.isArray(x) && x.length === 0 && ['guards', 'effects', 'setup', 'evidence', 'refs', 'forbidden', 'scenarios', 'tags'].includes(k)) continue;
+      if (Array.isArray(x) && x.length === 0 && ['guards', 'effects', 'setup', 'evidence', 'refs', 'actions', 'permits', 'scenarios', 'tags'].includes(k)) continue;
       out[k] = prune(x);
     }
     return out;

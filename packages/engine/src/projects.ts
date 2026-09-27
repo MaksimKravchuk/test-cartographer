@@ -80,10 +80,11 @@ export async function createProject(root: string, name: string): Promise<Workspa
     name,
     interfaces: [{ id: 'web', title: 'Web app', baseUrl: 'http://localhost:3000' }],
     roles: [
-      { id: 'guest', title: 'Guest', interface: 'web' },
+      { id: 'guest', title: 'Guest', kind: 'human', interface: 'web' },
       {
         id: 'user',
         title: 'Signed-in user',
+        kind: 'human',
         interface: 'web',
         login: { action: 'auth.login', args: { username: '{{env.TC_USER}}', password: '{{env.TC_PASSWORD}}' } },
       },
@@ -109,6 +110,8 @@ export async function createEntity(ws: Workspace, input: { id: string; title: st
     ...input,
     reader: { tool: read.find((t) => t.includes(input.id.replace(/-/g, '_'))) ?? `mcp.get_${input.id.replace(/-/g, '_')}`, args: { id: '{{key}}' } },
     variants: [{ id: 'default', title: 'Default' }],
+    actions: [],
+    permits: [],
   });
   await ws.saveEntity(entity);
   return entity;

@@ -69,7 +69,9 @@ export function OverviewView({ project, entities, onOpen, onCreated, onDeleted, 
                 <dl>
                   <div><dt>Variants</dt><dd>{e.counts.variants}</dd></div>
                   <div><dt>States</dt><dd>{e.counts.states}</dd></div>
+                  <div><dt>Actions</dt><dd>{e.counts.actions}</dd></div>
                   <div><dt>Transitions</dt><dd>{e.counts.transitions}</dd></div>
+                  <div><dt>Permits</dt><dd>{e.counts.permits}</dd></div>
                   <div><dt>Rules</dt><dd>{e.counts.rules}</dd></div>
                   <div><dt>Journeys</dt><dd>{e.counts.journeys}</dd></div>
                 </dl>

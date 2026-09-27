@@ -22,6 +22,11 @@ const TEST_TOKEN = process.env.SHOP_TEST_TOKEN ?? 'demo-test-token';
 const listings = new ListingStore();
 const store = new Store(listings);
 
+// Run the "unpaid orders expire" job on real time; unref() so the timer
+// alone doesn't keep the process alive (matters for tests/tools that spawn
+// this server and expect it to exit when its owner does).
+setInterval(() => store.expireUnpaidOrders(), 60_000).unref();
+
 // Demo test accounts. Buyers must sign in to see orders and to buy from the
 // catalog; sellers must sign in to use the Marketplace at all. Guests can
 // browse the catalog.
@@ -232,6 +237,13 @@ const openapi = {
     '/test/listings': {
       post: { summary: 'Test API: create a listing in a given state (X-Test-Token). Body: {variant, status, tag, stock?}' },
     },
+    '/test/jobs': {
+      post: {
+        summary:
+          'Test API: run background jobs now (X-Test-Token). Body: {only?, advanceMinutes?}. ' +
+          'Runs as if advanceMinutes (default 0) had passed since now, only for order "only" when given. Returns {processed: [...ids]}',
+      },
+    },
   },
   components: {
     schemas: {
@@ -246,6 +258,7 @@ const openapi = {
           item: { type: 'string' },
           total: { type: 'number' },
           listingId: { type: ['string', 'null'], description: 'Listing the order was placed from; null if none' },
+          createdAt: { type: 'string', description: 'ISO timestamp; unpaid orders older than 30 minutes expire automatically' },
         },
       },
       Listing: {
@@ -296,6 +309,15 @@ async function handle(req: IncomingMessage, res: ServerResponse) {
     const listingId = typeof input.listingId === 'string' && input.listingId ? input.listingId : null;
     const o = store.prepare(input.variant as Variant, (input.status ?? 'created') as Status, input.tag ?? null, listingId);
     return json(res, 201, o);
+  }
+
+  if (url.pathname === '/test/jobs' && method === 'POST') {
+    if (req.headers['x-test-token'] !== TEST_TOKEN) return json(res, 403, { error: 'bad test token' });
+    const input = JSON.parse((await body(req)) || '{}');
+    const only = typeof input.only === 'string' && input.only ? input.only : undefined;
+    const advanceMinutes = input.advanceMinutes === undefined ? undefined : Number(input.advanceMinutes);
+    const processed = store.expireUnpaidOrders({ only, advanceMinutes });
+    return json(res, 200, { processed });
   }
 
   const side: Side | null = parts[0] === 'client' ? 'client' : parts[0] === 'marketplace' ? 'seller' : null;

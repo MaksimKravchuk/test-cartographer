@@ -19,18 +19,22 @@ export function renderMarkdown(
   const role = (id: string) => project.roles.find((r) => r.id === id)?.title ?? id;
   const variant = (id: string) => entity.variants.find((v) => v.id === id)?.title ?? id;
 
+  const via = (s: { run?: string; invoke?: { tool: string } }) => (s.invoke ? `invoke \`${s.invoke.tool}\`` : s.run ? `run \`${s.run}\`` : 'no binding');
+
   const stepText = (s: Step): string => {
     switch (s.do) {
       case 'prepare':
         return `Prepare data: call \`${s.tool}\` ${fmt(s.args)}, entity key from field \`${s.key}\``;
       case 'transition':
-        return `${role(s.role)}: “${s.title}” (${state(s.from)} → ${state(s.to)}), action \`${s.action}\``;
+        return `${role(s.role)}: “${s.title}” (${state(s.from)} → ${state(s.to)}), action \`${s.action}\` (${via(s)})`;
+      case 'perform':
+        return `${role(s.role)}: “${s.title}” in “${state(s.state)}”, action \`${s.action}\` (${via(s)})`;
       case 'expectState':
         return `State “${state(s.state)}” confirmed by reading: ${matchText(s.match)}`;
       case 'expectField':
         return `${s.description}: \`${s.field}\` = ${fmt(s.equals)}`;
       case 'expectUnavailable':
-        return `${role(s.role)} cannot run \`${s.action}\` in state “${state(s.state)}”`;
+        return `${role(s.role)} cannot run \`${s.run}\` (action \`${s.action}\`) in state “${state(s.state)}”`;
       case 'manual':
         return `Manual check: ${s.description}`;
       case 'related':
@@ -71,6 +75,8 @@ export function renderMarkdown(
     lines.push(`- Provenance: ${provenanceText(sc)}`);
     const rule = sc.kind === 'rule' ? entity.rules.find((r) => r.id === sc.target) : undefined;
     if (rule) lines.push(`- Business rule: ${rule.text}`);
+    // Traceability: a deny scenario a `roles`/`authenticated` rule was checked against.
+    if (sc.rules.length) lines.push(`- Checks rule(s): ${sc.rules.map((id) => entity.rules.find((r) => r.id === id)?.title ?? id).join(', ')}`);
     const journey = sc.kind === 'journey' ? entity.scenarios.find((j) => j.id === sc.target) : undefined;
     if (journey?.description) lines.push(`- About: ${journey.description}`);
     if (sc.blocked) {

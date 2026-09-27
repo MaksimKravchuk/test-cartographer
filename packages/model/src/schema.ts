@@ -35,7 +35,11 @@ export type Interface = z.infer<typeof Interface>;
 export const Role = z.object({
   id: Id,
   title: z.string(),
-  interface: Id,
+  // human  — a person acting through an interface;
+  // system — background jobs, schedulers, integrations: acts only through
+  //          actions with `invoke` (a tool from mcp.*.allow.trigger).
+  kind: z.enum(['human', 'system']).default('human'),
+  interface: Id.optional(), // required for a human role (validateProject)
   // How the role signs in: an action from the library, run once per browser
   // context before the role acts. No login — the role acts as a guest.
   // Values in args may use {{env.NAME}} so test passwords stay out of the file.
@@ -57,6 +61,8 @@ export const McpServer = z.object({
   allow: z.object({
     prepare: z.array(z.string()).default([]),
     read: z.array(z.string()).default([]),
+    // Tools that make the system act: run a background job, advance a test clock.
+    trigger: z.array(z.string()).default([]),
   }),
 });
 export type McpServer = z.infer<typeof McpServer>;
@@ -166,13 +172,35 @@ export const Effect = z.object({
 });
 export type Effect = z.infer<typeof Effect>;
 
+export const ActionKind = z.enum(['create', 'read', 'update', 'command', 'delete']);
+export type ActionKind = z.infer<typeof ActionKind>;
+
+// A verb subjects apply to the entity. It says nothing about states or
+// permissions: transitions and permits say who may use it and what it does.
+export const Action = z.object({
+  id: Id,
+  title: z.string(),
+  description: z.string().optional(),
+  kind: ActionKind.default('command'),
+  // How a person performs it: an entry of the action library (workspace/actions).
+  run: z.string().optional(),
+  // How a test makes the system perform it: an allowed trigger tool.
+  // {{key}}, {{variant}}, {{runTag}}, {{rel.<id>}} are available in args.
+  invoke: ToolCall.optional(),
+  // What makes the system do it in the product: a schedule, a timeout, an event. Documentation only.
+  trigger: z.string().optional(),
+  ...meta,
+});
+// NOTE: no .refine() (zod 4 refuses to .extend refined objects). "run or invoke" is a validator warning.
+export type Action = z.infer<typeof Action>;
+
 export const Transition = z.object({
   id: Id,
   title: z.string(),
   from: StateRef,
   to: Id,
-  role: Id,
-  action: z.string(),
+  action: Id, // entity.actions[].id (was: action-library name)
+  by: z.array(Id).min(1), // roles that may perform it (was: role: Id)
   guards: z.array(z.string()).default([]),
   variants: z.array(Id).optional(),
   effects: z.array(Effect).default([]),
@@ -180,17 +208,19 @@ export const Transition = z.object({
 });
 export type Transition = z.infer<typeof Transition>;
 
-// The role must NOT be able to perform the transition in the given state.
-export const Forbidden = z.object({
+// Permission for an action that leaves the state as it is: `by` may perform
+// `action` in `states` (absent — every state of the variant). Effects are checked after it.
+export const Permit = z.object({
   id: Id,
-  role: Id,
-  state: StateRef,
-  transition: Id,
+  title: z.string(),
+  action: Id,
+  by: z.array(Id).min(1),
+  states: z.array(Id).optional(),
   variants: z.array(Id).optional(),
-  note: z.string().optional(),
+  effects: z.array(Effect).default([]),
   ...meta,
 });
-export type Forbidden = z.infer<typeof Forbidden>;
+export type Permit = z.infer<typeof Permit>;
 
 // A condition a business rule puts on a transition.
 //   authenticated — only a signed-in actor may perform it;
@@ -258,25 +288,27 @@ export const Entity = z.object({
   reader: ToolCall,
   variants: z.array(Variant).min(1),
   states: z.array(State).default([]),
+  actions: z.array(Action).default([]),
   transitions: z.array(Transition).default([]),
-  forbidden: z.array(Forbidden).default([]),
+  permits: z.array(Permit).default([]),
   scenarios: z.array(Journey).default([]),
   rules: z.array(Rule).default([]),
   relations: z.array(Relation).default([]),
 });
 export type Entity = z.infer<typeof Entity>;
 
-export type ElementKind = 'variant' | 'state' | 'transition' | 'forbidden' | 'scenario' | 'rule';
+export type ElementKind = 'variant' | 'state' | 'action' | 'transition' | 'permit' | 'scenario' | 'rule';
 export const elementCollections = {
   variant: 'variants',
   state: 'states',
+  action: 'actions',
   transition: 'transitions',
-  forbidden: 'forbidden',
+  permit: 'permits',
   scenario: 'scenarios',
   rule: 'rules',
 } as const satisfies Record<ElementKind, keyof Entity>;
 
-export const elementSchemas = { variant: Variant, state: State, transition: Transition, forbidden: Forbidden, scenario: Journey, rule: Rule };
+export const elementSchemas = { variant: Variant, state: State, action: Action, transition: Transition, permit: Permit, scenario: Journey, rule: Rule };
 
 // ── Agent proposals ─────────────────────────────────────────────────────
 export const Evidence = z.object({
@@ -288,7 +320,7 @@ export const Evidence = z.object({
 });
 export type Evidence = z.infer<typeof Evidence>;
 
-const Kind = z.enum(['variant', 'state', 'transition', 'forbidden', 'scenario', 'rule']);
+const Kind = z.enum(['variant', 'state', 'action', 'transition', 'permit', 'scenario', 'rule']);
 
 export const Op = z.discriminatedUnion('op', [
   z.object({ op: z.literal('add'), kind: Kind, value: z.record(z.string(), z.unknown()), evidence: z.array(z.string()).default([]) }),

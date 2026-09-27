@@ -10,5 +10,7 @@ variants:
     title: Default
     status: confirmed
 states: []
+actions: []
 transitions: []
+permits: []
 rules: []

@@ -74,8 +74,9 @@ export function nextId(base: string, taken: string[]): string {
 
 export type Selection =
   | { kind: 'state'; id: string }
+  | { kind: 'action'; id: string }
   | { kind: 'transition'; id: string }
-  | { kind: 'forbidden'; id: string }
+  | { kind: 'permit'; id: string }
   | { kind: 'variant'; id: string }
   | { kind: 'ghost'; proposal: string; op: number }
   | null;

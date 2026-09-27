@@ -14,15 +14,16 @@ type Props = {
 
 type Verdict = Decision['verdict'];
 
-const emptyEntity = { variants: [], states: [], transitions: [], forbidden: [], scenarios: [], rules: [] } as unknown as Entity;
+const emptyEntity = { variants: [], states: [], actions: [], transitions: [], permits: [], scenarios: [], rules: [] } as unknown as Entity;
 
-const kindText = { variant: 'variant', state: 'state', transition: 'transition', forbidden: 'forbidden action', scenario: 'scenario', rule: 'business rule' };
+const kindText = { variant: 'variant', state: 'state', action: 'action', transition: 'transition', permit: 'permit', scenario: 'scenario', rule: 'business rule' };
 const findingText = { gap: 'Gap', contradiction: 'Contradiction', question: 'Question' };
 const verdictText: Record<Verdict, string> = { accept: 'Accepted as a requirement', observe: 'Recorded as an observation', reject: 'Rejected' };
 
 const fieldText: Record<string, string> = {
-  from: 'from', to: 'to', role: 'role', action: 'action', variants: 'variants', guards: 'guards',
-  effects: 'effects', match: 'probe', state: 'state', transition: 'transition', note: 'note', description: 'description',
+  from: 'from', to: 'to', by: 'performed by', action: 'action', kind: 'kind', run: 'run', invoke: 'invoke tool', trigger: 'trigger',
+  variants: 'variants', guards: 'guards', effects: 'effects', match: 'probe', state: 'state', states: 'states',
+  transition: 'transition', note: 'note', description: 'description',
 };
 
 function value(k: string, v: unknown): string {
@@ -45,7 +46,7 @@ function describe(op: Op, entity: Entity): { verb: string; what: string; detail:
       .join('\n');
     return { verb: `Add ${kindText[op.kind]}`, what: `${v.title ?? v.id}${route}`, detail: `id: ${v.id}\n${detail}` };
   }
-  const list = entity[({ variant: 'variants', state: 'states', transition: 'transitions', forbidden: 'forbidden', scenario: 'scenarios', rule: 'rules' } as const)[op.kind]] as { id: string; title?: string }[];
+  const list = entity[({ variant: 'variants', state: 'states', action: 'actions', transition: 'transitions', permit: 'permits', scenario: 'scenarios', rule: 'rules' } as const)[op.kind]] as { id: string; title?: string }[];
   const title = list.find((x) => x.id === op.id)?.title ?? op.id;
   if (op.op === 'update') {
     const current = list.find((x) => x.id === op.id) as Record<string, unknown> | undefined;
