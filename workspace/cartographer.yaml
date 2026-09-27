@@ -68,3 +68,8 @@ agents:
     entity: order
     goal: Find which order actions the seller can take in each state and for each order type.
     script: agents/seller-explorer.yaml
+  - id: onboarding
+    kind: onboard
+    title: Onboarding from product knowledge
+    goal: Read the uploaded product doc and backlog export and propose the first roles, entities, and epic/feature/story backlog.
+    script: agents/onboarding.yaml

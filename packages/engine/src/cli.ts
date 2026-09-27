@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { parseArgs } from 'node:util';
 import { resolve } from 'node:path';
-import { buildPlan, coverage, Workspace } from '@tc/model';
+import { backlogCoverage, buildPlan, coverage, type Totals, Workspace } from '@tc/model';
 import { compile } from './compile.ts';
 import { runTests } from './run.ts';
 import { exportMarkdown } from './export.ts';
@@ -15,7 +15,9 @@ const usage = `Test Cartographer
   tc run [--grep text]     compile, run, save the report to runs/
   tc coverage [entity]     coverage summary from the latest results
   tc export md             export scenarios to export/*.md
-  tc explore <agent> [--scripted]  run an agent (--scripted: from a script, no model)
+  tc explore <agent> [--scripted]  run an explorer agent (--scripted: from a script, no model)
+  tc onboard [agent] [--scripted]  run the onboarding agent over the knowledge sources
+  tc backlog               show epics → features → stories, with totals and unmapped stories
   tc serve [--port 4317]   local engine API for the GUI
 
   --ws <path>              workspace (default: ./workspace or TC_WORKSPACE)`;
@@ -112,6 +114,40 @@ switch (cmd) {
     const { explore } = await import('./agents/explore.ts');
     const p = await explore(ws, arg, { onLog: (l) => console.log(l), provider: values.scripted ? 'scripted' : 'live' });
     console.log(`\n✔ proposal ${p.id}: ${plural(p.ops.length, 'change')}, ${plural(p.findings.length, 'finding')}`);
+    break;
+  }
+  case 'onboard': {
+    const { onboard } = await import('./agents/onboard.ts');
+    const proposals = await onboard(ws, arg, { onLog: (l) => console.log(l), provider: values.scripted ? 'scripted' : 'live' });
+    for (const p of proposals)
+      console.log(`\n✔ proposal ${p.id}${p.entity ? ` (${p.entity})` : ' (project)'}: ${plural(p.ops.length, 'change')}, ${plural(p.findings.length, 'finding')}`);
+    break;
+  }
+  case 'backlog': {
+    const project = await ws.project();
+    const catalog = await ws.catalog();
+    const { backlog } = await ws.backlog();
+    const plans = Object.fromEntries(await Promise.all((await ws.entityIds()).map(async (id) => [id, buildPlan((await ws.entity(id)).entity, project, catalog)] as const)));
+    const results = await ws.latestResults();
+    const cov = backlogCoverage(backlog, project, catalog, plans, results);
+    const line = (t: Totals) => `${t.passed}/${t.scenarios} passed, ${t.failed} failed, ${t.blocked} blocked, ${t['not-run']} not run`;
+    for (const epic of cov.epics) {
+      console.log(`\n${epic.title}${epic.key ? ` (${epic.key})` : ''} — ${line(epic.totals)}`);
+      for (const feature of epic.features) {
+        console.log(`  ${feature.title}${feature.key ? ` (${feature.key})` : ''} — ${line(feature.totals)}`);
+        for (const story of feature.stories) console.log(`    • ${story.title}${story.key ? ` (${story.key})` : ''} — ${line(story.totals)}`);
+      }
+      for (const story of epic.stories) console.log(`  • ${story.title}${story.key ? ` (${story.key})` : ''} — ${line(story.totals)}`);
+    }
+    if (cov.orphanFeatures.length) {
+      console.log('\nOrphan features (no epic)');
+      for (const f of cov.orphanFeatures) console.log(`  ${f.title}${f.key ? ` (${f.key})` : ''} — ${line(f.totals)}`);
+    }
+    if (cov.orphanStories.length) {
+      console.log('\nOrphan stories (no feature or epic)');
+      for (const s of cov.orphanStories) console.log(`  ${s.title}${s.key ? ` (${s.key})` : ''} — ${line(s.totals)}`);
+    }
+    console.log(`\nUnmapped stories (${cov.unmappedStories.length}): ${cov.unmappedStories.join(', ') || 'none'}`);
     break;
   }
   case 'serve': {

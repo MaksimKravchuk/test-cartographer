@@ -1,8 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import {
   accessMatrix, applyDecisions, arrange, buildPlan, conflicts, coverage, Entity, performer, Project, Proposal, renderMarkdown, template,
-  validateEntity, type Scenario,
+  validateEntity, Workspace, type Scenario,
 } from '../src/index.ts';
 
 const project = Project.parse({
@@ -382,7 +385,7 @@ test('proposals: accept → requirement, observe → observation, reject is kept
   ]);
   const cancel = next.transitions.find((t) => t.id === 'cancel')!;
   assert.equal(cancel.status, 'confirmed');
-  assert.deepEqual(cancel.provenance, { source: 'agent', agent: 'explorer', proposal: 'p1', evidence: ['e1'] });
+  assert.deepEqual(cancel.provenance, { source: 'agent', agent: 'explorer', proposal: 'p1', evidence: ['e1'], sources: [] });
   const refund = next.transitions.find((t) => t.id === 'refund')!;
   assert.equal(refund.status, 'observed');
   assert.equal(refund.provenance?.note, 'looks like a bug');
@@ -509,4 +512,55 @@ test('relations: validation checks the related entity, its states and variants',
   const messages = validateEntity(order, withAuth, undefined, catalog).map((i) => i.message).join('\n');
   assert.match(messages, /Listing has no state “gone”/);
   assert.match(messages, /Listing has no variant “vinyl”/);
+});
+
+// ── Workspace: saveProject preserves comments outside the keys that changed ─
+test('workspace: saveProject rewrites only the top-level keys that changed; unchanged save is byte-identical', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'tc-model-'));
+  try {
+    const ws = new Workspace(dir);
+    const file = join(dir, 'cartographer.yaml');
+    const original = [
+      '# Cartographer project config',
+      'name: Shop',
+      'interfaces:',
+      '  - id: ui',
+      '    title: UI',
+      '    baseUrl: http://localhost/ui # the storefront',
+      'roles:',
+      '  - id: client',
+      '    title: Client',
+      '    interface: ui',
+      'mcp:',
+      '  shop:',
+      '    command: node',
+      '    args: []',
+      '    env: {}',
+      '    allow:',
+      '      prepare: []',
+      '      read: []',
+      '      trigger: []',
+      '# Agents run against this project',
+      'agents: []',
+      '',
+    ].join('\n');
+    await writeFile(file, original);
+
+    // Save unchanged: the file is byte-identical, comments and all.
+    const unchanged = await ws.project();
+    await ws.saveProject(unchanged);
+    assert.equal(await readFile(file, 'utf8'), original);
+
+    // Save with a changed `roles`: comments on every other key survive.
+    const withNewRole = Project.parse({ ...unchanged, roles: [...unchanged.roles, { id: 'seller', title: 'Seller', interface: 'ui' }] });
+    await ws.saveProject(withNewRole);
+    const text = await readFile(file, 'utf8');
+    assert.match(text, /# Cartographer project config/);
+    assert.match(text, /# the storefront/);
+    assert.match(text, /# Agents run against this project/);
+    assert.match(text, /seller/);
+    assert.equal((await ws.project()).roles.length, 2);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
 });

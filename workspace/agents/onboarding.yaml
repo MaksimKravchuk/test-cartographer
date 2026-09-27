@@ -1,0 +1,795 @@
+# Deterministic script for the onboarding agent (provider=scripted).
+steps:
+  - say: Listing the uploaded knowledge sources.
+    call: sources
+  - say: Reading the product overview end to end.
+    call: source
+    input:
+      id: product-overview
+      limit: 200
+  - say: Reading the backlog export end to end.
+    call: source
+    input:
+      id: backlog
+      limit: 200
+  - say: Reading the current model.
+    call: model
+  - say: Quoting the cancellation rule.
+    call: quote
+    input:
+      source: product-overview
+      text: A buyer can cancel an order only until it has been paid.
+  - call: quote
+    input:
+      source: product-overview
+      text: Once payment has been captured, only the seller can cancel the order, by rejecting it.
+  - say: Quoting the archiving rule.
+    call: quote
+    input:
+      source: product-overview
+      text: "A seller can archive a listing in any state: draft, published, or out of stock."
+  - say: Quoting the reviews feature.
+    call: quote
+    input:
+      source: product-overview
+      text: "Once an order has been delivered, the buyer can leave a review of the listing they bought: a star rating from one to five and a short comment."
+  - call: quote
+    input:
+      source: product-overview
+      text: The buyer can edit or remove their own review at any time
+  - call: quote
+    input:
+      source: product-overview
+      text: The seller may post a single public response to each review
+  - say: Quoting the unpaid-order expiry.
+    call: quote
+    input:
+      source: product-overview
+      text: an order that has not been paid within 30 minutes of being placed is cancelled automatically by the shop backend
+  - say: Quoting the epics.
+    call: quote
+    input:
+      source: backlog
+      text: Placing, paying for, and cancelling an order — the buyer side of a purchase from a published listing.
+  - call: quote
+    input:
+      source: backlog
+      text: Everything a seller does to create, publish, and retire their own listings.
+  - call: quote
+    input:
+      source: backlog
+      text: Getting a paid order from acceptance through to the buyer having it in hand, including pre-orders.
+  - call: quote
+    input:
+      source: backlog
+      text: Buyers rating and commenting on what they bought, and sellers responding.
+  - say: Quoting the features.
+    call: quote
+    input:
+      source: backlog
+      text: A signed-in buyer places and pays for an order from a single published listing.
+  - call: quote
+    input:
+      source: backlog
+      text: Cancelling an order before or after payment, with a refund whenever payment was captured.
+  - call: quote
+    input:
+      source: backlog
+      text: Creating, publishing, marking out of stock, and restocking a listing.
+  - call: quote
+    input:
+      source: backlog
+      text: Retiring a listing for good, from whichever state it happens to be in.
+  - call: quote
+    input:
+      source: backlog
+      text: "The seller's first decision on a paid order: accept it or reject it with a refund."
+  - call: quote
+    input:
+      source: backlog
+      text: Getting an accepted standard order to the buyer, and issuing a digital key immediately after payment.
+  - call: quote
+    input:
+      source: backlog
+      text: Accepting an order before its item is back in stock and moving it forward once stock arrives.
+  - call: quote
+    input:
+      source: backlog
+      text: A buyer rating and commenting on a delivered purchase, and the seller responding.
+  - say: Quoting the stories.
+    call: quote
+    input:
+      source: backlog
+      text: As a buyer, I want to buy a published physical listing so that I can receive the item.
+  - call: quote
+    input:
+      source: backlog
+      text: As a buyer, I want to pay for my order so that the seller can fulfil it.
+  - call: quote
+    input:
+      source: backlog
+      text: As a buyer, I want to cancel an order I haven't paid for so that I'm not stuck with something I no longer want.
+  - call: quote
+    input:
+      source: backlog
+      text: As a buyer, once I've paid for an order, cancelling is the seller's call — I can ask them to reject it, but I can't cancel it myself.
+  - call: quote
+    input:
+      source: backlog
+      text: As a seller, I want to create a listing and publish it so that buyers can find and buy it.
+  - call: quote
+    input:
+      source: backlog
+      text: As a seller, I want to mark a listing out of stock so buyers don't try to buy something I can't fulfil.
+  - call: quote
+    input:
+      source: backlog
+      text: As a seller, I want to restock a listing that ran out so it becomes buyable again.
+  - call: quote
+    input:
+      source: backlog
+      text: As a seller, I want to archive a listing I'm no longer selling, whether or not it was ever published.
+  - call: quote
+    input:
+      source: backlog
+      text: As a seller, I want to archive a listing that's out of stock without first restocking or unpublishing it, since I have no intention of selling it again.
+  - call: quote
+    input:
+      source: backlog
+      text: As a seller, I want to accept a paid order so I can start getting it ready to ship.
+  - call: quote
+    input:
+      source: backlog
+      text: As a seller, I want to reject a paid order I can't fulfil so the buyer gets their money back.
+  - call: quote
+    input:
+      source: backlog
+      text: As a seller, I want to mark an accepted order as shipped once it's on its way.
+  - call: quote
+    input:
+      source: backlog
+      text: As a buyer, I want to confirm I've received my order so it's marked complete.
+  - call: quote
+    input:
+      source: backlog
+      text: As a seller, I want a digital order to skip shipping entirely, since there's nothing physical to send.
+  - call: quote
+    input:
+      source: backlog
+      text: As a seller, I want to accept a pre-order before I have stock, so the buyer knows I'm committed to fulfilling it once it arrives.
+  - call: quote
+    input:
+      source: backlog
+      text: As a seller, I want to move a pre-order forward once stock is in, the same as any standard order from there.
+  - call: quote
+    input:
+      source: backlog
+      text: As a buyer, I want to rate and comment on something I bought once it's arrived, so other buyers can see how it went.
+  - call: quote
+    input:
+      source: backlog
+      text: As a buyer, I want to change my mind about a review I left, or take it down.
+  - call: quote
+    input:
+      source: backlog
+      text: As a seller, I want to publicly respond to a review so I can thank a happy customer or address a complaint.
+  - say: Writing up the proposal.
+    call: propose
+    input:
+      rationale: "The product overview and the tracker export agree on most of the shop as it already behaves, and add three things worth a decision: a documented cancellation rule the running app does not enforce, a seller archiving right the model does not have yet, and a buyer reviews feature the app does not have at all. The backlog is proposed as a slice over the existing actions, plus the new review entity and two pre-order stories the model cannot cover until the pending pre-order proposal is decided."
+      project:
+        ops:
+          - op: add
+            kind: entity
+            value:
+              id: review
+              title: Review
+              description: A buyer's rating and comment on a listing they bought, left after delivery.
+            evidence:
+              - e4
+          - op: add
+            kind: epic
+            value:
+              id: checkout
+              title: Checkout
+              description: Placing, paying for, and cancelling an order — the buyer side of a purchase from a published listing.
+              key: SHOP-1
+            evidence:
+              - e8
+          - op: add
+            kind: epic
+            value:
+              id: seller-catalog
+              title: Seller catalog
+              description: Everything a seller does to create, publish, and retire their own listings.
+              key: SHOP-2
+            evidence:
+              - e9
+          - op: add
+            kind: epic
+            value:
+              id: fulfilment
+              title: Fulfilment
+              description: Getting a paid order from acceptance through to the buyer having it in hand, including pre-orders.
+              key: SHOP-3
+            evidence:
+              - e10
+          - op: add
+            kind: epic
+            value:
+              id: reviews
+              title: Reviews
+              description: Buyers rating and commenting on what they bought, and sellers responding.
+              key: SHOP-4
+            evidence:
+              - e11
+          - op: add
+            kind: feature
+            value:
+              id: buy-from-catalog
+              title: Buy from catalog
+              description: A signed-in buyer places and pays for an order from a single published listing.
+              epic: checkout
+              key: SHOP-10
+              actions:
+                - order.place
+                - order.pay
+            evidence:
+              - e12
+          - op: add
+            kind: feature
+            value:
+              id: cancel-and-refund
+              title: Cancel and refund
+              description: Cancelling an order before or after payment, with a refund whenever payment was captured.
+              epic: checkout
+              key: SHOP-11
+              actions:
+                - order.cancel
+            evidence:
+              - e13
+          - op: add
+            kind: feature
+            value:
+              id: manage-listings
+              title: Manage listings
+              description: Creating, publishing, marking out of stock, and restocking a listing.
+              epic: seller-catalog
+              key: SHOP-20
+              actions:
+                - listing.publish
+                - listing.unpublish
+                - listing.mark-out-of-stock
+                - listing.restock
+            evidence:
+              - e14
+          - op: add
+            kind: feature
+            value:
+              id: archive-listings
+              title: Archive listings
+              description: Retiring a listing for good, from whichever state it happens to be in.
+              epic: seller-catalog
+              key: SHOP-21
+              actions:
+                - listing.archive
+            evidence:
+              - e15
+          - op: add
+            kind: feature
+            value:
+              id: accept-and-reject-orders
+              title: Accept and reject orders
+              description: "The seller's first decision on a paid order: accept it or reject it with a refund."
+              epic: fulfilment
+              key: SHOP-30
+              actions:
+                - order.accept
+                - order.reject
+            evidence:
+              - e16
+          - op: add
+            kind: feature
+            value:
+              id: ship-and-deliver
+              title: Ship and deliver
+              description: Getting an accepted standard order to the buyer, and issuing a digital key immediately after payment.
+              epic: fulfilment
+              key: SHOP-31
+              actions:
+                - order.ship
+                - order.confirm
+            evidence:
+              - e17
+          - op: add
+            kind: feature
+            value:
+              id: preorder-fulfilment
+              title: Pre-order fulfilment
+              description: Accepting an order before its item is back in stock and moving it forward once stock arrives.
+              epic: fulfilment
+              key: SHOP-32
+              actions:
+                - order.accept
+            evidence:
+              - e18
+          - op: add
+            kind: feature
+            value:
+              id: buyer-reviews
+              title: Buyer reviews
+              description: A buyer rating and commenting on a delivered purchase, and the seller responding.
+              epic: reviews
+              key: SHOP-40
+              actions:
+                - review.submit
+                - review.edit
+                - review.remove
+                - review.respond
+            evidence:
+              - e19
+          - op: add
+            kind: story
+            value:
+              id: shop-101
+              title: Buyer places a standard order from a published listing
+              key: SHOP-101
+              feature: buy-from-catalog
+              text: As a buyer, I want to buy a published physical listing so that I can receive the item.
+              acceptance:
+                - Buying a published listing with stock creates a new order in Created status.
+                - The order is created for exactly one listing; nothing is added to a cart.
+                - A guest attempting to buy is sent to sign in first.
+              trackerStatus: Done
+              covers:
+                - transition:order.place-order
+            evidence:
+              - e20
+          - op: add
+            kind: story
+            value:
+              id: shop-102
+              title: Buyer pays for an order
+              key: SHOP-102
+              feature: buy-from-catalog
+              text: As a buyer, I want to pay for my order so that the seller can fulfil it.
+              acceptance:
+                - Paying a Created order captures payment and moves it to Paid.
+                - Paying a standard or pre-order reserves one unit of the related listing's stock.
+                - An order that sells the last unit of a listing takes that listing out of stock.
+              trackerStatus: Done
+              covers:
+                - transition:order.pay
+            evidence:
+              - e21
+          - op: add
+            kind: story
+            value:
+              id: shop-111
+              title: Buyer cancels an order before paying
+              key: SHOP-111
+              feature: cancel-and-refund
+              text: As a buyer, I want to cancel an order I haven't paid for so that I'm not stuck with something I no longer want.
+              acceptance:
+                - Cancelling a Created order moves it to Cancelled.
+                - No payment was ever captured, so there is nothing to refund.
+              trackerStatus: Done
+              covers:
+                - transition:order.cancel-unpaid
+            evidence:
+              - e22
+          - op: add
+            kind: story
+            value:
+              id: shop-112
+              title: Buyer cannot cancel an order once it's paid
+              key: SHOP-112
+              feature: cancel-and-refund
+              text: As a buyer, once I've paid for an order, cancelling is the seller's call — I can ask them to reject it, but I can't cancel it myself.
+              acceptance:
+                - A Paid, Accepted, or Awaiting stock order has no cancel option for the buyer.
+                - Only the seller can move a paid order to Cancelled, by rejecting it.
+              trackerStatus: Done
+              covers:
+                - action:order.cancel
+            evidence:
+              - e1
+              - e2
+              - e23
+          - op: add
+            kind: story
+            value:
+              id: shop-201
+              title: Seller creates and publishes a listing
+              key: SHOP-201
+              feature: manage-listings
+              text: As a seller, I want to create a listing and publish it so that buyers can find and buy it.
+              acceptance:
+                - A new listing starts in Draft and is not shown in the buyer catalog.
+                - Publishing a physical listing requires stock greater than zero.
+                - Once published, the listing appears in the buyer's catalog.
+              trackerStatus: Done
+              covers:
+                - transition:listing.publish
+            evidence:
+              - e24
+          - op: add
+            kind: story
+            value:
+              id: shop-202
+              title: Seller marks a listing out of stock
+              key: SHOP-202
+              feature: manage-listings
+              text: As a seller, I want to mark a listing out of stock so buyers don't try to buy something I can't fulfil.
+              acceptance:
+                - Marking a published physical listing out of stock sets its stock to zero.
+                - An out-of-stock listing does not appear as buyable in the catalog.
+                - Selling the last unit of a listing does the same thing automatically.
+              trackerStatus: Done
+              covers:
+                - transition:listing.mark-out-of-stock
+            evidence:
+              - e25
+          - op: add
+            kind: story
+            value:
+              id: shop-203
+              title: Seller restocks a listing
+              key: SHOP-203
+              feature: manage-listings
+              text: As a seller, I want to restock a listing that ran out so it becomes buyable again.
+              acceptance:
+                - Restocking an out-of-stock physical listing returns it to Published with stock available.
+              trackerStatus: Done
+              covers:
+                - transition:listing.restock
+            evidence:
+              - e26
+          - op: add
+            kind: story
+            value:
+              id: shop-211
+              title: Seller archives a draft or published listing
+              key: SHOP-211
+              feature: archive-listings
+              text: As a seller, I want to archive a listing I'm no longer selling, whether or not it was ever published.
+              acceptance:
+                - Archiving a draft listing moves it straight to Archived.
+                - Archiving a published listing moves it to Archived and it disappears from the catalog.
+                - An archived listing cannot be published, restocked, or unarchived.
+              trackerStatus: Done
+              covers:
+                - transition:listing.archive-draft
+                - transition:listing.archive-published
+            evidence:
+              - e27
+          - op: add
+            kind: story
+            value:
+              id: shop-212
+              title: Seller archives an out-of-stock listing
+              key: SHOP-212
+              feature: archive-listings
+              text: As a seller, I want to archive a listing that's out of stock without first restocking or unpublishing it, since I have no intention of selling it again.
+              acceptance:
+                - An out-of-stock listing can be archived directly.
+                - Archiving works the same regardless of which state the listing was in.
+              trackerStatus: Done
+              covers:
+                - transition:listing.archive-out-of-stock
+            evidence:
+              - e3
+              - e28
+          - op: add
+            kind: story
+            value:
+              id: shop-301
+              title: Seller accepts a paid standard order
+              key: SHOP-301
+              feature: accept-and-reject-orders
+              text: As a seller, I want to accept a paid order so I can start getting it ready to ship.
+              acceptance:
+                - Accepting a Paid standard order moves it to Accepted by seller.
+              trackerStatus: Done
+              covers:
+                - transition:order.accept
+            evidence:
+              - e29
+          - op: add
+            kind: story
+            value:
+              id: shop-302
+              title: Seller rejects a paid order
+              key: SHOP-302
+              feature: accept-and-reject-orders
+              text: As a seller, I want to reject a paid order I can't fulfil so the buyer gets their money back.
+              acceptance:
+                - Rejecting a Paid order moves it to Cancelled.
+                - The buyer's payment is refunded in full.
+              trackerStatus: Done
+              covers:
+                - transition:order.reject
+            evidence:
+              - e30
+          - op: add
+            kind: story
+            value:
+              id: shop-311
+              title: Seller ships an accepted order
+              key: SHOP-311
+              feature: ship-and-deliver
+              text: As a seller, I want to mark an accepted order as shipped once it's on its way.
+              acceptance:
+                - Shipping an Accepted standard order moves it to Shipped.
+              trackerStatus: Done
+              covers:
+                - transition:order.ship
+            evidence:
+              - e31
+          - op: add
+            kind: story
+            value:
+              id: shop-312
+              title: Buyer confirms receipt of a shipped order
+              key: SHOP-312
+              feature: ship-and-deliver
+              text: As a buyer, I want to confirm I've received my order so it's marked complete.
+              acceptance:
+                - Confirming a Shipped order moves it to Delivered.
+                - A delivered order can now be reviewed.
+              trackerStatus: Done
+              covers:
+                - transition:order.confirm
+            evidence:
+              - e32
+          - op: add
+            kind: story
+            value:
+              id: shop-313
+              title: Seller issues a digital key immediately after payment
+              key: SHOP-313
+              feature: ship-and-deliver
+              text: As a seller, I want a digital order to skip shipping entirely, since there's nothing physical to send.
+              acceptance:
+                - Paying for a digital order does not require the seller to accept or ship it.
+                - The seller issues the key and the order moves straight from Paid to Delivered.
+              trackerStatus: Done
+              covers: []
+            evidence:
+              - e33
+          - op: add
+            kind: story
+            value:
+              id: shop-321
+              title: Seller accepts a pre-order awaiting stock
+              key: SHOP-321
+              feature: preorder-fulfilment
+              text: As a seller, I want to accept a pre-order before I have stock, so the buyer knows I'm committed to fulfilling it once it arrives.
+              acceptance:
+                - Accepting a paid pre-order moves it to Awaiting stock rather than Accepted.
+                - The buyer can still see and cancel the order while it waits.
+              trackerStatus: To Do
+              covers: []
+            evidence:
+              - e34
+          - op: add
+            kind: story
+            value:
+              id: shop-322
+              title: Seller marks stock arrived for a pre-order
+              key: SHOP-322
+              feature: preorder-fulfilment
+              text: As a seller, I want to move a pre-order forward once stock is in, the same as any standard order from there.
+              acceptance:
+                - Marking stock arrived on an Awaiting stock pre-order moves it to Accepted by seller.
+                - From there the order ships and is delivered like a standard order.
+              trackerStatus: To Do
+              covers: []
+            evidence:
+              - e35
+          - op: add
+            kind: story
+            value:
+              id: shop-401
+              title: Buyer leaves a review after delivery
+              key: SHOP-401
+              feature: buyer-reviews
+              text: As a buyer, I want to rate and comment on something I bought once it's arrived, so other buyers can see how it went.
+              acceptance:
+                - A review can only be left on a delivered order's listing.
+                - A review includes a star rating from one to five and a short comment.
+                - The review appears on the listing page.
+              trackerStatus: Done
+              covers:
+                - transition:review.submit-review
+            evidence:
+              - e4
+              - e36
+          - op: add
+            kind: story
+            value:
+              id: shop-402
+              title: Buyer edits or removes their own review
+              key: SHOP-402
+              feature: buyer-reviews
+              text: As a buyer, I want to change my mind about a review I left, or take it down.
+              acceptance:
+                - The buyer can edit their own review's rating or comment at any time.
+                - The buyer can remove their own review; any seller response goes with it.
+              trackerStatus: Done
+              covers:
+                - permit:review.edit-review
+                - transition:review.remove-review
+            evidence:
+              - e5
+              - e37
+          - op: add
+            kind: story
+            value:
+              id: shop-403
+              title: Seller responds to a review
+              key: SHOP-403
+              feature: buyer-reviews
+              text: As a seller, I want to publicly respond to a review so I can thank a happy customer or address a complaint.
+              acceptance:
+                - The seller can post one public response to each review.
+                - The seller cannot edit or remove the buyer's review itself.
+              trackerStatus: Done
+              covers:
+                - permit:review.respond-review
+            evidence:
+              - e6
+              - e38
+        findings:
+          - kind: contradiction
+            note: "The product doc states that a buyer can cancel an order only until it is paid, and that once payment is captured only the seller can cancel it (by rejecting). The running demo shop does not enforce this: a buyer can still cancel a standard order after it is paid or already accepted by the seller, and the pending client-explorer proposal (cancel-paid, cancel-accepted) proposes confirming exactly that behavior. Story shop-112 encodes the doc's rule instead — one of the two has to give before those transitions are decided."
+            refs:
+              - shop-112
+              - cancel-paid
+              - cancel-accepted
+            evidence:
+              - e1
+              - e2
+          - kind: gap
+            note: The doc and the tracker both treat buyer reviews as a shipped feature (epic Reviews, all its stories Done), but the demo shop exposes no review UI, API, or MCP tool at all. The review entity is proposed with no reader, so every scenario for it can only ever be planned blocked until an interface exists to verify it.
+            refs:
+              - review
+              - shop-401
+              - shop-402
+              - shop-403
+            evidence:
+              - e4
+          - kind: gap
+            note: The pre-order fulfilment stories (shop-321, shop-322) describe an Awaiting stock state between Paid and Accepted that the order entity does not have yet — only the pending seller-explorer proposal adds it. Both stories are left with no covers rather than pointing at elements that do not exist in the model yet.
+            refs:
+              - shop-321
+              - shop-322
+            evidence:
+              - e18
+              - e34
+              - e35
+          - kind: question
+            note: Story shop-313 ("Seller issues a digital key immediately after payment") is marked Done and matches the seller-explorer's pending deliver-key proposal, but that transition is not confirmed in the model yet, so shop-313 is left uncovered rather than citing an element that may still be rejected. Once that proposal is decided, should shop-313 point at it directly?
+            refs:
+              - shop-313
+            evidence:
+              - e33
+      entities:
+        listing:
+          ops:
+            - op: add
+              kind: transition
+              value:
+                id: archive-out-of-stock
+                title: Archive an out-of-stock listing
+                from: out-of-stock
+                to: archived
+                action: archive
+                by:
+                  - seller
+                variants:
+                  - physical
+              evidence:
+                - e3
+          findings: []
+        review:
+          ops:
+            - op: add
+              kind: state
+              value:
+                id: published
+                title: Published
+                initial: true
+                match: {}
+              evidence:
+                - e4
+            - op: add
+              kind: state
+              value:
+                id: removed
+                title: Removed
+                terminal: true
+                match: {}
+              evidence:
+                - e5
+            - op: add
+              kind: action
+              value:
+                id: submit
+                title: Submit review
+                kind: create
+              evidence:
+                - e4
+            - op: add
+              kind: action
+              value:
+                id: edit
+                title: Edit review
+                kind: update
+              evidence:
+                - e5
+            - op: add
+              kind: action
+              value:
+                id: remove
+                title: Remove review
+                kind: delete
+              evidence:
+                - e5
+            - op: add
+              kind: action
+              value:
+                id: respond
+                title: Respond to review
+                kind: command
+              evidence:
+                - e6
+            - op: add
+              kind: transition
+              value:
+                id: submit-review
+                title: Submit review
+                from: "@new"
+                to: published
+                action: submit
+                by:
+                  - client
+              evidence:
+                - e4
+            - op: add
+              kind: transition
+              value:
+                id: remove-review
+                title: Remove review
+                from: published
+                to: removed
+                action: remove
+                by:
+                  - client
+              evidence:
+                - e5
+            - op: add
+              kind: permit
+              value:
+                id: edit-review
+                title: Edit review
+                action: edit
+                by:
+                  - client
+                states:
+                  - published
+              evidence:
+                - e5
+            - op: add
+              kind: permit
+              value:
+                id: respond-review
+                title: Respond to review
+                action: respond
+                by:
+                  - seller
+                states:
+                  - published
+              evidence:
+                - e6
+          findings: []

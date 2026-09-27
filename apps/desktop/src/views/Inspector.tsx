@@ -66,13 +66,25 @@ export function Inspector(props: Props) {
         <section>
           <h3>How the actual state is read</h3>
           <Issues state={state} path="reader" />
-          <Select
-            label="Read tool"
-            value={entity.reader.tool}
-            options={Object.entries(project.project.mcp).flatMap(([srv, cfg]) => cfg.allow.read.map((t): [string, string] => [`${srv}.${t}`, `${srv}.${t}`]))}
-            onChange={(tool) => onChange({ ...entity, reader: { ...entity.reader, tool } })}
-          />
-          <KeyValues label="Arguments ({{key}} is the instance key)" value={entity.reader.args} onChange={(args) => onChange({ ...entity, reader: { ...entity.reader, args } })} />
+          {entity.reader ? (
+            <>
+              <Select
+                label="Read tool"
+                value={entity.reader.tool}
+                options={Object.entries(project.project.mcp).flatMap(([srv, cfg]) => cfg.allow.read.map((t): [string, string] => [`${srv}.${t}`, `${srv}.${t}`]))}
+                onChange={(tool) => onChange({ ...entity, reader: { ...entity.reader!, tool } })}
+              />
+              <KeyValues label="Arguments ({{key}} is the instance key)" value={entity.reader.args} onChange={(args) => onChange({ ...entity, reader: { ...entity.reader!, args } })} />
+              <button className="btn small" style={{ marginBottom: 12 }} onClick={() => onChange({ ...entity, reader: undefined })}>Remove reader</button>
+            </>
+          ) : (
+            <>
+              <p className="muted" style={{ marginTop: 0 }}>
+                No reader yet — an onboarding agent may propose an entity before anyone knows how to read it back. Without one, every scenario plans as blocked.
+              </p>
+              <button className="btn small" style={{ marginBottom: 12 }} onClick={() => onChange({ ...entity, reader: { tool: '', args: {} } })}>Add reader</button>
+            </>
+          )}
           <Text label="Correlation key: the field that identifies an instance in every interface" value={entity.key} onChange={(key) => onChange({ ...entity, key })} />
         </section>
         <section>
@@ -91,7 +103,7 @@ export function Inspector(props: Props) {
             className="btn small"
             onClick={() => {
               const id = nextId('action', entity.actions.map((a) => a.id));
-              const a: Action = { id, title: 'New action', kind: 'command', status: 'confirmed', provenance: { source: 'human', evidence: [] } };
+              const a: Action = { id, title: 'New action', kind: 'command', status: 'confirmed', provenance: { source: 'human', evidence: [], sources: [] } };
               onChange({ ...entity, actions: [...entity.actions, a] });
               props.onSelect({ kind: 'action', id });
             }}
@@ -118,7 +130,7 @@ export function Inspector(props: Props) {
               const id = nextId('permit', entity.permits.map((p) => p.id));
               const p: Permit = {
                 id, title: 'New permit', action: entity.actions[0].id, by: [project.project.roles[0].id],
-                effects: [], status: 'confirmed', provenance: { source: 'human', evidence: [] },
+                effects: [], status: 'confirmed', provenance: { source: 'human', evidence: [], sources: [] },
               };
               onChange({ ...entity, permits: [...entity.permits, p] });
               props.onSelect({ kind: 'permit', id });
@@ -224,7 +236,7 @@ export function Inspector(props: Props) {
             label="Fields the reader must return"
             value={s.match}
             onChange={(match) => set({ match })}
-            hint={`Read via ${entity.reader.tool}`}
+            hint={entity.reader ? `Read via ${entity.reader.tool}` : 'No reader yet — add one above so this can be verified'}
           />
         </section>
         <section>

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Entity } from '@tc/model';
-import { api, ApiError, subscribe, type EntityState, type EntitySummary, type ProjectState, type ProposalState } from './api.ts';
+import { api, ApiError, subscribe, type EntityState, type EntitySummary, type Job, type ProjectDecideResult, type ProjectState, type ProposalState } from './api.ts';
 import type { Selection } from './graph.ts';
 import { MapView } from './views/MapView.tsx';
 import { Inspector } from './views/Inspector.tsx';
@@ -8,6 +8,8 @@ import { ProposalsView } from './views/ProposalsView.tsx';
 import { CoverageView } from './views/CoverageView.tsx';
 import { ExportView } from './views/ExportView.tsx';
 import { OverviewView } from './views/OverviewView.tsx';
+import { OnboardingView } from './views/OnboardingView.tsx';
+import { BacklogView } from './views/BacklogView.tsx';
 import { ScenariosView } from './views/ScenariosView.tsx';
 import { SettingsView } from './views/SettingsView.tsx';
 import { ProjectSwitcher } from './views/ProjectSwitcher.tsx';
@@ -16,10 +18,11 @@ type EntityTab = 'map' | 'scenarios' | 'coverage';
 type Route =
   | { page: 'overview' }
   | { page: 'entity'; id: string; tab: EntityTab }
+  | { page: 'onboarding' }
+  | { page: 'backlog' }
   | { page: 'proposals' }
   | { page: 'export' }
   | { page: 'settings' };
-type Job = { id: string; kind: string; state: 'running' | 'done' | 'failed'; error?: string };
 
 const tabTitles: Record<EntityTab, string> = { map: 'Map', scenarios: 'Scenarios', coverage: 'Coverage' };
 
@@ -35,6 +38,9 @@ export function App() {
   const [log, setLog] = useState<string[]>([]);
   const [job, setJob] = useState<Job | null>(null);
   const [logOpen, setLogOpen] = useState(false);
+  // Bumped on every disk change and job completion so views that fetch their
+  // own data (Onboarding, Backlog) know to refetch without polling.
+  const [reloadToken, setReloadToken] = useState(0);
   const [toast, setToast] = useState<{ text: string; error?: boolean } | null>(null);
   const [fatal, setFatal] = useState<string | null>(null);
 
@@ -95,14 +101,22 @@ export function App() {
             setLogOpen(true);
           }
           if (e.state === 'done') {
-            notify(e.kind === 'run' ? 'Run finished' : 'Exploration finished: new proposal in your inbox');
+            notify(
+              e.kind === 'run'
+                ? 'Run finished'
+                : e.kind.startsWith('onboard')
+                  ? 'Onboarding finished: proposals ready to review'
+                  : 'Exploration finished: new proposal in your inbox',
+            );
             void reloadAll();
+            setReloadToken((n) => n + 1);
           }
           if (e.state === 'failed') notify(e.error ?? 'Job failed', true);
         }
         if (e.type === 'changed') {
           if (dirtyRef.current) notify(`${e.path} changed on disk. Save or discard your edits.`);
           else void reloadAll();
+          setReloadToken((n) => n + 1);
         }
         if (e.type === 'project') {
           setState(null);
@@ -218,9 +232,11 @@ export function App() {
         <button className="muted" onClick={() => go({ page: 'overview' })}>New entity</button>
 
         <h4>Project</h4>
+        <button aria-current={route.page === 'onboarding' ? 'page' : undefined} onClick={() => go({ page: 'onboarding' })}>Onboarding</button>
         <button aria-current={route.page === 'proposals' ? 'page' : undefined} onClick={() => go({ page: 'proposals' })}>
           Proposals {pending.length > 0 && <span className="count">{pending.length}</span>}
         </button>
+        <button aria-current={route.page === 'backlog' ? 'page' : undefined} onClick={() => go({ page: 'backlog' })}>Backlog</button>
         <button aria-current={route.page === 'export' ? 'page' : undefined} onClick={() => go({ page: 'export' })}>Export</button>
         <button aria-current={route.page === 'settings' ? 'page' : undefined} onClick={() => go({ page: 'settings' })}>Settings</button>
         </div>
@@ -232,11 +248,33 @@ export function App() {
             project={project}
             entities={entities}
             onOpen={(id) => go({ page: 'entity', id, tab: 'map' })}
+            onOpenOnboarding={() => go({ page: 'onboarding' })}
             onCreated={async (id) => {
               setEntities(await api.entities());
               go({ page: 'entity', id, tab: 'map' });
             }}
             onDeleted={async () => setEntities(await api.entities())}
+            onError={(m) => notify(m, true)}
+          />
+        )}
+
+        {route.page === 'onboarding' && (
+          <OnboardingView
+            project={project}
+            job={job}
+            running={running}
+            reloadToken={reloadToken}
+            onOpenProposals={() => go({ page: 'proposals' })}
+            onError={(m) => notify(m, true)}
+          />
+        )}
+
+        {route.page === 'backlog' && (
+          <BacklogView
+            project={project}
+            entities={entities}
+            reloadToken={reloadToken}
+            onOpenEntity={(id) => go({ page: 'entity', id, tab: 'map' })}
             onError={(m) => notify(m, true)}
           />
         )}
@@ -288,13 +326,23 @@ export function App() {
             entities={entities}
             dirty={dirty}
             running={running}
-            onDecided={async (s) => {
-              if (state?.entity.id === s.entity.id) {
-                setState(s);
-                setDraft(s.entity);
+            onDecided={async (s: EntityState | ProjectDecideResult) => {
+              if ('entity' in s) {
+                // Entity-level proposal: the engine returns the updated entity state directly.
+                if (state?.entity.id === s.entity.id) {
+                  setState(s);
+                  setDraft(s.entity);
+                }
+                setProposals(await api.proposals());
+                setEntities(await api.entities());
+              } else {
+                // Project-level proposal: { project, backlog, created } — refresh the
+                // project, the entities list and the backlog (via reloadToken; the
+                // Backlog/Onboarding views fetch it themselves). Stay on this page even
+                // when entities were created — nothing should navigate unexpectedly.
+                await reloadAll();
+                setReloadToken((n) => n + 1);
               }
-              setProposals(await api.proposals());
-              setEntities(await api.entities());
               notify('Decisions applied to the model');
             }}
             onError={(m) => notify(m, true)}
@@ -333,7 +381,7 @@ export function App() {
           <strong>Log</strong>
           {job && (
             <span className="state">
-              {job.kind === 'run' ? 'test run' : job.kind.replace('explore:', 'exploration: ')} —{' '}
+              {job.kind === 'run' ? 'test run' : job.kind.startsWith('onboard') ? 'onboarding' : job.kind.replace('explore:', 'exploration: ')} —{' '}
               {job.state === 'running' ? 'running' : job.state === 'done' ? 'done' : 'failed'}
             </span>
           )}

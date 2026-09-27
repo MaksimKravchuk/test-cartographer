@@ -15,6 +15,9 @@ export const Provenance = z.object({
   agent: z.string().optional(),
   proposal: z.string().optional(),
   evidence: z.array(z.string()).default([]),
+  // Knowledge sources (workspace/sources.yaml) that back this element, from the
+  // proposal's `source` evidence — set when applying a decision.
+  sources: z.array(z.string()).default([]),
   note: z.string().optional(),
 });
 export type Provenance = z.infer<typeof Provenance>;
@@ -81,8 +84,12 @@ export type Inference = z.infer<typeof Inference>;
 export const AgentSpec = z.object({
   id: Id,
   title: z.string(),
-  role: Id,
-  entity: Id,
+  // explore — works in a role's interface against one entity; onboard — reads
+  // knowledge sources and proposes the whole SOAR map plus the backlog.
+  kind: z.enum(['explore', 'onboard']).default('explore'),
+  // Required for `explore` (validateProject); an onboard agent isn't tied to a role or entity.
+  role: Id.optional(),
+  entity: Id.optional(),
   goal: z.string(),
   // Script for a deterministic run (provider=scripted): path from the workspace root.
   script: z.string().optional(),
@@ -285,7 +292,10 @@ export const Entity = z.object({
   // Correlation key: identifies the same object across all interfaces.
   key: z.string().default('id'),
   // How to read an instance's actual state. {{key}} is available in args.
-  reader: ToolCall,
+  // Optional: an onboarding agent may propose an entity before anyone knows how
+  // to read it back. Without a reader nothing can be verified — every scenario
+  // of the entity plans as blocked (see plan.ts) and validateEntity warns.
+  reader: ToolCall.optional(),
   variants: z.array(Variant).min(1),
   states: z.array(State).default([]),
   actions: z.array(Action).default([]),
@@ -310,17 +320,103 @@ export const elementCollections = {
 
 export const elementSchemas = { variant: Variant, state: State, action: Action, transition: Transition, permit: Permit, scenario: Journey, rule: Rule };
 
+// ── Knowledge sources ── workspace/sources.yaml + files in workspace/sources/
+export const SourceKind = z.enum(['doc', 'backlog', 'contract', 'note']); // backlog = a tracker export
+export type SourceKind = z.infer<typeof SourceKind>;
+export const Source = z.object({
+  id: Id,
+  title: z.string(),
+  kind: SourceKind.default('doc'),
+  file: z.string(), // file name inside workspace/sources/
+  addedAt: z.string(), // ISO
+  note: z.string().optional(),
+});
+export type Source = z.infer<typeof Source>;
+export const SourceRegistry = z.object({ sources: z.array(Source).default([]) });
+export type SourceRegistry = z.infer<typeof SourceRegistry>;
+
+// ── Backlog ── workspace/backlog.yaml (absent file = empty backlog)
+// "<entity>.<action>"
+export const ActionRef = z.string().regex(/^[a-z][a-z0-9_-]*\.[a-z][a-z0-9_-]*$/, 'action ref: "<entity>.<action>"');
+// "<kind>:<entity>.<id>"
+export const ElementRef = z.string().regex(
+  /^(action|transition|permit|rule|journey):[a-z][a-z0-9_-]*\.[a-z][a-z0-9_-]*$/,
+  'element ref: "<action|transition|permit|rule|journey>:<entity>.<id>"',
+);
+
+export const Epic = z.object({
+  id: Id,
+  title: z.string(),
+  description: z.string().optional(),
+  key: z.string().optional(), // tracker key, e.g. SHOP-1
+  url: z.string().optional(),
+  ...meta,
+});
+export type Epic = z.infer<typeof Epic>;
+
+export const Feature = z.object({
+  id: Id,
+  title: z.string(),
+  description: z.string().optional(),
+  epic: Id.optional(),
+  key: z.string().optional(),
+  url: z.string().optional(),
+  actions: z.array(ActionRef).default([]), // the slice of the model this feature is about
+  ...meta,
+});
+export type Feature = z.infer<typeof Feature>;
+
+export const Story = z.object({
+  id: Id,
+  title: z.string(),
+  text: z.string().optional(), // "As a … I want … so that …"
+  acceptance: z.array(z.string()).default([]), // acceptance criteria, in the product's words
+  feature: Id.optional(),
+  epic: Id.optional(), // a story sits under a feature, or directly under an epic
+  key: z.string().optional(),
+  url: z.string().optional(),
+  trackerStatus: z.string().optional(), // "Done", "To Do" … as the tracker says
+  covers: z.array(ElementRef).default([]), // model elements this story specifies
+  ...meta,
+});
+export type Story = z.infer<typeof Story>;
+
+export const Backlog = z.object({
+  epics: z.array(Epic).default([]),
+  features: z.array(Feature).default([]),
+  stories: z.array(Story).default([]),
+});
+export type Backlog = z.infer<typeof Backlog>;
+
+// A new entity as proposed at the project level: just enough to create
+// entities/<id>.yaml. Accepting fills in default variants and empty element lists.
+export const EntityCreate = z.object({
+  id: Id,
+  title: z.string(),
+  description: z.string().optional(),
+  key: z.string().default('id'),
+  reader: ToolCall.optional(),
+  variants: z.array(Variant).optional(),
+});
+export type EntityCreate = z.infer<typeof EntityCreate>;
+
 // ── Agent proposals ─────────────────────────────────────────────────────
 export const Evidence = z.object({
   id: z.string(),
-  kind: z.enum(['screenshot', 'snapshot', 'network', 'contract', 'probe', 'note']),
-  summary: z.string(),
-  path: z.string().optional(),
+  kind: z.enum(['screenshot', 'snapshot', 'network', 'contract', 'probe', 'note', 'source']),
+  summary: z.string(), // for a `source` evidence: the exact quote
+  path: z.string().optional(), // for a `source` evidence, may hold "<file>#L<from>-L<to>"
   url: z.string().optional(),
+  source: z.string().optional(), // for a `source` evidence: the knowledge source id
 });
 export type Evidence = z.infer<typeof Evidence>;
 
-const Kind = z.enum(['variant', 'state', 'action', 'transition', 'permit', 'scenario', 'rule']);
+// Entity-level op kinds patch an entity's own collections (unchanged).
+export const ElementOpKind = z.enum(['variant', 'state', 'action', 'transition', 'permit', 'scenario', 'rule']);
+// Project-level op kinds patch the project or the backlog — a proposal with no
+// `entity` (see Proposal below) is a project-level proposal.
+export const ProjectOpKind = z.enum(['role', 'interface', 'entity', 'epic', 'feature', 'story']);
+const Kind = z.union([ElementOpKind, ProjectOpKind]);
 
 export const Op = z.discriminatedUnion('op', [
   z.object({ op: z.literal('add'), kind: Kind, value: z.record(z.string(), z.unknown()), evidence: z.array(z.string()).default([]) }),
@@ -349,7 +445,7 @@ export type Decision = z.infer<typeof Decision>;
 
 export const Proposal = z.object({
   id: z.string(),
-  entity: Id,
+  entity: Id.optional(), // absent — a project-level proposal (role/interface/entity/epic/feature/story)
   agent: z.string(),
   role: Id.optional(),
   createdAt: z.string(),

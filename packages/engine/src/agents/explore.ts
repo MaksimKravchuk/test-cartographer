@@ -59,9 +59,12 @@ export async function explore(ws: Workspace, agentId: string, opts: ExploreOptio
   const project = await ws.project();
   const agent = project.agents.find((a) => a.id === agentId);
   if (!agent) throw new Error(`Agent “${agentId}” is not defined in cartographer.yaml`);
+  if (!agent.role || !agent.entity) throw new Error(`Explore agent “${agentId}” needs both a role and an entity (add them in cartographer.yaml)`);
   const role = project.roles.find((r) => r.id === agent.role)!;
   const iface = project.interfaces.find((i) => i.id === role.interface)!;
   const { entity, revision } = await ws.entity(agent.entity);
+  if (!entity.reader) throw new Error(`Entity “${entity.id}” has no reader yet — add one to its model before exploring it`);
+  const reader = entity.reader;
 
   const scripted = opts.provider === 'scripted' || !project.inference || project.inference.provider === 'scripted';
   const inference = scripted ? { provider: 'scripted' as const, model: 'script', maxSteps: 200, fallbacks: false } : project.inference!;
@@ -127,7 +130,7 @@ export async function explore(ws: Workspace, agentId: string, opts: ExploreOptio
       run: async ({ key: k }) => {
         const target = k ?? key;
         if (!target) throw new Error('No key: call prepare() first');
-        const result = await mcp.call(entity.reader.tool, template(entity.reader.args, { key: target }), 'read');
+        const result = await mcp.call(reader.tool, template(reader.args, { key: target }), 'read');
         const file = `${evidenceDir}/e${evidence.length + 1}.json`;
         await writeFile(ws.path(file), JSON.stringify(result, null, 2));
         const id = addEvidence({ kind: 'probe', summary: `read ${target}: ${JSON.stringify(Object.fromEntries(['status', 'payment', 'variant'].map((f) => [f, getPath(result, f)])))}`, path: file });

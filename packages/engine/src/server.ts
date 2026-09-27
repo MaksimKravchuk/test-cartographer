@@ -9,14 +9,15 @@ import { readFile } from 'node:fs/promises';
 import { dirname, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
-  applyDecisions, buildPlan, conflicts, coverage, Decision, Entity, Project, RevisionConflict, validateEntity, validateProject,
-  type Workspace,
+  applyDecisions, applyProjectDecisions, Backlog, backlogCoverage, buildPlan, conflicts, coverage, Decision, Entity, Project,
+  RevisionConflict, SourceKind, validateBacklog, validateEntity, validateProject, type ProjectState, type Workspace,
 } from '@tc/model';
 import { z } from 'zod';
 import { loadActions } from './actions-loader.ts';
 import { runTests } from './run.ts';
 import { exportMarkdown } from './export.ts';
 import { explore } from './agents/explore.ts';
+import { onboard } from './agents/onboard.ts';
 import { createEntity, createProject, openProject, recentProjects, rememberProject } from './projects.ts';
 
 type Event =
@@ -209,10 +210,78 @@ export function createApp(initial: Workspace) {
     return c.json({ ok: true });
   });
 
+  // Knowledge sources: what onboarding reads. Text only — the workspace keeps
+  // docs, tracker exports, contracts and notes as plain files it can diff.
+  app.get('/api/sources', async (c) => {
+    const list = await ws.sources();
+    const out = await Promise.all(
+      list.map(async (s) => {
+        const text = await ws.sourceText(s.id);
+        return { ...s, lines: text.split('\n').length, size: Buffer.byteLength(text, 'utf8') };
+      }),
+    );
+    return c.json({ sources: out });
+  });
+
+  app.post('/api/sources', async (c) => {
+    const input = z.object({ name: z.string().min(1), content: z.string(), kind: SourceKind.optional(), title: z.string().optional() }).parse(await c.req.json());
+    const source = await ws.addSource(input).catch((e: Error) => {
+      throw new HttpError(400, e.message);
+    });
+    return c.json(source);
+  });
+
+  app.get('/api/sources/:id', async (c) => {
+    const id = c.req.param('id');
+    const source = (await ws.sources()).find((s) => s.id === id);
+    if (!source) return c.notFound();
+    return c.json({ source, text: await ws.sourceText(id) });
+  });
+
+  app.delete('/api/sources/:id', async (c) => {
+    await ws.removeSource(c.req.param('id')).catch((e: Error) => {
+      throw new HttpError(404, e.message);
+    });
+    return c.json({ ok: true });
+  });
+
+  // The backlog: epics/features/stories, and their coverage over the model.
+  app.get('/api/backlog', async (c) => {
+    const project = await ws.project();
+    const catalog = await ws.catalog();
+    const { backlog, revision } = await ws.backlog();
+    const plans: Record<string, ReturnType<typeof buildPlan>> = {};
+    for (const id of await ws.entityIds()) plans[id] = buildPlan((await ws.entity(id)).entity, project, catalog);
+    const results = await ws.latestResults();
+    return c.json({
+      backlog,
+      revision,
+      coverage: backlogCoverage(backlog, project, catalog, plans, results),
+      issues: validateBacklog(backlog, catalog),
+    });
+  });
+
+  app.put('/api/backlog', async (c) => {
+    const { backlog, revision } = z.object({ backlog: Backlog, revision: z.string() }).parse(await c.req.json());
+    return c.json({ revision: await ws.saveBacklog(backlog, revision) });
+  });
+
   app.get('/api/proposals', async (c) => {
     const list = await ws.proposals();
+    const project = await ws.project();
+    const { backlog, revision: backlogRevision } = await ws.backlog();
+    const entityIds = await ws.entityIds();
+    const state: ProjectState = { project, backlog, entityIds };
     const out = [];
     for (const p of list) {
+      if (!p.entity) {
+        out.push({ ...p, stale: p.baseRevision !== backlogRevision, conflicts: p.status === 'pending' ? conflicts(state, p) : [] });
+        continue;
+      }
+      if (!entityIds.includes(p.entity)) {
+        out.push({ ...p, stale: false, conflicts: p.status === 'pending' ? conflicts(undefined, p) : [] });
+        continue;
+      }
       const { entity, revision } = await ws.entity(p.entity);
       out.push({ ...p, stale: p.baseRevision !== revision, conflicts: p.status === 'pending' ? conflicts(entity, p) : [] });
     }
@@ -223,6 +292,33 @@ export function createApp(initial: Workspace) {
     const { decisions } = z.object({ decisions: z.array(Decision) }).parse(await c.req.json());
     const proposal = await ws.proposal(c.req.param('id'));
     if (proposal.status !== 'pending') throw new HttpError(409, 'The proposal has already been decided');
+
+    if (!proposal.entity) {
+      const project = await ws.project();
+      const { backlog, revision: backlogRevision } = await ws.backlog();
+      const entityIds = await ws.entityIds();
+      const { project: nextProject, backlog: nextBacklog, created } = applyProjectDecisions({ project, backlog, entityIds }, proposal, decisions);
+      // Most project-level proposals only touch the backlog or add entities —
+      // don't rewrite cartographer.yaml (and disturb its comments/mtime) unless
+      // an applied op actually changed roles or interfaces.
+      if (JSON.stringify(nextProject) !== JSON.stringify(project)) await ws.saveProject(nextProject);
+      await ws.saveBacklog(nextBacklog, backlogRevision || undefined);
+      for (const e of created) await ws.saveEntity(e);
+      // applyProjectDecisions only validates an accepted `entity` update (it
+      // doesn't have the entity file) — merge its fields into that file here.
+      for (const d of decisions) {
+        const op = proposal.ops[d.op];
+        if (op?.kind === 'entity' && op.op === 'update' && d.verdict === 'accept') {
+          const { entity, revision } = await ws.entity(op.id);
+          await ws.saveEntity(Entity.parse({ ...entity, ...op.set }), revision);
+        }
+      }
+      await ws.saveProposal({ ...proposal, status: 'decided', decisions, decidedAt: new Date().toISOString() });
+      return c.json({ project: nextProject, backlog: nextBacklog, created: created.map((e) => e.id) });
+    }
+
+    if (!(await ws.entityIds()).includes(proposal.entity))
+      throw new HttpError(409, `Entity “${proposal.entity}” doesn't exist yet — accept it in the project proposal first`);
     const { entity, revision } = await ws.entity(proposal.entity);
     const next = applyDecisions(entity, proposal, decisions);
     await ws.saveEntity(next, revision);
@@ -247,6 +343,36 @@ export function createApp(initial: Workspace) {
     const job = startJob(`explore:${agent}`, async (log, signal) => {
       const p = await explore(ws, agent, { onLog: log, provider, signal });
       return { proposal: p.id, ops: p.ops.length, findings: p.findings.length };
+    });
+    return c.json({ job });
+  });
+
+  // Dispatches by the agent's own kind — explore keeps the alias above for callers who already know it's an explorer.
+  app.post('/api/agents/:id/run', async (c) => {
+    const { provider } = z.object({ provider: z.enum(['live', 'scripted']).default('live') }).parse(await c.req.json().catch(() => ({})));
+    const id = c.req.param('id');
+    const agent = (await ws.project()).agents.find((a) => a.id === id);
+    if (!agent) throw new HttpError(404, `Agent “${id}” is not defined in cartographer.yaml`);
+    if (agent.kind === 'onboard') {
+      const job = startJob(`onboard:${id}`, async (log, signal) => {
+        const proposals = await onboard(ws, id, { onLog: log, provider, signal });
+        return { proposals: proposals.map((p) => p.id), ops: proposals.reduce((n, p) => n + p.ops.length, 0), findings: proposals.reduce((n, p) => n + p.findings.length, 0) };
+      });
+      return c.json({ job });
+    }
+    const job = startJob(`explore:${id}`, async (log, signal) => {
+      const p = await explore(ws, id, { onLog: log, provider, signal });
+      return { proposal: p.id, ops: p.ops.length, findings: p.findings.length };
+    });
+    return c.json({ job });
+  });
+
+  // The configured onboarding agent (or the built-in default, if none is set up yet).
+  app.post('/api/onboarding/run', async (c) => {
+    const { provider } = z.object({ provider: z.enum(['live', 'scripted']).default('live') }).parse(await c.req.json().catch(() => ({})));
+    const job = startJob('onboard', async (log, signal) => {
+      const proposals = await onboard(ws, undefined, { onLog: log, provider, signal });
+      return { proposals: proposals.map((p) => p.id), ops: proposals.reduce((n, p) => n + p.ops.length, 0), findings: proposals.reduce((n, p) => n + p.findings.length, 0) };
     });
     return c.json({ job });
   });

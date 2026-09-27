@@ -4,5 +4,6 @@ export * from './plan.ts';
 export * from './validate.ts';
 export * from './proposals.ts';
 export * from './coverage.ts';
+export * from './backlog.ts';
 export * from './markdown.ts';
 export * from './workspace.ts';

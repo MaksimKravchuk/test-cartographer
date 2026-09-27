@@ -1,0 +1,11 @@
+sources:
+  - id: product-overview
+    title: Demo Shop — Product Overview
+    kind: doc
+    file: product-overview.md
+    addedAt: 2026-09-27T18:50:00.000Z
+  - id: backlog
+    title: Demo Shop — Jira export
+    kind: backlog
+    file: backlog.csv
+    addedAt: 2026-09-27T18:51:00.000Z

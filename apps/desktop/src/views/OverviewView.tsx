@@ -6,13 +6,14 @@ type Props = {
   project: ProjectState;
   entities: EntitySummary[];
   onOpen(id: string): void;
+  onOpenOnboarding(): void;
   onCreated(id: string): void;
   onDeleted(): void;
   onError(m: string): void;
 };
 
 // The project's entity catalog: what the model covers and how its tests stand.
-export function OverviewView({ project, entities, onOpen, onCreated, onDeleted, onError }: Props) {
+export function OverviewView({ project, entities, onOpen, onOpenOnboarding, onCreated, onDeleted, onError }: Props) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [busy, setBusy] = useState(false);
@@ -55,6 +56,14 @@ export function OverviewView({ project, entities, onOpen, onCreated, onDeleted, 
         {entities.length} {entities.length === 1 ? 'entity' : 'entities'}, {all.scenarios} scenarios: {all.passed} passed
         {all.failed > 0 && <>, <span style={{ color: 'var(--fail)' }}>{all.failed} failed</span></>}.
       </p>
+
+      {entities.length === 0 && (
+        <div className="finding" style={{ maxWidth: '72ch' }}>
+          <b>Nothing here yet.</b> Upload what you know about the system — docs, a tracker export, contracts — and let an
+          agent propose the first map.{' '}
+          <button className="btn small primary" onClick={onOpenOnboarding}>Go to Onboarding</button>
+        </div>
+      )}
 
       <div className="catalog">
         {entities.map((e) => {

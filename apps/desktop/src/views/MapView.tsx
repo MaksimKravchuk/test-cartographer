@@ -289,7 +289,7 @@ function Map(props: Props) {
     const id = nextId(`${c.source}-to-${c.target}`, entity.transitions.map((t) => t.id));
     const t: Transition = {
       id, title: 'New transition', from: c.source, to: c.target, by: [project.project.roles[0].id],
-      action: entity.actions[0]?.id ?? '', guards: [], effects: [], status: 'confirmed', provenance: { source: 'human', evidence: [] },
+      action: entity.actions[0]?.id ?? '', guards: [], effects: [], status: 'confirmed', provenance: { source: 'human', evidence: [], sources: [] },
     };
     props.onChange({ ...entity, transitions: [...entity.transitions, t] });
     props.onSelect({ kind: 'transition', id });
@@ -299,7 +299,7 @@ function Map(props: Props) {
     const id = nextId('state', entity.states.map((s) => s.id));
     props.onChange({
       ...entity,
-      states: [...entity.states, { id, title: 'New state', match: { status: id }, setup: [], status: 'confirmed', provenance: { source: 'human', evidence: [] } }],
+      states: [...entity.states, { id, title: 'New state', match: { status: id }, setup: [], status: 'confirmed', provenance: { source: 'human', evidence: [], sources: [] } }],
     });
     props.onSelect({ kind: 'state', id });
   };

@@ -153,7 +153,7 @@ export function ScenariosView({ entity, state, project, running, onChange, onRun
     const id = nextId('journey', entity.scenarios.map((j) => j.id));
     const initial = entity.transitions.some((t) => t.from === NEW) ? NEW : (entity.states.find((s) => s.initial)?.id ?? entity.states[0]?.id ?? NEW);
     const first = entity.transitions.find((t) => t.from === initial);
-    setList('scenarios', [...entity.scenarios, { id, title: 'New journey', start: initial, path: first ? [first.id] : [], tags: [], status: 'confirmed', provenance: { source: 'human', evidence: [] } } as Journey]);
+    setList('scenarios', [...entity.scenarios, { id, title: 'New journey', start: initial, path: first ? [first.id] : [], tags: [], status: 'confirmed', provenance: { source: 'human', evidence: [], sources: [] } } as Journey]);
     setEditing({ kind: 'journey', id });
   };
 
@@ -161,7 +161,7 @@ export function ScenariosView({ entity, state, project, running, onChange, onRun
     const id = nextId('rule', entity.rules.map((r) => r.id));
     const t = entity.transitions[0];
     if (!t) return;
-    setList('rules', [...entity.rules, { id, title: 'New rule', text: '', transition: t.id, requires: [{ kind: 'authenticated' }], status: 'confirmed', provenance: { source: 'human', evidence: [] } }]);
+    setList('rules', [...entity.rules, { id, title: 'New rule', text: '', transition: t.id, requires: [{ kind: 'authenticated' }], status: 'confirmed', provenance: { source: 'human', evidence: [], sources: [] } }]);
     setEditing({ kind: 'rule', id });
   };
 

@@ -1,4 +1,4 @@
-import type { Coverage, Decision, Entity, Issue, Plan, Project, Proposal, ScenarioResult } from '@tc/model';
+import type { Backlog, BacklogCoverage, Coverage, Decision, Entity, Issue, Plan, Project, Proposal, ScenarioResult, Source, SourceKind } from '@tc/model';
 
 export type EntityState = {
   entity: Entity;
@@ -34,6 +34,18 @@ export type EntitySummary = {
 export type Projects = { current: string; recent: { root: string; name: string; openedAt: string }[] };
 
 export type ProposalState = Proposal & { stale: boolean; conflicts: { op: number; message: string }[] };
+
+export type SourceInfo = Source & { lines: number; size: number };
+
+export type BacklogState = { backlog: Backlog; revision: string; coverage: BacklogCoverage; issues: Issue[] };
+
+// A project-level proposal (no `entity`) decides against the project and the
+// backlog instead of one entity's model — `created` names any entity ids the
+// decision created. An entity-level proposal's decide instead returns the
+// updated EntityState (see api.decide below).
+export type ProjectDecideResult = { project: Project; backlog: Backlog; created: string[] };
+
+export type Job = { id: string; kind: string; state: 'running' | 'done' | 'failed'; error?: string };
 
 export type EngineEvent =
   | { type: 'log'; job: string; line: string }
@@ -77,13 +89,23 @@ export const api = {
     call(`/api/entities/${id}/layout`, { method: 'PUT', body: JSON.stringify(layout) }),
   proposals: () => call<ProposalState[]>('/api/proposals'),
   decide: (id: string, decisions: Decision[]) =>
-    call<EntityState>(`/api/proposals/${id}/decide`, { method: 'POST', body: JSON.stringify({ decisions }) }),
+    call<EntityState | ProjectDecideResult>(`/api/proposals/${id}/decide`, { method: 'POST', body: JSON.stringify({ decisions }) }),
   run: (filter: { ids?: string[]; entity?: string } = {}) =>
     call<{ job: string }>('/api/runs', { method: 'POST', body: JSON.stringify(filter) }),
   explore: (agent: string, provider: 'live' | 'scripted') =>
     call<{ job: string }>(`/api/agents/${agent}/explore`, { method: 'POST', body: JSON.stringify({ provider }) }),
   cancel: (job: string) => call(`/api/jobs/${job}/cancel`, { method: 'POST' }),
   exportMarkdown: () => call<{ files: { path: string; content: string }[] }>('/api/export/markdown', { method: 'POST' }),
+  sources: () => call<{ sources: SourceInfo[] }>('/api/sources'),
+  addSource: (input: { name: string; content: string; kind?: SourceKind; title?: string }) =>
+    call<Source>('/api/sources', { method: 'POST', body: JSON.stringify(input) }),
+  sourceText: (id: string) => call<{ source: Source; text: string }>(`/api/sources/${id}`),
+  removeSource: (id: string) => call<{ ok: true }>(`/api/sources/${id}`, { method: 'DELETE' }),
+  backlog: () => call<BacklogState>('/api/backlog'),
+  saveBacklog: (backlog: Backlog, revision: string) =>
+    call<{ revision: string }>('/api/backlog', { method: 'PUT', body: JSON.stringify({ backlog, revision }) }),
+  runOnboarding: (provider: 'live' | 'scripted') =>
+    call<{ job: string }>('/api/onboarding/run', { method: 'POST', body: JSON.stringify({ provider }) }),
 };
 
 export const fileUrl = (path: string) => `/api/files/${path.split('/').map(encodeURIComponent).join('/')}`;

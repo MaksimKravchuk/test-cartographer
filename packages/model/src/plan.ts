@@ -29,6 +29,10 @@ const tag = (phase: Phase) => (s: Step) => ({ ...s, phase });
 
 const roleTitle = (project: Project | undefined, id: string) => project?.roles.find((r) => r.id === id)?.title ?? id;
 
+// Without a reader, no state can be verified after setup or an act — every
+// scenario of the entity is blocked, not just the ones that would use it directly.
+export const NO_READER = 'No reader: add entity.reader so states can be verified';
+
 // Why a state can't be reached: its own setup, or a related instance that can't be prepared.
 function unreachable(entity: Entity, state: string, variant: string): string {
   const missing = entity.relations.filter((r) => r.requires).map((r) => r.entity);
@@ -68,6 +72,7 @@ function transitionScenario(entity: Entity, variant: string, t: Transition, role
     rules: [] as string[],
     provenance: t.provenance ?? null,
   };
+  if (!entity.reader) return { ...base, preparation: null, steps: [], blocked: NO_READER };
   const action = entity.actions.find((a) => a.id === t.action);
   if (!action) return { ...base, preparation: null, steps: [], blocked: `Unknown action “${t.action}”` };
   const reason = bindingReason(action, roleKind(project, role));
@@ -101,6 +106,7 @@ function permitScenario(entity: Entity, variant: string, p: Permit, role: string
     rules: [] as string[],
     provenance: p.provenance ?? null,
   };
+  if (!entity.reader) return { ...base, preparation: null, steps: [], blocked: NO_READER };
   const action = entity.actions.find((a) => a.id === p.action);
   if (!action) return { ...base, preparation: null, steps: [], blocked: `Unknown action “${p.action}”` };
   const reason = bindingReason(action, roleKind(project, role));
@@ -169,6 +175,7 @@ function denyScenario(entity: Entity, variant: string, cell: AccessCell, project
     rules,
     provenance: null,
   };
+  if (!entity.reader) return { ...base, preparation: null, steps: [], blocked: NO_READER };
   const a = arrange(entity, variant, cell.state, new Set(), ctx);
   if (!a) return { ...base, preparation: null, steps: [], blocked: unreachable(entity, cell.state, variant) };
   const steps: Scenario['steps'] = [
@@ -230,6 +237,7 @@ function entityStateScenarios(
     steps: [],
     blocked: reason,
   });
+  if (!entity.reader) return [blocked('reader', NO_READER)];
   const rel = entity.relations.find((x) => x.id === c.relation);
   const target = rel && ctx.catalog?.[rel.entity];
   if (!rel || !target) return [blocked(c.relation, `Needs the model of the related “${c.relation}”`)];
@@ -306,6 +314,7 @@ function journeyScenario(entity: Entity, variant: string, j: Journey, ctx: Arran
     provenance: j.provenance ?? null,
   };
   const blocked = (reason: string): Scenario => ({ ...base, preparation: null, steps: [], blocked: reason });
+  if (!entity.reader) return blocked(NO_READER);
 
   const active = activeTransitions(entity, variant);
   let cur = j.start;

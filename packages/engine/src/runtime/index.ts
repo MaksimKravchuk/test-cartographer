@@ -11,12 +11,16 @@ export type Suite = {
   title: string;
   source: string;
   revision: string;
-  entity: { id: string; key: string; reader: ToolCall };
+  // reader is optional: an onboarding agent may propose an entity before anyone
+  // knows how to read it back — its scenarios plan as blocked (see plan.ts).
+  entity: { id: string; key: string; reader?: ToolCall };
   // How to read every entity of the project (related instances use their own reader),
   // and where this entity keeps the key of each related instance.
-  readers: Record<string, ToolCall>;
+  readers: Record<string, ToolCall | undefined>;
   relations: Record<string, { entity: string; field: string }>;
-  scenarios: Scenario[];
+  // Story id → tracker key (or the id itself, if it has none) — for @story: tags.
+  storyKeys: Record<string, string>;
+  scenarios: (Scenario & { trace: { epics: string[]; features: string[]; stories: string[] } })[];
 };
 
 type Worker = { root: string; project: Project; mcp: McpPool };
@@ -61,7 +65,7 @@ function stepTitle(s: Step): string {
 type Instance = {
   entity: string;
   variant: string;
-  reader: ToolCall;
+  reader?: ToolCall;
   relations: Record<string, { entity: string; field: string }>;
   key?: string;
   snapshot: Record<string, unknown>;
@@ -254,10 +258,19 @@ export function defineSuite(suite: Suite, actions: Actions) {
   test.describe(suite.title, () => {
     for (const sc of suite.scenarios) {
       const details = {
-        tag: [`@${sc.kind}`, `@variant:${sc.variant}`, `@role:${sc.role || 'none'}`, `@id:${sc.id}`, ...sc.rules.map((r) => `@rule:${r}`)],
+        tag: [
+          `@${sc.kind}`, `@variant:${sc.variant}`, `@role:${sc.role || 'none'}`, `@id:${sc.id}`,
+          ...sc.rules.map((r) => `@rule:${r}`),
+          ...sc.trace.epics.map((id) => `@epic:${id}`),
+          ...sc.trace.features.map((id) => `@feature:${id}`),
+          ...sc.trace.stories.map((id) => `@story:${suite.storyKeys[id] ?? id}`),
+        ],
         annotation: [
           { type: 'tc-scenario', description: sc.id },
           { type: 'tc-source', description: `${suite.source}@${suite.revision}` },
+          ...sc.trace.epics.map((id) => ({ type: 'epic', description: id })),
+          ...sc.trace.features.map((id) => ({ type: 'feature', description: id })),
+          ...sc.trace.stories.map((id) => ({ type: 'story', description: suite.storyKeys[id] ?? id })),
         ],
       };
       test(`${sc.title} [${sc.variant}]`, details, async ({ tc, browser }, info) => {

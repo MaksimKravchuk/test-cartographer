@@ -1,5 +1,6 @@
 import { NEW, type Entity, type Project } from './schema.ts';
 import { arrange, isActive, type Catalog } from './reach.ts';
+import { NO_READER } from './plan.ts';
 
 export type Issue = { level: 'error' | 'warning'; path: string; message: string };
 
@@ -30,6 +31,14 @@ export function validateProject(project: Project, actions?: Set<string>): Issue[
   for (const r of project.roles)
     if (r.login && actions && !actions.has(r.login.action))
       issues.push({ level: 'warning', path: `roles.${r.id}`, message: `Login action “${r.login.action}” is not implemented in the actions/ library` });
+  for (const a of project.agents) {
+    const p = `agents.${a.id}`;
+    // An onboard agent isn't tied to one role or entity — it reads sources and proposes the whole map.
+    if (a.kind === 'explore') {
+      if (!a.role) issues.push({ level: 'error', path: p, message: 'An explore agent needs a role' });
+      if (!a.entity) issues.push({ level: 'error', path: p, message: 'An explore agent needs an entity' });
+    }
+  }
   return issues;
 }
 
@@ -58,7 +67,8 @@ export function validateEntity(entity: Entity, project: Project, actions?: Set<s
   ] as const)
     for (const d of duplicates(list.map((x) => x.id))) err(`${kind}.${d}`, 'Duplicate id');
 
-  if (!toolAllowed(project, entity.reader.tool, 'read'))
+  if (!entity.reader) warn('reader', NO_READER);
+  else if (!toolAllowed(project, entity.reader.tool, 'read'))
     err('reader', `Read tool “${entity.reader.tool}” is not allowed in cartographer.yaml (mcp.*.allow.read)`);
 
   const checkVariants = (path: string, vs?: string[]) => {

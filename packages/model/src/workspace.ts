@@ -1,14 +1,17 @@
 import { createHash } from 'node:crypto';
-import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
-import { join } from 'node:path';
+import { basename, extname, join } from 'node:path';
 import YAML from 'yaml';
-import { Entity, Project, Proposal, RunReport, type ScenarioResult } from './schema.ts';
+import { Backlog, Entity, Project, Proposal, RunReport, Source, SourceRegistry, type ScenarioResult, type SourceKind } from './schema.ts';
 
 // A workspace is a plain folder that is easy to keep in git:
 //   cartographer.yaml     project: interfaces, roles, MCP, inference, agents
 //   entities/*.yaml       entity models
 //   entities/*.layout.json  graph node positions (separate, to keep diffs quiet)
+//   sources.yaml          registry of uploaded knowledge sources (onboarding)
+//   sources/*             the source files themselves — docs, tracker exports, contracts, notes
+//   backlog.yaml          epics/features/stories: a view over the model, not a second one
 //   proposals/*.yaml      agent proposals and the decisions on them
 //   actions/*.ts          action library for Playwright
 //   evidence/             screenshots and snapshots collected by agents
@@ -64,7 +67,6 @@ export class Workspace {
 
   // Removing an entity moves its files to entities/.trash, so nothing is lost by a misclick.
   async trashEntity(id: string): Promise<void> {
-    const { rename } = await import('node:fs/promises');
     const stamp = new Date().toISOString().replace(/[:.]/g, '-');
     await mkdir(this.path('entities', '.trash'), { recursive: true });
     await rename(this.path('entities', `${id}.yaml`), this.path('entities', '.trash', `${id}-${stamp}.yaml`));
@@ -72,8 +74,95 @@ export class Workspace {
       await rename(this.path('entities', `${id}.layout.json`), this.path('entities', '.trash', `${id}-${stamp}.layout.json`));
   }
 
+  // Rewrites only the top-level keys whose value actually changed, through the
+  // `yaml` package's Document API — so comments and formatting on every other
+  // key (roles, mcp, agents…) survive a save that, say, only touches `interfaces`.
+  // A file that doesn't exist yet gets a fresh dump; there are no comments to lose.
   async saveProject(project: Project): Promise<void> {
-    await writeFile(this.path('cartographer.yaml'), toYaml(Project.parse(project)));
+    const next = Project.parse(project);
+    const file = this.path('cartographer.yaml');
+    const text = await readFile(file, 'utf8').catch(() => null);
+    if (text === null) {
+      await writeFile(file, toYaml(next));
+      return;
+    }
+    const doc = YAML.parseDocument(text);
+    const current = Project.parse(doc.toJS() ?? {});
+    for (const key of Object.keys(next) as (keyof Project)[])
+      if (JSON.stringify(current[key]) !== JSON.stringify(next[key])) doc.set(key, prune(next[key]));
+    await writeFile(file, String(doc));
+  }
+
+  // ── Knowledge sources ─────────────────────────────────────────────────
+  async sources(): Promise<Source[]> {
+    const text = await readFile(this.path('sources.yaml'), 'utf8').catch(() => null);
+    return text === null ? [] : SourceRegistry.parse(YAML.parse(text)).sources;
+  }
+
+  async sourceText(id: string): Promise<string> {
+    const source = (await this.sources()).find((s) => s.id === id);
+    if (!source) throw new Error(`Unknown source “${id}”`);
+    return readFile(this.path('sources', source.file), 'utf8');
+  }
+
+  async saveSources(sources: Source[]): Promise<void> {
+    await mkdir(this.path('sources'), { recursive: true });
+    await writeFile(this.path('sources.yaml'), toYaml(SourceRegistry.parse({ sources })));
+  }
+
+  // id = a kebab slug of the file name, made unique; file keeps the name's own
+  // extension (.md if it has none). Text only — a tester uploads docs and
+  // tracker exports, not binaries.
+  async addSource(input: { name: string; content: string; kind?: SourceKind; title?: string }): Promise<Source> {
+    if (input.content.includes('\0')) throw new Error(`“${input.name}” looks like a binary file — only text sources are supported`);
+    if (Buffer.byteLength(input.content, 'utf8') > 2 * 1024 * 1024) throw new Error(`“${input.name}” is larger than 2 MB`);
+
+    const existing = await this.sources();
+    const ext = extname(input.name) || '.md';
+    const slug = slugify(basename(input.name, extname(input.name)));
+    let id = slug;
+    for (let n = 2; existing.some((s) => s.id === id); n++) id = `${slug}-${n}`;
+
+    const source = Source.parse({
+      id,
+      title: input.title ?? input.name,
+      kind: input.kind ?? 'doc',
+      file: `${id}${ext}`,
+      addedAt: new Date().toISOString(),
+    });
+    await mkdir(this.path('sources'), { recursive: true });
+    await writeFile(this.path('sources', source.file), input.content);
+    await this.saveSources([...existing, source]);
+    return source;
+  }
+
+  // Removing a source moves its file to sources/.trash, like trashEntity above.
+  async removeSource(id: string): Promise<void> {
+    const list = await this.sources();
+    const source = list.find((s) => s.id === id);
+    if (!source) throw new Error(`Unknown source “${id}”`);
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+    await mkdir(this.path('sources', '.trash'), { recursive: true });
+    await rename(this.path('sources', source.file), this.path('sources', '.trash', `${id}-${stamp}${extname(source.file)}`));
+    await this.saveSources(list.filter((s) => s.id !== id));
+  }
+
+  // ── Backlog ───────────────────────────────────────────────────────────
+  async backlog(): Promise<{ backlog: Backlog; revision: string }> {
+    const text = await readFile(this.path('backlog.yaml'), 'utf8').catch(() => null);
+    return text === null ? { backlog: Backlog.parse({}), revision: '' } : { backlog: Backlog.parse(YAML.parse(text)), revision: revision(text) };
+  }
+
+  // Same revision check as saveEntity: a revision only matters once a backlog.yaml exists.
+  async saveBacklog(backlog: Backlog, expectedRevision?: string): Promise<string> {
+    const file = this.path('backlog.yaml');
+    if (expectedRevision && existsSync(file)) {
+      const current = revision(await readFile(file, 'utf8'));
+      if (current !== expectedRevision) throw new RevisionConflict(`Backlog has changed (revision ${current}, expected ${expectedRevision})`);
+    }
+    const text = toYaml(Backlog.parse(backlog));
+    await writeFile(file, text);
+    return revision(text);
   }
 
   async layout(id: string): Promise<Record<string, { x: number; y: number }>> {
@@ -127,6 +216,14 @@ export class RevisionConflict extends Error {}
 
 export function revision(text: string): string {
   return createHash('sha256').update(text).digest('hex').slice(0, 12);
+}
+
+// A source id, kebab-cased from a file name: lowercase, non-Latin runs become
+// a single "-", and a slug that would start with a digit gets an "s-" prefix
+// so it still matches the model's id pattern.
+function slugify(name: string): string {
+  const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'source';
+  return /^[a-z]/.test(slug) ? slug : `s-${slug}`;
 }
 
 // Empty optional fields are not written — the file stays readable and diffs stay clean.

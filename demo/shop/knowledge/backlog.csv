@@ -1,0 +1,54 @@
+Issue key,Issue Type,Summary,Parent,Status,Description,Acceptance Criteria
+SHOP-1,Epic,Checkout,,Done,"Placing, paying for, and cancelling an order — the buyer side of a purchase from a published listing.",
+SHOP-2,Epic,Seller catalog,,Done,"Everything a seller does to create, publish, and retire their own listings.",
+SHOP-3,Epic,Fulfilment,,In Progress,"Getting a paid order from acceptance through to the buyer having it in hand, including pre-orders.",
+SHOP-4,Epic,Reviews,,Done,"Buyers rating and commenting on what they bought, and sellers responding.",
+SHOP-10,Feature,Buy from catalog,SHOP-1,Done,A signed-in buyer places and pays for an order from a single published listing.,
+SHOP-11,Feature,Cancel and refund,SHOP-1,Done,"Cancelling an order before or after payment, with a refund whenever payment was captured.",
+SHOP-20,Feature,Manage listings,SHOP-2,Done,"Creating, publishing, marking out of stock, and restocking a listing.",
+SHOP-21,Feature,Archive listings,SHOP-2,Done,"Retiring a listing for good, from whichever state it happens to be in.",
+SHOP-30,Feature,Accept and reject orders,SHOP-3,Done,The seller's first decision on a paid order: accept it or reject it with a refund.,
+SHOP-31,Feature,Ship and deliver,SHOP-3,Done,"Getting an accepted standard order to the buyer, and issuing a digital key immediately after payment.",
+SHOP-32,Feature,Pre-order fulfilment,SHOP-3,To Do,Accepting an order before its item is back in stock and moving it forward once stock arrives.,
+SHOP-40,Feature,Buyer reviews,SHOP-4,Done,"A buyer rating and commenting on a delivered purchase, and the seller responding.",
+SHOP-101,Story,Buyer places a standard order from a published listing,SHOP-10,Done,"As a buyer, I want to buy a published physical listing so that I can receive the item.","- Buying a published listing with stock creates a new order in Created status.
+- The order is created for exactly one listing; nothing is added to a cart.
+- A guest attempting to buy is sent to sign in first."
+SHOP-102,Story,Buyer pays for an order,SHOP-10,Done,"As a buyer, I want to pay for my order so that the seller can fulfil it.","- Paying a Created order captures payment and moves it to Paid.
+- Paying a standard or pre-order reserves one unit of the related listing's stock.
+- An order that sells the last unit of a listing takes that listing out of stock."
+SHOP-111,Story,Buyer cancels an order before paying,SHOP-11,Done,"As a buyer, I want to cancel an order I haven't paid for so that I'm not stuck with something I no longer want.","- Cancelling a Created order moves it to Cancelled.
+- No payment was ever captured, so there is nothing to refund."
+SHOP-112,Story,Buyer cannot cancel an order once it's paid,SHOP-11,Done,"As a buyer, once I've paid for an order, cancelling is the seller's call — I can ask them to reject it, but I can't cancel it myself.","- A Paid, Accepted, or Awaiting stock order has no cancel option for the buyer.
+- Only the seller can move a paid order to Cancelled, by rejecting it."
+SHOP-201,Story,Seller creates and publishes a listing,SHOP-20,Done,"As a seller, I want to create a listing and publish it so that buyers can find and buy it.","- A new listing starts in Draft and is not shown in the buyer catalog.
+- Publishing a physical listing requires stock greater than zero.
+- Once published, the listing appears in the buyer's catalog."
+SHOP-202,Story,Seller marks a listing out of stock,SHOP-20,Done,"As a seller, I want to mark a listing out of stock so buyers don't try to buy something I can't fulfil.","- Marking a published physical listing out of stock sets its stock to zero.
+- An out-of-stock listing does not appear as buyable in the catalog.
+- Selling the last unit of a listing does the same thing automatically."
+SHOP-203,Story,Seller restocks a listing,SHOP-20,Done,"As a seller, I want to restock a listing that ran out so it becomes buyable again.",- Restocking an out-of-stock physical listing returns it to Published with stock available.
+SHOP-211,Story,Seller archives a draft or published listing,SHOP-21,Done,"As a seller, I want to archive a listing I'm no longer selling, whether or not it was ever published.","- Archiving a draft listing moves it straight to Archived.
+- Archiving a published listing moves it to Archived and it disappears from the catalog.
+- An archived listing cannot be published, restocked, or unarchived."
+SHOP-212,Story,Seller archives an out-of-stock listing,SHOP-21,Done,"As a seller, I want to archive a listing that's out of stock without first restocking or unpublishing it, since I have no intention of selling it again.","- An out-of-stock listing can be archived directly.
+- Archiving works the same regardless of which state the listing was in."
+SHOP-301,Story,Seller accepts a paid standard order,SHOP-30,Done,"As a seller, I want to accept a paid order so I can start getting it ready to ship.",- Accepting a Paid standard order moves it to Accepted by seller.
+SHOP-302,Story,Seller rejects a paid order,SHOP-30,Done,"As a seller, I want to reject a paid order I can't fulfil so the buyer gets their money back.","- Rejecting a Paid order moves it to Cancelled.
+- The buyer's payment is refunded in full."
+SHOP-311,Story,Seller ships an accepted order,SHOP-31,Done,"As a seller, I want to mark an accepted order as shipped once it's on its way.",- Shipping an Accepted standard order moves it to Shipped.
+SHOP-312,Story,Buyer confirms receipt of a shipped order,SHOP-31,Done,"As a buyer, I want to confirm I've received my order so it's marked complete.","- Confirming a Shipped order moves it to Delivered.
+- A delivered order can now be reviewed."
+SHOP-313,Story,Seller issues a digital key immediately after payment,SHOP-31,Done,"As a seller, I want a digital order to skip shipping entirely, since there's nothing physical to send.","- Paying for a digital order does not require the seller to accept or ship it.
+- The seller issues the key and the order moves straight from Paid to Delivered."
+SHOP-321,Story,Seller accepts a pre-order awaiting stock,SHOP-32,To Do,"As a seller, I want to accept a pre-order before I have stock, so the buyer knows I'm committed to fulfilling it once it arrives.","- Accepting a paid pre-order moves it to Awaiting stock rather than Accepted.
+- The buyer can still see and cancel the order while it waits."
+SHOP-322,Story,Seller marks stock arrived for a pre-order,SHOP-32,To Do,"As a seller, I want to move a pre-order forward once stock is in, the same as any standard order from there.","- Marking stock arrived on an Awaiting stock pre-order moves it to Accepted by seller.
+- From there the order ships and is delivered like a standard order."
+SHOP-401,Story,Buyer leaves a review after delivery,SHOP-40,Done,"As a buyer, I want to rate and comment on something I bought once it's arrived, so other buyers can see how it went.","- A review can only be left on a delivered order's listing.
+- A review includes a star rating from one to five and a short comment.
+- The review appears on the listing page."
+SHOP-402,Story,Buyer edits or removes their own review,SHOP-40,Done,"As a buyer, I want to change my mind about a review I left, or take it down.","- The buyer can edit their own review's rating or comment at any time.
+- The buyer can remove their own review; any seller response goes with it."
+SHOP-403,Story,Seller responds to a review,SHOP-40,Done,"As a seller, I want to publicly respond to a review so I can thank a happy customer or address a complaint.","- The seller can post one public response to each review.
+- The seller cannot edit or remove the buyer's review itself."

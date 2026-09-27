@@ -25,12 +25,15 @@ Engine CLI — `pnpm tc <command>`:
 | `coverage` | transition × variant matrix from the latest results |
 | `export md` | scenarios to `workspace/export/*.md` |
 | `explore <agent> [--scripted]` | an agent explores its role's interface and writes a proposal |
+| `onboard [agent] [--scripted]` | the onboarding agent reads the knowledge sources and proposes roles, entities, the model, and the backlog |
+| `backlog` | epics → features → stories, with totals and unmapped stories |
 
 ## Projects, entities, scenarios
 
 The app is organized as **project → entities → scenarios**.
 
 - **Project** — a workspace folder with `cartographer.yaml`. The app remembers recent projects (`~/.test-cartographer/projects.json`), opens existing ones and creates new ones from a template with a guest and a signed-in role. A project anywhere on disk gets a link to the engine in its own `node_modules`, so its generated tests and action library resolve `@tc/engine`.
+- **Knowledge sources and the backlog** — a project can also hold what a person uploaded about the system (`sources.yaml` + `sources/`) and a backlog of epics, features and stories (`backlog.yaml`) — a view over the model, not a second one. See Onboarding and Backlog below.
 - **Entities** — one file each in `entities/`: an order, a quota, a user account. The Overview shows the catalog with the size of each model and how its tests stand. Removing an entity moves its files to `entities/.trash`.
 - **Scenarios** of an entity come in four kinds:
   - **generated** from the model: one per confirmed transition and one per permit, for each role that may perform it and each variant;
@@ -55,7 +58,7 @@ apps/desktop      GUI: map (React Flow), inspector, proposals, coverage; Electro
 packages/engine   engine: local API, MCP clients, test compiler and runner, agents
 packages/model    model schema, reachability, plan, coverage, proposals, Markdown — no browser I/O
 demo/shop         demo shop (buyer storefront + Marketplace) and its MCP server
-workspace         example workspace — a plain folder that works well in git
+workspace         example workspace — a plain folder that works well in git (entities/, sources.yaml + sources/, backlog.yaml)
 ```
 
 The GUI stores nothing on its own: workspace files are the source of truth. The engine watches them and tells the GUI when they change.
@@ -79,7 +82,7 @@ The GUI stores nothing on its own: workspace files are the source of truth. The 
 
 **Closed world.** For human roles, anything not allowed by a confirmed transition or permit is denied. The engine derives the full negative matrix — role × action × state — and plans one deny scenario per denied cell; a cell only an unconfirmed element allows is left undecided instead.
 
-**State probe.** `entity.reader` describes how to read an instance's actual state through an allowed MCP tool; `state.match` lists the fields that must match. The probe runs after every data setup and after every transition.
+**State probe.** `entity.reader` describes how to read an instance's actual state through an allowed MCP tool; `state.match` lists the fields that must match. The probe runs after every data setup and after every transition. `reader` is optional: an onboarding agent may propose an entity nobody can read back yet. Without one, every scenario of the entity plans as `blocked` (“No reader: add entity.reader so states can be verified”), and validation warns.
 
 **Setup.** A state is reached in one of three ways:
 1. `setup: tool` — through a setup tool;
@@ -87,6 +90,23 @@ The GUI stores nothing on its own: workspace files are the source of truth. The 
 3. no recipe — the engine finds the shortest path through confirmed transitions from a state a setup tool can prepare.
 
 **Allowlist.** The engine only calls tools listed in `cartographer.yaml → mcp.*.allow`, and setup, read, and trigger calls are each kept to their own list.
+
+### Backlog: epics, features, stories
+
+`workspace/backlog.yaml` holds epics, features and stories — a view over the model, not a second one: everything about *behavior* still lives in the entities. An absent file is an empty backlog.
+
+- **Feature** — a slice of the model by action: `feature.actions` lists `<entity>.<action>` refs, cross-entity. `cancel-and-refund` (epic `checkout`) has `actions: [order.cancel]`; `manage-listings` spans four listing actions.
+- **Story** — `story.covers` cites the exact elements it specifies, as `<kind>:<entity>.<id>`:
+  - `action:order.cancel` — every scenario that exercises that action, whatever kind it is;
+  - `transition:listing.archive-out-of-stock` — that transition's own scenario, rule scenarios tied to it, and journeys that walk through it;
+  - `permit:review.edit-review` — that permit's scenario;
+  - `rule:<entity>.<id>` — that rule's own scenario and any scenario whose `rules` include it;
+  - `journey:<entity>.<id>` — that journey's scenario.
+
+  A story with no `covers` ref that resolves is **unmapped** — a requirement not in the model yet; `tc backlog` and the GUI's Backlog view both call these out.
+- **Coverage** rolls up from each entity's plan: a feature's totals are its actions' scenarios plus its stories' scenarios (deduplicated); an epic's totals are the union of its features' and its own direct stories'. Totals count passed / failed / blocked / not-run, the same statuses as entity coverage.
+
+Compiled scenarios carry their backlog trace as `@epic:<id>`, `@feature:<id>`, `@story:<key or id>` tags and matching annotations, so Allure TestOps groups results the same way.
 
 ### Agent proposals
 
@@ -96,9 +116,23 @@ An agent works in one role's interface: it opens pages, takes snapshots, clicks,
 - **Observation** — `observed`;
 - **Reject**.
 
-A proposal is created against a specific model revision. If the model has changed since, only operations that actually broke count as conflicts.
+A proposal patches one entity, or — with no `entity` field — the project itself: roles, interfaces, new entities, epics, features, stories (only onboarding writes these). A `role` / `interface` / `entity` op has no status of its own, so there's no "Observation" for it: accept applies it, reject skips it.
+
+A proposal is created against a specific model revision (the backlog revision, for a project-level one). If the model has changed since, only operations that actually broke count as conflicts.
 
 Inference is configured in `cartographer.yaml → inference`: `anthropic`, `openai-compatible` (local and third-party models), or `scripted` — a deterministic replay of a script from `workspace/agents/*.yaml`, no model needed.
+
+### Onboarding
+
+A person uploads what they already know about the system under test — product docs, a tracker export, API contracts, notes — as knowledge sources: `workspace/sources.yaml` lists them (id, title, kind: `doc` / `backlog` / `contract` / `note`), the files themselves live in `workspace/sources/`. The GUI's Onboarding view adds them by file picker, drag-and-drop, or pasted text, and shows a **Run onboarding** button; removing a source moves it to `sources/.trash`, like an entity.
+
+The onboarding agent (`tc onboard [agent] [--scripted]`) reads every source and proposes the first model: roles, entities (new ones too), actions, states, transitions, permits, rules, and the backlog. Every operation cites an exact quote: `quote({ source, text })` refuses text that isn't actually in that source, so the agent can't cite what isn't there. When a source and the model (or two sources) disagree, or a tracker story doesn't map to anything in the model yet, it writes a finding (`contradiction`, `gap`) instead of guessing.
+
+The result is reviewed like any proposal, split by scope: one **project-level** proposal for roles, interfaces, new entities, and backlog items, plus one proposal per entity for its own states/actions/transitions/permits/rules. An entity-level proposal for an entity that isn't accepted yet waits — it can only be decided once the project proposal has created that entity. Accepted operations keep `provenance.sources`, the ids of the knowledge sources that back them.
+
+Onboarding runs `scripted` — a deterministic replay from `workspace/agents/onboarding.yaml`, no model call — or `live`, the same distinction as an explorer.
+
+`demo/shop/knowledge/` is a worked example for the demo shop: `product-overview.md` (a product doc) and `backlog.csv` (a Jira-like export of epics, features and stories), already uploaded as `workspace/sources.yaml` + `workspace/sources/`. It's written to disagree with the running app on purpose: it documents that a buyer can cancel only until payment and the seller cancels (rejects) afterward, which the demo doesn't enforce; that a seller can archive a listing in any state, including out of stock, which settles something the model had left undecided; and a buyer-reviews feature the app has no UI or API for at all, onboarded as a new `review` entity with no reader, so its scenarios can only plan as `blocked` until one exists. It also documents the unpaid-order expiry the model already has. `workspace/agents/onboarding.yaml` is a scripted run over this pack with the tools above.
 
 ### Tests
 
@@ -118,10 +152,13 @@ Done:
 - an editable map with agent proposals overlaid on it;
 - a setup tool verified by reading;
 - test generation and runs for transitions, permits, and the access matrix;
-- coverage and Markdown export.
+- coverage and Markdown export;
+- knowledge sources and an onboarding agent that reads them and proposes the first model and backlog, every operation backed by an exact quote;
+- the backlog — epics, features, stories — as a view over the model: features slice it by action, stories cite the elements they cover, coverage rolls up per epic/feature/story, and unmapped stories are called out;
+- scenarios tagged and annotated by epic/feature/story for Allure TestOps.
 
 Next:
-- syncing scenarios and pushing results to Allure TestOps (through the same scenario IDs);
+- actually pushing runs to Allure TestOps (the scenario IDs and epic/feature/story labels are already on every compiled test);
 - cleaning up test data by `runTag`;
 - creating entities from the GUI;
 - agent-authored changes to the action library, reviewed by a person;
