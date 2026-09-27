@@ -1,0 +1,61 @@
+name: Demo Shop
+interfaces:
+  - id: client-ui
+    title: Buyer storefront
+    baseUrl: http://localhost:4400/client
+  - id: marketplace-ui
+    title: Seller account (Marketplace)
+    baseUrl: http://localhost:4400/marketplace
+roles:
+  - id: guest
+    title: Guest
+    interface: client-ui
+  - id: client
+    title: Buyer
+    interface: client-ui
+    # Demo test account; for a real system use {{env.NAME}} placeholders.
+    login:
+      action: auth.login
+      args:
+        username: buyer
+        password: buyer-pass
+  - id: seller
+    title: Seller
+    interface: marketplace-ui
+    login:
+      action: auth.login
+      args:
+        username: seller
+        password: seller-pass
+mcp:
+  shop:
+    command: node
+    args: [../demo/shop/mcp.ts]
+    env:
+      SHOP_URL: http://localhost:4400
+    allow:
+      prepare: [create_order, create_listing]
+      read: [get_order, get_listing]
+contracts:
+  - id: shop-openapi
+    title: Demo shop OpenAPI
+    url: http://localhost:4400/api/openapi.json
+inference:
+  provider: anthropic
+  model: claude-opus-5
+  apiKeyEnv: ANTHROPIC_API_KEY
+  maxSteps: 40
+  fallbacks: true
+agents:
+  - id: client-explorer
+    title: Buyer storefront explorer
+    role: client
+    entity: order
+    goal: Find which order actions the buyer can take in each state and for each order type.
+    script: agents/client-explorer.yaml
+  - id: seller-explorer
+    title: Seller account explorer
+    role: seller
+    entity: order
+    goal: Find which order actions the seller can take in each state and for each order type.
+    script: agents/seller-explorer.yaml

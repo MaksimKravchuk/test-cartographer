@@ -1,0 +1,24 @@
+- banner:
+  - strong: Marketplace — Seller account
+  - navigation:
+    - link "Orders":
+      - /url: /marketplace/
+- main:
+  - heading "Order A-1010" [level=2]
+  - paragraph: Atlas Pro activation key · $29 · Digital
+  - paragraph: "Status: Paid"
+  - paragraph: "Payment: captured"
+  - button "Issue key"
+  - heading "History" [level=3]
+  - table:
+    - rowgroup:
+      - row "9:21:41 PM test-api create — → created":
+        - cell "9:21:41 PM"
+        - cell "test-api"
+        - cell "create"
+        - cell "— → created"
+      - row "9:21:41 PM test-api prepare created → paid":
+        - cell "9:21:41 PM"
+        - cell "test-api"
+        - cell "prepare"
+        - cell "created → paid"

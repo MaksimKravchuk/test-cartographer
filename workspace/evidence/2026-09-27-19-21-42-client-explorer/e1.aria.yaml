@@ -1,0 +1,23 @@
+- banner:
+  - strong: Shop — Buyer
+  - navigation:
+    - link "Orders":
+      - /url: /client/
+- main:
+  - heading "Order A-1012" [level=2]
+  - paragraph: Manual coffee grinder · $49 · Standard
+  - paragraph: "Status: Paid"
+  - button "Cancel order"
+  - heading "History" [level=3]
+  - table:
+    - rowgroup:
+      - row "9:21:42 PM test-api create — → created":
+        - cell "9:21:42 PM"
+        - cell "test-api"
+        - cell "create"
+        - cell "— → created"
+      - row "9:21:42 PM test-api prepare created → paid":
+        - cell "9:21:42 PM"
+        - cell "test-api"
+        - cell "prepare"
+        - cell "created → paid"

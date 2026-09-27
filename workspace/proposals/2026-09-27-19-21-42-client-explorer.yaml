@@ -1,0 +1,90 @@
+id: 2026-09-27-19-21-42-client-explorer
+entity: order
+agent: client-explorer
+role: client
+createdAt: 2026-09-27T19:21:42.895Z
+baseRevision: 425ff0713e87
+rationale: The buyer can cancel a paid standard order and gets a refund — and, unexpectedly, can also cancel an order the seller has already accepted. A paid digital order can't be cancelled.
+evidence:
+  - id: e1
+    kind: screenshot
+    summary: "Paid standard order: the buyer can “Cancel order”"
+    path: evidence/2026-09-27-19-21-42-client-explorer/e1.png
+    url: http://localhost:4400/client/orders/ord_s4aq57
+  - id: e2
+    kind: probe
+    summary: 'read ord_s4aq57: {"status":"cancelled","payment":"refunded","variant":"standard"}'
+    path: evidence/2026-09-27-19-21-42-client-explorer/e2.json
+  - id: e3
+    kind: screenshot
+    summary: "Order accepted by the seller: the buyer can still cancel it"
+    path: evidence/2026-09-27-19-21-42-client-explorer/e3.png
+    url: http://localhost:4400/client/orders/ord_s5nfr1
+  - id: e4
+    kind: probe
+    summary: 'read ord_s5nfr1: {"status":"cancelled","payment":"refunded","variant":"standard"}'
+    path: evidence/2026-09-27-19-21-42-client-explorer/e4.json
+  - id: e5
+    kind: screenshot
+    summary: "Paid digital order: the buyer has no actions"
+    path: evidence/2026-09-27-19-21-42-client-explorer/e5.png
+    url: http://localhost:4400/client/orders/ord_s6hhry
+ops:
+  - op: add
+    kind: transition
+    value:
+      id: cancel-paid
+      title: Cancel paid order
+      from: paid
+      to: cancelled
+      role: client
+      action: order.cancel
+      variants:
+        - standard
+      effects:
+        - description: Money refunded
+          field: payment
+          equals: refunded
+    evidence:
+      - e1
+      - e2
+  - op: add
+    kind: transition
+    value:
+      id: cancel-accepted
+      title: Cancel accepted order
+      from: accepted
+      to: cancelled
+      role: client
+      action: order.cancel
+      variants:
+        - standard
+      effects:
+        - description: Money refunded
+          field: payment
+          equals: refunded
+    evidence:
+      - e3
+      - e4
+  - op: add
+    kind: forbidden
+    value:
+      id: client-cannot-cancel-paid-digital
+      role: client
+      state: paid
+      transition: cancel-paid
+      variants:
+        - digital
+      note: A digital order can't be cancelled after payment
+    evidence:
+      - e5
+findings:
+  - kind: contradiction
+    note: "Cancelling after the seller has accepted is probably not a requirement: the seller may already be packing the order. Suggest recording it as an observation and checking with product."
+    refs:
+      - cancel-accepted
+    evidence:
+      - e3
+      - e4
+status: pending
+decisions: []

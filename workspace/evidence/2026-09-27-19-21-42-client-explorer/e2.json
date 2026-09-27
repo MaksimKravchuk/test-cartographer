@@ -1,0 +1,33 @@
+{
+  "id": "ord_s4aq57",
+  "number": "A-1012",
+  "variant": "standard",
+  "status": "cancelled",
+  "payment": "refunded",
+  "total": 49,
+  "item": "Manual coffee grinder",
+  "tag": "explore-2026-09-27-19-21-42-client-explorer",
+  "history": [
+    {
+      "at": "2026-09-27T19:21:42.639Z",
+      "by": "test-api",
+      "action": "create",
+      "from": null,
+      "to": "created"
+    },
+    {
+      "at": "2026-09-27T19:21:42.639Z",
+      "by": "test-api",
+      "action": "prepare",
+      "from": "created",
+      "to": "paid"
+    },
+    {
+      "at": "2026-09-27T19:21:42.735Z",
+      "by": "client",
+      "action": "cancel",
+      "from": "paid",
+      "to": "cancelled"
+    }
+  ]
+}

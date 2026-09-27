@@ -1,0 +1,33 @@
+{
+  "id": "ord_s3131s",
+  "number": "A-1011",
+  "variant": "preorder",
+  "status": "awaiting_stock",
+  "payment": "captured",
+  "total": 199,
+  "item": "Nova headphones (pre-order)",
+  "tag": "explore-2026-09-27-19-21-41-seller-explorer",
+  "history": [
+    {
+      "at": "2026-09-27T19:21:41.758Z",
+      "by": "test-api",
+      "action": "create",
+      "from": null,
+      "to": "created"
+    },
+    {
+      "at": "2026-09-27T19:21:41.758Z",
+      "by": "test-api",
+      "action": "prepare",
+      "from": "created",
+      "to": "paid"
+    },
+    {
+      "at": "2026-09-27T19:21:41.847Z",
+      "by": "seller",
+      "action": "accept",
+      "from": "paid",
+      "to": "awaiting_stock"
+    }
+  ]
+}

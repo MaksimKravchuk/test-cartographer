@@ -1,0 +1,50 @@
+# Deterministic script for the buyer storefront explorer (provider=scripted).
+steps:
+  - say: Reading the current model.
+    call: model
+  - say: Checking cancellation of a paid standard order.
+    call: prepare
+    input: { tool: shop.create_order, args: { variant: standard, status: paid } }
+  - call: open
+    input: { path: "/orders/{{key}}" }
+  - call: snapshot
+    input: { note: "Paid standard order: the buyer can “Cancel order”" }
+  - call: click
+    input: { testId: action-cancel }
+  - call: read
+    input: {}
+  - say: Checking cancellation of an order the seller already accepted.
+    call: prepare
+    input: { tool: shop.create_order, args: { variant: standard, status: accepted } }
+  - call: open
+    input: { path: "/orders/{{key}}" }
+  - call: snapshot
+    input: { note: "Order accepted by the seller: the buyer can still cancel it" }
+  - call: click
+    input: { testId: action-cancel }
+  - call: read
+    input: {}
+  - say: Checking a paid digital order.
+    call: prepare
+    input: { tool: shop.create_order, args: { variant: digital, status: paid } }
+  - call: open
+    input: { path: "/orders/{{key}}" }
+  - call: snapshot
+    input: { note: "Paid digital order: the buyer has no actions" }
+  - say: Writing up the proposal.
+    call: propose
+    input:
+      rationale: >-
+        The buyer can cancel a paid standard order and gets a refund — and, unexpectedly, can also
+        cancel an order the seller has already accepted. A paid digital order can't be cancelled.
+      ops:
+        - { op: add, kind: transition, evidence: [e1, e2], value: { id: cancel-paid, title: Cancel paid order, from: paid, to: cancelled, role: client, action: order.cancel, variants: [standard], effects: [{ description: Money refunded, field: payment, equals: refunded }] } }
+        - { op: add, kind: transition, evidence: [e3, e4], value: { id: cancel-accepted, title: Cancel accepted order, from: accepted, to: cancelled, role: client, action: order.cancel, variants: [standard], effects: [{ description: Money refunded, field: payment, equals: refunded }] } }
+        - { op: add, kind: forbidden, evidence: [e5], value: { id: client-cannot-cancel-paid-digital, role: client, state: paid, transition: cancel-paid, variants: [digital], note: A digital order can't be cancelled after payment } }
+      findings:
+        - kind: contradiction
+          note: >-
+            Cancelling after the seller has accepted is probably not a requirement: the seller may
+            already be packing the order. Suggest recording it as an observation and checking with product.
+          refs: [cancel-accepted]
+          evidence: [e3, e4]

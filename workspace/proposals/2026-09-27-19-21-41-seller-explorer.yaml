@@ -1,0 +1,145 @@
+id: 2026-09-27-19-21-41-seller-explorer
+entity: order
+agent: seller-explorer
+role: seller
+createdAt: 2026-09-27T19:21:41.959Z
+baseRevision: 425ff0713e87
+rationale: "The seller account has two behaviors the model is missing: a paid digital order goes straight to Delivered via “Issue key”, and an accepted pre-order moves into a separate Awaiting stock state."
+evidence:
+  - id: e1
+    kind: screenshot
+    summary: "Paid digital order: the only action is “Issue key”"
+    path: evidence/2026-09-27-19-21-41-seller-explorer/e1.png
+    url: http://localhost:4400/marketplace/orders/ord_s2pdg5
+  - id: e2
+    kind: probe
+    summary: 'read ord_s2pdg5: {"status":"delivered","payment":"captured","variant":"digital"}'
+    path: evidence/2026-09-27-19-21-41-seller-explorer/e2.json
+  - id: e3
+    kind: screenshot
+    summary: "Paid pre-order: “Accept pre-order” and “Reject” are available"
+    path: evidence/2026-09-27-19-21-41-seller-explorer/e3.png
+    url: http://localhost:4400/marketplace/orders/ord_s3131s
+  - id: e4
+    kind: probe
+    summary: 'read ord_s3131s: {"status":"awaiting_stock","payment":"captured","variant":"preorder"}'
+    path: evidence/2026-09-27-19-21-41-seller-explorer/e4.json
+  - id: e5
+    kind: screenshot
+    summary: "Pre-order after acceptance: status “Awaiting stock”, “Stock arrived” is available"
+    path: evidence/2026-09-27-19-21-41-seller-explorer/e5.png
+    url: http://localhost:4400/marketplace/orders/ord_s3131s
+  - id: e6
+    kind: probe
+    summary: 'read ord_s3131s: {"status":"accepted","payment":"captured","variant":"preorder"}'
+    path: evidence/2026-09-27-19-21-41-seller-explorer/e6.json
+  - id: e7
+    kind: contract
+    summary: Demo shop OpenAPI
+    url: http://localhost:4400/api/openapi.json
+ops:
+  - op: add
+    kind: transition
+    value:
+      id: deliver-key
+      title: Issue key
+      from: paid
+      to: delivered
+      role: seller
+      action: order.deliver-key
+      variants:
+        - digital
+    evidence:
+      - e1
+      - e2
+  - op: add
+    kind: variant
+    value:
+      id: preorder
+      title: Pre-order
+    evidence:
+      - e3
+  - op: add
+    kind: state
+    value:
+      id: awaiting-stock
+      title: Awaiting stock
+      variants:
+        - preorder
+      match:
+        status: awaiting_stock
+    evidence:
+      - e4
+      - e5
+  - op: add
+    kind: transition
+    value:
+      id: accept-preorder
+      title: Accept pre-order
+      from: paid
+      to: awaiting-stock
+      role: seller
+      action: order.accept
+      variants:
+        - preorder
+    evidence:
+      - e3
+      - e4
+  - op: add
+    kind: transition
+    value:
+      id: stock-arrived
+      title: Stock arrived
+      from: awaiting-stock
+      to: accepted
+      role: seller
+      action: order.stock
+      variants:
+        - preorder
+    evidence:
+      - e5
+      - e6
+  - op: update
+    kind: state
+    id: accepted
+    set:
+      variants:
+        - standard
+        - preorder
+    evidence:
+      - e6
+  - op: update
+    kind: state
+    id: shipped
+    set:
+      variants:
+        - standard
+        - preorder
+    evidence:
+      - e7
+  - op: update
+    kind: transition
+    id: reject
+    set:
+      variants:
+        - standard
+        - preorder
+    evidence:
+      - e3
+findings:
+  - kind: gap
+    note: Shipping and receipt confirmation for pre-orders weren't observed live — extending shipped to pre-orders is based on the contract.
+    refs:
+      - shipped
+      - ship
+      - confirm
+    evidence:
+      - e7
+  - kind: question
+    note: Should a digital order be cancellable after payment? The seller account has no such button.
+    refs:
+      - digital
+    evidence:
+      - e1
+status: pending
+decisions: []

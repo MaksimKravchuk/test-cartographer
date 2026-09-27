@@ -1,0 +1,23 @@
+- banner:
+  - strong: Shop — Buyer
+  - navigation:
+    - link "Orders":
+      - /url: /client/
+- main:
+  - heading "Order A-1014" [level=2]
+  - paragraph: Atlas Pro activation key · $29 · Digital
+  - paragraph: "Status: Paid"
+  - emphasis: No actions available
+  - heading "History" [level=3]
+  - table:
+    - rowgroup:
+      - row "9:21:42 PM test-api create — → created":
+        - cell "9:21:42 PM"
+        - cell "test-api"
+        - cell "create"
+        - cell "— → created"
+      - row "9:21:42 PM test-api prepare created → paid":
+        - cell "9:21:42 PM"
+        - cell "test-api"
+        - cell "prepare"
+        - cell "created → paid"

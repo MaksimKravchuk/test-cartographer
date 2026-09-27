@@ -1,0 +1,25 @@
+- banner:
+  - strong: Marketplace — Seller account
+  - navigation:
+    - link "Orders":
+      - /url: /marketplace/
+- main:
+  - heading "Order A-1011" [level=2]
+  - paragraph: Nova headphones (pre-order) · $199 · Pre-order
+  - paragraph: "Status: Paid"
+  - paragraph: "Payment: captured"
+  - button "Accept pre-order"
+  - button "Reject"
+  - heading "History" [level=3]
+  - table:
+    - rowgroup:
+      - row "9:21:41 PM test-api create — → created":
+        - cell "9:21:41 PM"
+        - cell "test-api"
+        - cell "create"
+        - cell "— → created"
+      - row "9:21:41 PM test-api prepare created → paid":
+        - cell "9:21:41 PM"
+        - cell "test-api"
+        - cell "prepare"
+        - cell "created → paid"

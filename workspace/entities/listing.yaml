@@ -1,0 +1,104 @@
+id: listing
+title: Listing
+description: A seller's product listing in the marketplace
+key: id
+reader:
+  tool: shop.get_listing
+  args:
+    id: "{{key}}"
+variants:
+  - id: physical
+    title: Physical
+  - id: digital
+    title: Digital
+states:
+  - id: draft
+    title: Draft
+    initial: true
+    match:
+      status: draft
+    setup:
+      - kind: tool
+        tool: shop.create_listing
+        args:
+          variant: "{{variant}}"
+          status: draft
+          tag: "{{runTag}}"
+  - id: published
+    title: Published
+    match:
+      status: published
+    setup:
+      - kind: tool
+        tool: shop.create_listing
+        args:
+          variant: "{{variant}}"
+          status: published
+          tag: "{{runTag}}"
+  - id: out-of-stock
+    title: Out of stock
+    variants: [physical]
+    match:
+      status: out_of_stock
+  - id: archived
+    title: Archived
+    terminal: true
+    match:
+      status: archived
+transitions:
+  - id: publish
+    title: Publish
+    from: draft
+    to: published
+    role: seller
+    action: listing.publish
+    guards:
+      - A physical listing must have stock > 0
+    effects:
+      - description: The listing appears in the buyer catalog
+  - id: unpublish
+    title: Unpublish
+    from: published
+    to: draft
+    role: seller
+    action: listing.unpublish
+  - id: archive-draft
+    title: Archive a draft
+    from: draft
+    to: archived
+    role: seller
+    action: listing.archive
+  - id: archive-published
+    title: Archive a published listing
+    from: published
+    to: archived
+    role: seller
+    action: listing.archive
+  - id: sell-out
+    title: Sell out
+    from: published
+    to: out-of-stock
+    role: seller
+    action: listing.sell-out
+    variants: [physical]
+    effects:
+      - description: Stock drops to zero
+        field: stock
+        equals: 0
+  - id: restock
+    title: Restock
+    from: out-of-stock
+    to: published
+    role: seller
+    action: listing.restock
+    variants: [physical]
+    effects:
+      - description: Stock is replenished
+        field: stock
+        equals: 10
+forbidden:
+  - id: client-cannot-archive
+    role: client
+    state: published
+    transition: archive-published
+    note: Only the seller archives listings

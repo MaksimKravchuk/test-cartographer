@@ -1,0 +1,8 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    { "name": "demo-shop", "runtimeExecutable": "node", "runtimeArgs": ["demo/shop/server.ts"], "port": 4400 },
+    { "name": "engine", "runtimeExecutable": "node", "runtimeArgs": ["packages/engine/src/cli.ts", "serve", "--port", "4317"], "port": 4317 },
+    { "name": "ui", "runtimeExecutable": "pnpm", "runtimeArgs": ["--filter", "@tc/desktop", "dev"], "port": 5173 }
+  ]
+}

@@ -1,0 +1,167 @@
+id: order
+title: Order
+description: A buyer's order in the marketplace
+key: id
+reader:
+  tool: shop.get_order
+  args:
+    id: "{{key}}"
+relations:
+  - id: listing
+    title: Listing
+    entity: listing
+    field: listingId
+    requires: published
+    variants:
+      standard: physical
+      digital: digital
+variants:
+  - id: standard
+    title: Standard
+  - id: digital
+    title: Digital
+states:
+  - id: created
+    title: Created
+    initial: true
+    match:
+      status: created
+    setup:
+      - kind: tool
+        tool: shop.create_order
+        args:
+          variant: "{{variant}}"
+          status: created
+          tag: "{{runTag}}"
+          listingId: "{{rel.listing}}"
+  - id: paid
+    title: Paid
+    match:
+      status: paid
+      payment: captured
+    setup:
+      - kind: tool
+        tool: shop.create_order
+        args:
+          variant: "{{variant}}"
+          status: paid
+          tag: "{{runTag}}"
+          listingId: "{{rel.listing}}"
+  - id: accepted
+    title: Accepted by seller
+    variants: [standard]
+    match:
+      status: accepted
+  - id: shipped
+    title: Shipped
+    variants: [standard]
+    match:
+      status: shipped
+  - id: delivered
+    title: Delivered
+    terminal: true
+    match:
+      status: delivered
+  - id: cancelled
+    title: Cancelled
+    terminal: true
+    match:
+      status: cancelled
+transitions:
+  - id: place-order
+    title: Place order
+    from: "@new"
+    to: created
+    role: client
+    action: order.place
+    effects:
+      - description: Nothing is charged yet
+        field: payment
+        equals: none
+  - id: pay
+    title: Pay
+    from: created
+    to: paid
+    role: client
+    action: order.pay
+    effects:
+      - description: Payment captured
+        field: payment
+        equals: captured
+      - description: The listing's stock goes down by one
+        relation: listing
+        field: stock
+        delta: -1
+        variants: [standard]
+  - id: cancel-unpaid
+    title: Cancel
+    from: created
+    to: cancelled
+    role: client
+    action: order.cancel
+    effects:
+      - description: No money was charged
+        field: payment
+        equals: none
+  - id: accept
+    title: Accept
+    from: paid
+    to: accepted
+    role: seller
+    action: order.accept
+    variants: [standard]
+  - id: reject
+    title: Reject
+    from: paid
+    to: cancelled
+    role: seller
+    action: order.reject
+    variants: [standard]
+    guards:
+      - The item is out of stock or the seller can't fulfill the order
+    effects:
+      - description: Money refunded to the buyer
+        field: payment
+        equals: refunded
+      - description: The buyer sees the order as cancelled
+  - id: ship
+    title: Ship
+    from: accepted
+    to: shipped
+    role: seller
+    action: order.ship
+  - id: confirm
+    title: Confirm receipt
+    from: shipped
+    to: delivered
+    role: client
+    action: order.confirm
+forbidden:
+  - id: client-cannot-ship
+    role: client
+    state: accepted
+    transition: ship
+    variants: [standard]
+    note: Only the seller ships orders
+rules:
+  - id: only-published-listings
+    title: Only published listings can be bought
+    text: A buyer can place an order only for a listing that is published.
+    transition: place-order
+    requires:
+      - kind: entity-state
+        relation: listing
+        states: [published]
+  - id: signed-in-to-order
+    title: Sign in to place an order
+    text: A user must be signed in to create an order.
+    transition: place-order
+    requires:
+      - kind: authenticated
+scenarios:
+  - id: standard-happy-path
+    title: Standard order from placement to delivery
+    description: The buyer places and pays; the seller accepts and ships; the buyer confirms receipt.
+    variants: [standard]
+    start: "@new"
+    path: [place-order, pay, accept, ship, confirm]

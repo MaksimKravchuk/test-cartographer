@@ -1,0 +1,59 @@
+# Deterministic script for the seller account explorer (provider=scripted).
+steps:
+  - say: Reading the current model.
+    call: model
+  - say: Preparing a paid digital order.
+    call: prepare
+    input: { tool: shop.create_order, args: { variant: digital, status: paid } }
+  - call: open
+    input: { path: "/orders/{{key}}" }
+  - call: snapshot
+    input: { note: "Paid digital order: the only action is “Issue key”" }
+  - call: click
+    input: { testId: action-deliver-key }
+  - call: read
+    input: {}
+  - say: Preparing a paid pre-order.
+    call: prepare
+    input: { tool: shop.create_order, args: { variant: preorder, status: paid } }
+  - call: open
+    input: { path: "/orders/{{key}}" }
+  - call: snapshot
+    input: { note: "Paid pre-order: “Accept pre-order” and “Reject” are available" }
+  - call: click
+    input: { testId: action-accept }
+  - call: read
+    input: {}
+  - call: snapshot
+    input: { note: "Pre-order after acceptance: status “Awaiting stock”, “Stock arrived” is available" }
+  - call: click
+    input: { testId: action-stock }
+  - call: read
+    input: {}
+  - call: contract
+    input: { id: shop-openapi }
+  - say: Writing up the proposal.
+    call: propose
+    input:
+      rationale: >-
+        The seller account has two behaviors the model is missing: a paid digital order goes
+        straight to Delivered via “Issue key”, and an accepted pre-order moves into a separate
+        Awaiting stock state.
+      ops:
+        - { op: add, kind: transition, evidence: [e1, e2], value: { id: deliver-key, title: Issue key, from: paid, to: delivered, role: seller, action: order.deliver-key, variants: [digital] } }
+        - { op: add, kind: variant, evidence: [e3], value: { id: preorder, title: Pre-order } }
+        - { op: add, kind: state, evidence: [e4, e5], value: { id: awaiting-stock, title: Awaiting stock, variants: [preorder], match: { status: awaiting_stock } } }
+        - { op: add, kind: transition, evidence: [e3, e4], value: { id: accept-preorder, title: Accept pre-order, from: paid, to: awaiting-stock, role: seller, action: order.accept, variants: [preorder] } }
+        - { op: add, kind: transition, evidence: [e5, e6], value: { id: stock-arrived, title: Stock arrived, from: awaiting-stock, to: accepted, role: seller, action: order.stock, variants: [preorder] } }
+        - { op: update, kind: state, id: accepted, evidence: [e6], set: { variants: [standard, preorder] } }
+        - { op: update, kind: state, id: shipped, evidence: [e7], set: { variants: [standard, preorder] } }
+        - { op: update, kind: transition, id: reject, evidence: [e3], set: { variants: [standard, preorder] } }
+      findings:
+        - kind: gap
+          note: Shipping and receipt confirmation for pre-orders weren't observed live — extending shipped to pre-orders is based on the contract.
+          refs: [shipped, ship, confirm]
+          evidence: [e7]
+        - kind: question
+          note: Should a digital order be cancellable after payment? The seller account has no such button.
+          refs: [digital]
+          evidence: [e1]

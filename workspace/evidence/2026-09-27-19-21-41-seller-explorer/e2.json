@@ -1,0 +1,33 @@
+{
+  "id": "ord_s2pdg5",
+  "number": "A-1010",
+  "variant": "digital",
+  "status": "delivered",
+  "payment": "captured",
+  "total": 29,
+  "item": "Atlas Pro activation key",
+  "tag": "explore-2026-09-27-19-21-41-seller-explorer",
+  "history": [
+    {
+      "at": "2026-09-27T19:21:41.637Z",
+      "by": "test-api",
+      "action": "create",
+      "from": null,
+      "to": "created"
+    },
+    {
+      "at": "2026-09-27T19:21:41.637Z",
+      "by": "test-api",
+      "action": "prepare",
+      "from": "created",
+      "to": "paid"
+    },
+    {
+      "at": "2026-09-27T19:21:41.750Z",
+      "by": "seller",
+      "action": "deliver-key",
+      "from": "paid",
+      "to": "delivered"
+    }
+  ]
+}

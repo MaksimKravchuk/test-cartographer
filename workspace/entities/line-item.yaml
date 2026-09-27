@@ -1,0 +1,14 @@
+id: line-item
+title: Line Item
+key: id
+reader:
+  tool: mcp.get_line_item
+  args:
+    id: "{{key}}"
+variants:
+  - id: default
+    title: Default
+    status: confirmed
+states: []
+transitions: []
+rules: []
