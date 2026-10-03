@@ -4,7 +4,7 @@
 // never touches a running app: everything it knows comes from what was
 // uploaded, and every operation must cite an exact quote from it.
 import { z } from 'zod';
-import { Finding, Op, Proposal, resolveRuntime, type AgentSpec, type Evidence, type Workspace } from '@tc/model';
+import { Finding, Op, Proposal, redactFields, resolveRuntime, type AgentSpec, type Evidence, type Workspace } from '@tc/model';
 import { listOf, runAgent, type Tool } from './runtime.ts';
 
 export type OnboardOptions = {
@@ -161,9 +161,14 @@ export async function onboard(ws: Workspace, agentId: string | undefined, opts: 
     },
     {
       name: 'model',
-      description: 'The current model: project roles/interfaces, every entity, and the backlog.',
+      description: 'The current model: project roles/interfaces, every entity, and the backlog. Secret field values show as their {{…}} reference.',
       input: z.object({}),
-      run: async () => JSON.stringify({ project: { roles: project.roles, interfaces: project.interfaces }, entities: await ws.catalog(), backlog: baseBacklog }),
+      run: async () =>
+        JSON.stringify({
+          project: { roles: redactFields('roles', project.roles, process.env), interfaces: project.interfaces },
+          entities: Object.fromEntries(redactFields('entities', Object.values(await ws.catalog()), process.env).map((e) => [e.id, e])),
+          backlog: baseBacklog,
+        }),
     },
     {
       name: 'quote',

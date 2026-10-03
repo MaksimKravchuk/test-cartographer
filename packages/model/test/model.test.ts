@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
@@ -534,14 +534,19 @@ test('workspace: saveProject rewrites only the top-level keys that changed; unch
       'mcp:',
       '  shop:',
       '    command: node',
-      '    args: []',
+      '    args: [../demo/shop/mcp.ts]',
       '    env: {}',
       '    allow:',
       '      prepare: []',
       '      read: []',
       '      trigger: []',
       '# Agents run against this project',
-      'agents: []',
+      'agents:',
+      '  - id: explorer',
+      '    title: Explorer',
+      '    role: client',
+      '    entity: order',
+      '    goal: Find which order actions the buyer can take in each state and for each order type.',
       '',
     ].join('\n');
     await writeFile(file, original);
@@ -560,6 +565,80 @@ test('workspace: saveProject rewrites only the top-level keys that changed; unch
     assert.match(text, /# Agents run against this project/);
     assert.match(text, /seller/);
     assert.equal((await ws.project()).roles.length, 2);
+    // …and every other key keeps its formatting: no padded flow lists, no folded long lines.
+    assert.equal(text.split('\nroles:')[0], original.split('\nroles:')[0]);
+    assert.equal(text.slice(text.indexOf('mcp:')), original.slice(original.indexOf('mcp:')));
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('workspace: saveEntity rewrites only the keys that changed and drops a removed one', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'tc-model-'));
+  try {
+    const ws = new Workspace(dir);
+    await mkdir(join(dir, 'entities'));
+    const file = join(dir, 'entities', 'quota.yaml');
+    const original = [
+      'id: quota',
+      'title: Quota',
+      'description: Monthly order limit of a buyer',
+      'variants:',
+      '  - id: default',
+      '    title: Default',
+      'states:',
+      '  # the only state the demo has',
+      '  - id: open',
+      '    title: Open',
+      '    variants: [default]',
+      '    match:',
+      '      status: open',
+      '',
+    ].join('\n');
+    await writeFile(file, original);
+    const { entity, revision: rev } = await ws.entity('quota');
+
+    const { description: _, ...rest } = entity;
+    const next = await ws.saveEntity({ ...rest, fields: [{ id: 'limit', value: '3', secret: false }] }, rev);
+    const text = await readFile(file, 'utf8');
+    assert.equal(text, original.replace('description: Monthly order limit of a buyer\n', '') + 'fields:\n  - id: limit\n    value: "3"\n');
+    assert.equal(next, (await ws.entity('quota')).revision);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('workspace: changing one role’s fields rewrites only them — comments inside roles survive', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'tc-model-'));
+  try {
+    const ws = new Workspace(dir);
+    const file = join(dir, 'cartographer.yaml');
+    const head = [
+      'name: Shop',
+      'interfaces:',
+      '  - id: ui',
+      '    title: UI',
+      '    baseUrl: http://localhost/ui',
+      'roles:',
+      '  # demo account',
+      '  - id: client',
+      '    title: Client',
+      '    interface: ui',
+      '  - id: seller',
+      '    title: Seller',
+      '    interface: ui # the marketplace',
+    ];
+    const tail = ['  # acts only through invoke', '  - id: system', '    title: Jobs', '    kind: system', ''];
+    await writeFile(file, [...head, ...tail].join('\n'));
+
+    const project = await ws.project();
+    const roles = project.roles.map((r) => (r.id === 'seller' ? { ...r, fields: [{ id: 'login', value: 'seller', secret: false }] } : r));
+    await ws.saveProject({ ...project, roles });
+    assert.equal(await readFile(file, 'utf8'), [...head, '    fields:', '      - id: login', '        value: seller', ...tail].join('\n'));
+
+    // Removing every field drops the key, as a fresh dump would.
+    await ws.saveProject(project);
+    assert.equal(await readFile(file, 'utf8'), [...head, ...tail].join('\n'));
   } finally {
     await rm(dir, { recursive: true, force: true });
   }

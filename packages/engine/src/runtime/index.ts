@@ -1,7 +1,7 @@
 // Runtime for generated tests. A generated spec file contains only
 // scenario data; all execution happens here, in one place.
 import { test as base, expect, type Browser, type BrowserContext, type Page, type TestInfo } from '@playwright/test';
-import { NEW, Workspace, type Project, type Scenario, type Step, type ToolCall } from '@tc/model';
+import { NEW, Workspace, dataValues, type DataValues, type Project, type Scenario, type Step, type ToolCall } from '@tc/model';
 import { McpPool, mismatches, template, getPath } from '../mcp.ts';
 import type { ActionContext, Actions } from './actions.ts';
 
@@ -23,7 +23,7 @@ export type Suite = {
   scenarios: (Scenario & { trace: { epics: string[]; features: string[]; stories: string[] } })[];
 };
 
-type Worker = { root: string; project: Project; mcp: McpPool };
+type Worker = { root: string; project: Project; mcp: McpPool; data: DataValues };
 
 export const test = base.extend<object, { tcWorkspace: string; tc: Worker }>({
   tcWorkspace: [process.env.TC_WORKSPACE ?? '.', { option: true, scope: 'worker' }],
@@ -32,7 +32,8 @@ export const test = base.extend<object, { tcWorkspace: string; tc: Worker }>({
       const ws = new Workspace(tcWorkspace);
       const project = await ws.project();
       const mcp = new McpPool(project, ws.root);
-      await use({ root: ws.root, project, mcp });
+      const data = dataValues(project.roles, Object.values(await ws.catalog()), process.env);
+      await use({ root: ws.root, project, mcp, data });
       await mcp.close();
     },
     { scope: 'worker' },
@@ -123,14 +124,14 @@ export async function runScenario(suite: Suite, sc: Scenario, actions: Actions, 
     }
     const page = entry.page;
     const ctx: ActionContext = {
-      page, role, iface, variant: inst.variant, key: inst.key ?? '', entity: inst.snapshot, related: { ...inst.related }, args: {},
+      page, role, iface, variant: inst.variant, key: inst.key ?? '', entity: inst.snapshot, related: { ...inst.related }, args: {}, data: tc.data,
       open: async (path = '') => {
         await page.goto(iface.baseUrl.replace(/\/$/, '') + path);
       },
     };
     // A role with a login signs in once per browser context, before it acts.
     if (fresh && role.login) {
-      const args = template(role.login.args, { env: process.env, variant: inst.variant, runTag });
+      const args = template(role.login.args, { env: process.env, variant: inst.variant, runTag, ...tc.data });
       await test.step(`Sign in: ${role.title}`, () => action(role.login!.action).run({ ...ctx, args }).then(() => undefined));
     }
     return ctx;
