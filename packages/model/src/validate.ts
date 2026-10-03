@@ -23,6 +23,7 @@ export function validateProject(project: Project, actions?: Set<string>): Issue[
     issues.push({ level: 'error', path: `roles.${d}`, message: 'Duplicate role id' });
   for (const r of project.roles) {
     const p = `roles.${r.id}`;
+    for (const d of duplicates(r.fields.map((f) => f.id))) issues.push({ level: 'error', path: `${p}.fields.${d}`, message: 'Duplicate field id' });
     if (r.kind === 'human' && !r.interface) issues.push({ level: 'error', path: p, message: 'A human role needs an interface' });
     if (r.interface && !ifaces.has(r.interface)) issues.push({ level: 'error', path: p, message: `Unknown interface “${r.interface}”` });
     if (r.kind === 'system' && r.login)
@@ -64,6 +65,7 @@ export function validateEntity(entity: Entity, project: Project, actions?: Set<s
     ['scenarios', entity.scenarios],
     ['rules', entity.rules],
     ['relations', entity.relations],
+    ['fields', entity.fields],
   ] as const)
     for (const d of duplicates(list.map((x) => x.id))) err(`${kind}.${d}`, 'Duplicate id');
 

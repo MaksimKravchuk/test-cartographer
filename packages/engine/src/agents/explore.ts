@@ -4,7 +4,9 @@
 import { chromium, type Page } from '@playwright/test';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { z } from 'zod';
-import { Finding, Op, Proposal, resolveRuntime, toYaml, type Evidence, type Workspace } from '@tc/model';
+import {
+  dataContext, dataValues, Finding, Op, Proposal, redactFields, resolveRuntime, scrubSecrets, secretValues, toYaml, type Evidence, type Workspace,
+} from '@tc/model';
 import { McpPool, getPath, template } from '../mcp.ts';
 import { runAgent, type Tool } from './runtime.ts';
 import { loadActions } from '../actions-loader.ts';
@@ -20,7 +22,7 @@ const MAX_TEXT = 12_000;
 const clip = (s: string) => (s.length > MAX_TEXT ? s.slice(0, MAX_TEXT) + '\n…(truncated)' : s);
 
 const system = (p: {
-  role: string; iface: string; baseUrl: string; entity: string; goal: string; prepare: string[]; contracts: string[];
+  role: string; iface: string; baseUrl: string; entity: string; goal: string; prepare: string[]; contracts: string[]; data: string;
 }) => `You are exploring a web application as the role “${p.role}” through the interface “${p.iface}” (${p.baseUrl}).
 Goal: ${p.goal}
 
@@ -39,8 +41,14 @@ Rules:
 - Prepare data only via prepare(); available setup tools: ${p.prepare.join(', ') || 'none'}. Verify every instance with read().
 - You may open only pages of your own interface (open takes a path relative to baseUrl).
 ${p.contracts.length ? `- Available contracts: ${p.contracts.join(', ')}.` : ''}
+- You are already signed in as your role, if it has a sign-in. To type into a form, use fill().
 - When the exploration is done, call propose() exactly once.
-
+${p.data ? `
+Data a person attached to subjects (roles) and objects (entities) — logins, test values, notes. Use it where an
+action needs it. A secret shows only as its {{…}} reference: pass that reference to fill() as is and the engine
+types the real value; you never see it and don't need to.
+${p.data}
+` : ''}
 Element shapes for ops (op=add, value):
 - variant: { id, title }
 - state: { id, title, variants?: [id], match: { <field from read()>: <value> } }
@@ -63,6 +71,19 @@ export async function explore(ws: Workspace, agentId: string, opts: ExploreOptio
   const role = project.roles.find((r) => r.id === agent.role)!;
   const iface = project.interfaces.find((i) => i.id === role.interface)!;
   const { entity, revision } = await ws.entity(agent.entity);
+  const catalog = await ws.catalog();
+  // Fields of every role and entity: real values for the engine (sign-in,
+  // fill), references in place of secrets for anything the model reads.
+  const data = dataValues(project.roles, Object.values(catalog), process.env);
+  const secrets = secretValues(project.roles, Object.values(catalog), process.env);
+  // Evidence files land in the workspace and may be committed: they get the same
+  // redaction as what the model reads. (A screenshot can't be scrubbed.)
+  const scrub = (text: string) => scrubSecrets(text, secrets);
+  const related = new Set([
+    ...entity.relations.map((r) => r.entity),
+    ...Object.values(catalog).filter((e) => e.relations.some((r) => r.entity === entity.id)).map((e) => e.id),
+  ]);
+  related.delete(entity.id);
   if (!entity.reader) throw new Error(`Entity “${entity.id}” has no reader yet — add one to its model before exploring it`);
   const reader = entity.reader;
 
@@ -85,8 +106,8 @@ export async function explore(ws: Workspace, agentId: string, opts: ExploreOptio
     if (!login) throw new Error(`Login action “${role.login.action}” is not in the actions/ library`);
     log(`🔑 signing in as ${role.title}`);
     await login.run({
-      page, role, iface, variant: '', key: '', entity: {}, related: {},
-      args: template(role.login.args, { env: process.env }),
+      page, role, iface, variant: '', key: '', entity: {}, related: {}, data,
+      args: template(role.login.args, { env: process.env, ...data }),
       open: async (path = '') => {
         await page.goto(base + path);
       },
@@ -107,9 +128,18 @@ export async function explore(ws: Workspace, agentId: string, opts: ExploreOptio
   const tools: Tool[] = [
     {
       name: 'model',
-      description: 'The current entity model (YAML) and the project roles.',
+      description: 'The current entity model (YAML), the project roles, and the entities it is related to (in brief).',
       input: z.object({}),
-      run: async () => toYaml({ roles: project.roles, entity }),
+      run: async () =>
+        toYaml({
+          roles: redactFields('roles', project.roles, process.env),
+          entity: redactFields('entities', [entity], process.env)[0],
+          related: redactFields('entities', [...related].flatMap((id) => (catalog[id] ? [catalog[id]] : [])), process.env).map((e) => ({
+            id: e.id, title: e.title, description: e.description, key: e.key, relations: e.relations, fields: e.fields,
+            states: e.states.map((s) => ({ id: s.id, title: s.title, match: s.match })),
+            actions: e.actions.map((a) => ({ id: a.id, title: a.title })),
+          })),
+        }),
     },
     {
       name: 'prepare',
@@ -130,10 +160,11 @@ export async function explore(ws: Workspace, agentId: string, opts: ExploreOptio
         const target = k ?? key;
         if (!target) throw new Error('No key: call prepare() first');
         const result = await mcp.call(reader.tool, template(reader.args, { key: target }), 'read');
+        const text = scrub(JSON.stringify(result, null, 2));
         const file = `${evidenceDir}/e${evidence.length + 1}.json`;
-        await writeFile(ws.path(file), JSON.stringify(result, null, 2));
-        const id = addEvidence({ kind: 'probe', summary: `read ${target}: ${JSON.stringify(Object.fromEntries(['status', 'payment', 'variant'].map((f) => [f, getPath(result, f)])))}`, path: file });
-        return `evidence ${id}\n${JSON.stringify(result, null, 2)}`;
+        await writeFile(ws.path(file), text);
+        const id = addEvidence({ kind: 'probe', summary: scrub(`read ${target}: ${JSON.stringify(Object.fromEntries(['status', 'payment', 'variant'].map((f) => [f, getPath(result, f)])))}`), path: file });
+        return `evidence ${id}\n${text}`;
       },
     },
     {
@@ -152,7 +183,7 @@ export async function explore(ws: Workspace, agentId: string, opts: ExploreOptio
       input: z.object({ note: z.string().optional().describe('What is visible on the page') }),
       run: async ({ note }) => {
         const n = evidence.length + 1;
-        const aria = await page.locator('body').ariaSnapshot();
+        const aria = scrub(await page.locator('body').ariaSnapshot());
         const testIds = await page.$$eval('[data-testid]', (els) => els.map((e) => `${e.getAttribute('data-testid')}: ${(e.textContent ?? '').trim().slice(0, 60)}`));
         await page.screenshot({ path: ws.path(`${evidenceDir}/e${n}.png`), fullPage: true });
         await writeFile(ws.path(`${evidenceDir}/e${n}.aria.yaml`), aria);
@@ -174,6 +205,18 @@ export async function explore(ws: Workspace, agentId: string, opts: ExploreOptio
           throw new Error('Navigation outside the interface was cancelled');
         }
         return `ok, url: ${page.url()}`;
+      },
+    },
+    {
+      name: 'fill',
+      description:
+        'Type into an input by data-testid (preferred) or by its label. `value` may hold {{roles.<id>.<field>}} / {{entities.<id>.<field>}} references to data from your instructions — the engine types the real value.',
+      input: z.object({ testId: z.string().optional(), label: z.string().optional(), value: z.string() }),
+      run: async ({ testId, label, value }) => {
+        const loc = testId ? page.getByTestId(testId) : label ? page.getByLabel(label) : null;
+        if (!loc) throw new Error('Provide testId or label');
+        await loc.first().fill(template(value, data), { timeout: 5_000 });
+        return `filled ${testId ?? label}`;
       },
     },
     {
@@ -222,12 +265,26 @@ export async function explore(ws: Workspace, agentId: string, opts: ExploreOptio
     },
   ];
 
+  // Whatever a tool hands back — a page, a read result, an error — goes to the
+  // model with every secret's value replaced by its reference.
+  for (const tool of tools) {
+    const run = tool.run;
+    tool.run = async (input) => {
+      try {
+        return scrub(await run(input));
+      } catch (e) {
+        throw new Error(scrub((e as Error).message));
+      }
+    };
+  }
+
   try {
     await runAgent({
       runtime,
       system: system({
         role: role.title, iface: iface.title, baseUrl: iface.baseUrl, entity: entity.title, goal: agent.goal,
         prepare: prepareTools, contracts: project.contracts.map((c) => `${c.id} (${c.title})`),
+        data: dataContext(project.roles, Object.values(catalog), process.env, role.id),
       }),
       prompt: `Start exploring. Goal: ${agent.goal}`,
       tools,

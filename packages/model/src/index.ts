@@ -8,3 +8,4 @@ export * from './coverage.ts';
 export * from './backlog.ts';
 export * from './markdown.ts';
 export * from './workspace.ts';
+export * from './data.ts';

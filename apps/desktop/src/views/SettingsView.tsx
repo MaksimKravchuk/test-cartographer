@@ -144,7 +144,7 @@ export function SettingsView({ project, onSaved, onError }: Props) {
           ))}
         </tbody>
       </table>
-      <button className="btn small" onClick={() => setDraft({ ...draft, roles: [...draft.roles, { id: nextId('role', draft.roles.map((x) => x.id)), title: 'New role', kind: 'human', interface: draft.interfaces[0].id }] })}>
+      <button className="btn small" onClick={() => setDraft({ ...draft, roles: [...draft.roles, { id: nextId('role', draft.roles.map((x) => x.id)), title: 'New role', kind: 'human', interface: draft.interfaces[0].id, fields: [] }] })}>
         Add role
       </button>
 

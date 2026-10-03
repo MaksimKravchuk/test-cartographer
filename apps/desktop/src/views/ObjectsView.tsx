@@ -5,8 +5,10 @@ import {
   type Edge, type EdgeProps, type Node, type NodeChange, type NodeProps,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
+import type { Field } from '@tc/model';
 import { api, type EntitySummary, type ProjectState } from '../api.ts';
 import { nextId, objectCardHeight, objectsLayout, OBJECT_W, type ObjectBox } from '../graph.ts';
+import { FieldsEditor } from './FieldsEditor.tsx';
 
 type EntityTab = 'map' | 'scenarios' | 'coverage';
 
@@ -16,6 +18,8 @@ type Props = {
   onOpen(id: string, tab?: EntityTab): void;
   onCreated(id: string): void;
   onDeleted(): void;
+  // Something on the page was saved (an object's or a subject's data): reload the project and the catalog.
+  onChanged(): Promise<void>;
   onOpenOnboarding(): void;
   onError(m: string): void;
 };
@@ -156,9 +160,19 @@ function roleInfo(project: ProjectState, id: string) {
   return { id, title: r?.title ?? id, system: (r?.kind ?? 'human') === 'system' };
 }
 
-function Objects({ project, entities, onOpen, onCreated, onDeleted, onOpenOnboarding, onError }: Props) {
+function Objects({ project, entities, onOpen, onCreated, onDeleted, onChanged, onOpenOnboarding, onError }: Props) {
   const { fitView } = useReactFlow();
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedId, setSelected] = useState<string | null>(null);
+  // A subject (role) card replaces the object panel while one is open.
+  const [subjectId, setSubject] = useState<string | null>(null);
+  const setSelectedId = (id: string | null) => {
+    setSelected(id);
+    if (id) setSubject(null);
+  };
+  const openSubject = (id: string) => {
+    setSelected(null);
+    setSubject(id);
+  };
   const [creating, setCreating] = useState(false);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -285,6 +299,27 @@ function Objects({ project, entities, onOpen, onCreated, onDeleted, onOpenOnboar
     }
   };
 
+  // Both reject after reporting, so the editor keeps the draft open.
+  const saveObjectData = async (id: string, fields: Field[]) => {
+    try {
+      const s = await api.entity(id);
+      await api.saveEntity({ ...s.entity, fields }, s.revision);
+      await onChanged();
+    } catch (e) {
+      onError((e as Error).message);
+      throw e;
+    }
+  };
+  const saveSubjectData = async (id: string, fields: Field[]) => {
+    try {
+      await api.saveProject({ ...project.project, roles: project.project.roles.map((r) => (r.id === id ? { ...r, fields } : r)) });
+      await onChanged();
+    } catch (e) {
+      onError((e as Error).message);
+      throw e;
+    }
+  };
+
   const remove = async (id: string) => {
     try {
       await api.deleteEntity(id);
@@ -296,14 +331,48 @@ function Objects({ project, entities, onOpen, onCreated, onDeleted, onOpenOnboar
     }
   };
 
+  // Subjects don't depend on objects: a project with none yet still shows the
+  // strip and the card, since that's where a new project's sign-in data lives.
+  const subjectsStrip = (
+    <div className="subjects-strip">
+      <span>Subjects</span>
+      {project.project.roles.map((r) => (
+        <button
+          key={r.id}
+          className={`chip role-chip ${r.kind === 'system' ? 'system' : ''}`}
+          aria-pressed={subjectId === r.id}
+          onClick={() => (subjectId === r.id ? setSubject(null) : openSubject(r.id))}
+        >
+          {r.kind === 'system' && '⚙ '}{r.title}{r.fields.length > 0 && <span className="muted"> · {r.fields.length}</span>}
+        </button>
+      ))}
+    </div>
+  );
+  const subject = subjectId ? project.project.roles.find((r) => r.id === subjectId) : undefined;
+  const subjectPanel = subject && (
+    <SubjectPanel
+      role={subject}
+      project={project}
+      entities={entities}
+      onSelect={setSelectedId}
+      onSaveData={(fields) => saveSubjectData(subject.id, fields)}
+    />
+  );
+
   if (entities.length === 0)
     return (
-      <div className="page">
-        <h1>Objects</h1>
-        <div className="finding" style={{ maxWidth: '72ch' }}>
-          <b>Nothing here yet.</b> Upload what you know about the system — docs, a tracker export, contracts — and let an
-          agent propose the first map.{' '}
-          <button className="btn small primary" onClick={onOpenOnboarding}>Go to Onboarding</button>
+      <div className="objects-page">
+        <div className="objects-body">
+          <div className="page" style={{ flex: 1, minWidth: 0 }}>
+            <h1>Objects</h1>
+            <div className="finding" style={{ maxWidth: '72ch' }}>
+              <b>Nothing here yet.</b> Upload what you know about the system — docs, a tracker export, contracts — and let an
+              agent propose the first map.{' '}
+              <button className="btn small primary" onClick={onOpenOnboarding}>Go to Onboarding</button>
+            </div>
+            {subjectsStrip}
+          </div>
+          {subjectPanel}
         </div>
       </div>
     );
@@ -324,6 +393,7 @@ function Objects({ project, entities, onOpen, onCreated, onDeleted, onOpenOnboar
           </div>
         </div>
         <Legend />
+        {subjectsStrip}
         {creating && (
           <form
             className="editor-card"
@@ -364,7 +434,10 @@ function Objects({ project, entities, onOpen, onCreated, onDeleted, onOpenOnboar
             onNodesChange={onNodesChange}
             onNodeClick={(_, n) => setSelectedId(n.id)}
             onNodeDoubleClick={(_, n) => onOpen(n.id, 'map')}
-            onPaneClick={() => setSelectedId(null)}
+            onPaneClick={() => {
+              setSelected(null);
+              setSubject(null);
+            }}
             proOptions={{ hideAttribution: true }}
             minZoom={0.2}
             fitView
@@ -382,27 +455,32 @@ function Objects({ project, entities, onOpen, onCreated, onDeleted, onOpenOnboar
             project={project}
             confirmDelete={confirmDelete}
             onSelect={setSelectedId}
+            onSelectSubject={openSubject}
             onOpen={onOpen}
             onRemove={() => remove(selected.id)}
             onConfirmDelete={setConfirmDelete}
+            onSaveData={(fields) => saveObjectData(selected.id, fields)}
           />
         )}
+        {subjectPanel}
       </div>
     </div>
   );
 }
 
 function DetailPanel({
-  entity, entities, project, confirmDelete, onSelect, onOpen, onRemove, onConfirmDelete,
+  entity, entities, project, confirmDelete, onSelect, onSelectSubject, onOpen, onRemove, onConfirmDelete, onSaveData,
 }: {
   entity: EntitySummary;
   entities: EntitySummary[];
   project: ProjectState;
   confirmDelete: boolean;
   onSelect(id: string): void;
+  onSelectSubject(id: string): void;
   onOpen(id: string, tab?: EntityTab): void;
   onRemove(): void;
   onConfirmDelete(v: boolean): void;
+  onSaveData(fields: Field[]): Promise<void>;
 }) {
   const parent = entity.parent ? entities.find((x) => x.id === entity.parent) : undefined;
   const parts = entities.filter((x) => x.parent === entity.id);
@@ -436,9 +514,18 @@ function DetailPanel({
         {roles.length === 0 && <p className="muted" style={{ margin: 0 }}>No subjects yet.</p>}
         {roles.length > 0 && (
           <div className="object-chips">
-            {roles.map((r) => <span key={r.id} className={`chip role-chip ${r.system ? 'system' : ''}`}>{r.system && '⚙ '}{r.title}</span>)}
+            {roles.map((r) => (
+              <button key={r.id} className={`chip role-chip ${r.system ? 'system' : ''}`} onClick={() => onSelectSubject(r.id)}>
+                {r.system && '⚙ '}{r.title}
+              </button>
+            ))}
           </div>
         )}
+      </section>
+
+      <section>
+        <h3>Data</h3>
+        <FieldsEditor owner="entities" ownerId={entity.id} fields={entity.fields} file={`entities/${entity.id}.yaml`} onSave={onSaveData} />
       </section>
 
       <section>
@@ -494,6 +581,71 @@ function DetailPanel({
           <button className="btn" onClick={() => onConfirmDelete(true)}>Remove…</button>
         )}
       </div>
+    </div>
+  );
+}
+
+// A subject's card: who it is, where it acts, and the data attached to it —
+// the account an agent and the tests sign in with, for one.
+function SubjectPanel({
+  role, project, entities, onSelect, onSaveData,
+}: {
+  role: ProjectState['project']['roles'][number];
+  project: ProjectState;
+  entities: EntitySummary[];
+  onSelect(id: string): void;
+  onSaveData(fields: Field[]): Promise<void>;
+}) {
+  const iface = project.project.interfaces.find((i) => i.id === role.interface);
+  const objects = entities.filter((e) => e.roles.includes(role.id));
+  const args = Object.entries(role.login?.args ?? {});
+  const usesFields = args.some(([, v]) => v.includes(`{{roles.${role.id}.`));
+
+  return (
+    <div className="objects-detail inspector">
+      <h2>{role.kind === 'system' && '⚙ '}{role.title}</h2>
+      <div className="sub"><span className="id">{role.id}</span> · {role.kind === 'system' ? 'system subject' : 'person'}</div>
+
+      <section>
+        <h3>Acts through</h3>
+        {role.kind === 'system' ? (
+          <p className="muted" style={{ margin: 0 }}>No interface: acts only through actions with an invoke tool.</p>
+        ) : (
+          <>
+            <p style={{ margin: '0 0 6px' }}>{iface?.title ?? role.interface} <span className="id">{iface?.baseUrl}</span></p>
+            {role.login ? (
+              <p style={{ margin: 0 }}>
+                Signs in with <span className="id">{role.login.action}</span>
+                {args.length > 0 && <>: {args.map(([k, v], i) => <span key={k}>{i > 0 && ', '}{k} = <span className="id">{v}</span></span>)}</>}
+              </p>
+            ) : (
+              <p className="muted" style={{ margin: 0 }}>No sign-in: acts as a guest.</p>
+            )}
+          </>
+        )}
+      </section>
+
+      <section>
+        <h3>Data</h3>
+        <FieldsEditor owner="roles" ownerId={role.id} fields={role.fields} file="cartographer.yaml" onSave={onSaveData} />
+        {role.login && role.fields.length > 0 && !usesFields && (
+          <p className="muted" style={{ fontSize: 12, margin: '10px 0 0' }}>
+            To sign in with this data, use <span className="id">{`{{roles.${role.id}.<key>}}`}</span> in the credentials in Settings.
+          </p>
+        )}
+      </section>
+
+      <section>
+        <h3>Objects</h3>
+        {objects.length === 0 && <p className="muted" style={{ margin: 0 }}>Not named in any transition or permit yet.</p>}
+        {objects.length > 0 && (
+          <p style={{ margin: 0 }}>
+            {objects.map((o, i) => (
+              <span key={o.id}>{i > 0 && ', '}<button className="btn link" onClick={() => onSelect(o.id)}>{o.title}</button></span>
+            ))}
+          </p>
+        )}
+      </section>
     </div>
   );
 }
