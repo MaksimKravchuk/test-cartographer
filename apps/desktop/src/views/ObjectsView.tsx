@@ -331,20 +331,53 @@ function Objects({ project, entities, onOpen, onCreated, onDeleted, onChanged, o
     }
   };
 
+  // Subjects don't depend on objects: a project with none yet still shows the
+  // strip and the card, since that's where a new project's sign-in data lives.
+  const subjectsStrip = (
+    <div className="subjects-strip">
+      <span>Subjects</span>
+      {project.project.roles.map((r) => (
+        <button
+          key={r.id}
+          className={`chip role-chip ${r.kind === 'system' ? 'system' : ''}`}
+          aria-pressed={subjectId === r.id}
+          onClick={() => (subjectId === r.id ? setSubject(null) : openSubject(r.id))}
+        >
+          {r.kind === 'system' && '⚙ '}{r.title}{r.fields.length > 0 && <span className="muted"> · {r.fields.length}</span>}
+        </button>
+      ))}
+    </div>
+  );
+  const subject = subjectId ? project.project.roles.find((r) => r.id === subjectId) : undefined;
+  const subjectPanel = subject && (
+    <SubjectPanel
+      role={subject}
+      project={project}
+      entities={entities}
+      onSelect={setSelectedId}
+      onSaveData={(fields) => saveSubjectData(subject.id, fields)}
+    />
+  );
+
   if (entities.length === 0)
     return (
-      <div className="page">
-        <h1>Objects</h1>
-        <div className="finding" style={{ maxWidth: '72ch' }}>
-          <b>Nothing here yet.</b> Upload what you know about the system — docs, a tracker export, contracts — and let an
-          agent propose the first map.{' '}
-          <button className="btn small primary" onClick={onOpenOnboarding}>Go to Onboarding</button>
+      <div className="objects-page">
+        <div className="objects-body">
+          <div className="page" style={{ flex: 1, minWidth: 0 }}>
+            <h1>Objects</h1>
+            <div className="finding" style={{ maxWidth: '72ch' }}>
+              <b>Nothing here yet.</b> Upload what you know about the system — docs, a tracker export, contracts — and let an
+              agent propose the first map.{' '}
+              <button className="btn small primary" onClick={onOpenOnboarding}>Go to Onboarding</button>
+            </div>
+            {subjectsStrip}
+          </div>
+          {subjectPanel}
         </div>
       </div>
     );
 
   const selected = selectedId ? byId.get(selectedId) : undefined;
-  const subject = subjectId ? project.project.roles.find((r) => r.id === subjectId) : undefined;
 
   return (
     <div className="objects-page">
@@ -360,19 +393,7 @@ function Objects({ project, entities, onOpen, onCreated, onDeleted, onChanged, o
           </div>
         </div>
         <Legend />
-        <div className="subjects-strip">
-          <span>Subjects</span>
-          {project.project.roles.map((r) => (
-            <button
-              key={r.id}
-              className={`chip role-chip ${r.kind === 'system' ? 'system' : ''}`}
-              aria-pressed={subjectId === r.id}
-              onClick={() => (subjectId === r.id ? setSubject(null) : openSubject(r.id))}
-            >
-              {r.kind === 'system' && '⚙ '}{r.title}{r.fields.length > 0 && <span className="muted"> · {r.fields.length}</span>}
-            </button>
-          ))}
-        </div>
+        {subjectsStrip}
         {creating && (
           <form
             className="editor-card"
@@ -441,15 +462,7 @@ function Objects({ project, entities, onOpen, onCreated, onDeleted, onChanged, o
             onSaveData={(fields) => saveObjectData(selected.id, fields)}
           />
         )}
-        {subject && (
-          <SubjectPanel
-            role={subject}
-            project={project}
-            entities={entities}
-            onSelect={setSelectedId}
-            onSaveData={(fields) => saveSubjectData(subject.id, fields)}
-          />
-        )}
+        {subjectPanel}
       </div>
     </div>
   );

@@ -76,6 +76,9 @@ export async function explore(ws: Workspace, agentId: string, opts: ExploreOptio
   // fill), references in place of secrets for anything the model reads.
   const data = dataValues(project.roles, Object.values(catalog), process.env);
   const secrets = secretValues(project.roles, Object.values(catalog), process.env);
+  // Evidence files land in the workspace and may be committed: they get the same
+  // redaction as what the model reads. (A screenshot can't be scrubbed.)
+  const scrub = (text: string) => scrubSecrets(text, secrets);
   const related = new Set([
     ...entity.relations.map((r) => r.entity),
     ...Object.values(catalog).filter((e) => e.relations.some((r) => r.entity === entity.id)).map((e) => e.id),
@@ -158,10 +161,11 @@ export async function explore(ws: Workspace, agentId: string, opts: ExploreOptio
         const target = k ?? key;
         if (!target) throw new Error('No key: call prepare() first');
         const result = await mcp.call(reader.tool, template(reader.args, { key: target }), 'read');
+        const text = scrub(JSON.stringify(result, null, 2));
         const file = `${evidenceDir}/e${evidence.length + 1}.json`;
-        await writeFile(ws.path(file), JSON.stringify(result, null, 2));
-        const id = addEvidence({ kind: 'probe', summary: `read ${target}: ${JSON.stringify(Object.fromEntries(['status', 'payment', 'variant'].map((f) => [f, getPath(result, f)])))}`, path: file });
-        return `evidence ${id}\n${JSON.stringify(result, null, 2)}`;
+        await writeFile(ws.path(file), text);
+        const id = addEvidence({ kind: 'probe', summary: scrub(`read ${target}: ${JSON.stringify(Object.fromEntries(['status', 'payment', 'variant'].map((f) => [f, getPath(result, f)])))}`), path: file });
+        return `evidence ${id}\n${text}`;
       },
     },
     {
@@ -180,7 +184,7 @@ export async function explore(ws: Workspace, agentId: string, opts: ExploreOptio
       input: z.object({ note: z.string().optional().describe('What is visible on the page') }),
       run: async ({ note }) => {
         const n = evidence.length + 1;
-        const aria = await page.locator('body').ariaSnapshot();
+        const aria = scrub(await page.locator('body').ariaSnapshot());
         const testIds = await page.$$eval('[data-testid]', (els) => els.map((e) => `${e.getAttribute('data-testid')}: ${(e.textContent ?? '').trim().slice(0, 60)}`));
         await page.screenshot({ path: ws.path(`${evidenceDir}/e${n}.png`), fullPage: true });
         await writeFile(ws.path(`${evidenceDir}/e${n}.aria.yaml`), aria);
@@ -268,9 +272,9 @@ export async function explore(ws: Workspace, agentId: string, opts: ExploreOptio
     const run = tool.run;
     tool.run = async (input) => {
       try {
-        return scrubSecrets(await run(input), secrets);
+        return scrub(await run(input));
       } catch (e) {
-        throw new Error(scrubSecrets((e as Error).message, secrets));
+        throw new Error(scrub((e as Error).message));
       }
     };
   }
