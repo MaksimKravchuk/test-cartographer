@@ -4,8 +4,8 @@
 // never touches a running app: everything it knows comes from what was
 // uploaded, and every operation must cite an exact quote from it.
 import { z } from 'zod';
-import { Finding, Op, Proposal, redactFields, type AgentSpec, type Evidence, type Workspace } from '@tc/model';
-import { createSession, type ToolResult, type ToolSpec } from './providers.ts';
+import { Finding, Op, Proposal, redactFields, resolveRuntime, type AgentSpec, type Evidence, type Workspace } from '@tc/model';
+import { runAgent, type Tool } from './runtime.ts';
 
 export type OnboardOptions = {
   onLog?: (line: string) => void;
@@ -101,8 +101,7 @@ export async function onboard(ws: Workspace, agentId: string | undefined, opts: 
   if (agent && agent.kind !== 'onboard') throw new Error(`Agent “${agent.id}” is not an onboarding agent (kind “${agent.kind}”)`);
   const spec = agent ?? DEFAULT_AGENT;
 
-  const scripted = opts.provider === 'scripted' || !project.inference || project.inference.provider === 'scripted';
-  const inference = scripted ? { provider: 'scripted' as const, model: 'script', maxSteps: 400, fallbacks: false } : project.inference!;
+  const runtime = opts.provider === 'scripted' ? 'scripted' : resolveRuntime(project, agent) ?? 'scripted';
 
   const timestamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
   const sources = await ws.sources();
@@ -141,7 +140,7 @@ export async function onboard(ws: Workspace, agentId: string | undefined, opts: 
     return { ops: parsedOps.data, findings: parsedFindings.data };
   };
 
-  const tools: (ToolSpec & { run(input: any): Promise<string> })[] = [
+  const tools: Tool[] = [
     {
       name: 'sources',
       description: 'List every uploaded knowledge source: id, title, kind and line count.',
@@ -210,44 +209,21 @@ export async function onboard(ws: Workspace, agentId: string | undefined, opts: 
     },
   ];
 
-  const session = await createSession(
-    inference,
-    {
-      system: system({
-        sourceList: sources.map((s) => `${s.id} (${s.kind}): ${s.title}`).join('; '),
-        contracts: project.contracts.map((c) => `${c.id} (${c.title})`),
-      }),
-      prompt: `Start onboarding. Goal: ${spec.goal}`,
-      tools,
-      vars: () => ({}),
-    },
-    spec.script ? ws.path(spec.script) : undefined,
-  );
-
-  let results: ToolResult[] = [];
-  for (let step = 0; step < inference.maxSteps && !done; step++) {
-    if (opts.signal?.aborted) throw new Error('Onboarding stopped');
-    const turn = await session.next(results);
-    if (turn.text) log(`💬 ${turn.text}`);
-    if (turn.done) break;
-    results = [];
-    for (const call of turn.calls) {
-      const tool = tools.find((t) => t.name === call.name);
-      const parsed = tool?.input.safeParse(call.input);
-      if (!tool || !parsed?.success) {
-        results.push({ id: call.id, content: tool ? `Invalid arguments: ${z.prettifyError(parsed!.error!)}` : `No tool ${call.name}`, isError: true });
-        continue;
-      }
-      log(`🔧 ${call.name} ${JSON.stringify(call.input).slice(0, 160)}`);
-      try {
-        results.push({ id: call.id, content: await tool.run(parsed.data) });
-      } catch (e) {
-        log(`   ⚠ ${(e as Error).message}`);
-        results.push({ id: call.id, content: (e as Error).message, isError: true });
-      }
-    }
-  }
-  if (!done) throw new Error('The agent finished without a proposal (propose was not called)');
+  await runAgent({
+    runtime,
+    system: system({
+      sourceList: sources.map((s) => `${s.id} (${s.kind}): ${s.title}`).join('; '),
+      contracts: project.contracts.map((c) => `${c.id} (${c.title})`),
+    }),
+    prompt: `Start onboarding. Goal: ${spec.goal}`,
+    tools,
+    deliver: 'propose',
+    script: spec.script ? ws.path(spec.script) : undefined,
+    isDone: () => done,
+    onLog: log,
+    signal: opts.signal,
+  });
+  if (!done) throw new Error('The agent finished without an accepted proposal (propose was never called or was rejected)');
 
   const proposals: Proposal[] = [];
   const createdAt = new Date().toISOString();

@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import type { Backlog, Decision, Entity, Evidence, Op } from '@tc/model';
-import { api, fileUrl, type EntityState, type EntitySummary, type ProjectDecideResult, type ProjectState, type ProposalState, type SourceInfo } from '../api.ts';
+// schema.ts only: the package index pulls in Node-only workspace.ts (see AccessMatrix.tsx).
+import { resolveRuntime } from '@tc/model/schema';
+import { api, runtimeTitle, fileUrl, type EntityState, type EntitySummary, type ProjectDecideResult, type ProjectState, type ProposalState, type SourceInfo } from '../api.ts';
 
 type Props = {
   project: ProjectState;
@@ -191,7 +193,9 @@ export function ProposalsView(props: Props) {
   const [verdicts, setVerdicts] = useState<Record<number, Verdict>>({});
   const [notes, setNotes] = useState<Record<number, string>>({});
   const [lightbox, setLightbox] = useState<Evidence | null>(null);
-  const [agentMode, setAgentMode] = useState<'scripted' | 'live'>(project.project.inference ? 'live' : 'scripted');
+  // Live/scripted mode per explorer agent — each may have its own effective
+  // runtime (project default or its own override), so this isn't one shared choice.
+  const [modeByAgent, setModeByAgent] = useState<Record<string, 'scripted' | 'live'>>({});
   const [busy, setBusy] = useState(false);
   const [sources, setSources] = useState<SourceInfo[]>([]);
 
@@ -222,12 +226,12 @@ export function ProposalsView(props: Props) {
 
   const agents = project.project.agents;
   const exploreAgents = agents.filter((a) => (a.kind ?? 'explore') === 'explore');
-  const inference = project.project.inference;
   const sourceTitle = (id?: string) => (id ? (sources.find((s) => s.id === id)?.title ?? id) : '');
+  const modeFor = (a: (typeof exploreAgents)[number]) => modeByAgent[a.id] ?? (resolveRuntime(project.project, a) ? 'live' : 'scripted');
 
-  const startAgent = async (id: string) => {
+  const startAgent = async (id: string, mode: 'live' | 'scripted') => {
     try {
-      await api.explore(id, agentMode);
+      await api.explore(id, mode);
     } catch (e) {
       props.onError((e as Error).message);
     }
@@ -236,22 +240,29 @@ export function ProposalsView(props: Props) {
   const header = (
     <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--rule)' }}>
       <div style={{ fontWeight: 600, marginBottom: 8 }}>Explore an interface</div>
-      <label className="field" style={{ marginBottom: 10 }}>
-        <span>Who explores</span>
-        <select className="text" value={agentMode} onChange={(e) => setAgentMode(e.target.value as 'live' | 'scripted')}>
-          {inference && <option value="live">Model {inference.model}</option>}
-          <option value="scripted">Recorded script, no model</option>
-        </select>
-      </label>
-      {exploreAgents.map((a) => (
-        <div key={a.id} className="row" style={{ justifyContent: 'space-between', alignItems: 'start', marginBottom: 8 }}>
-          <span title={a.goal} style={{ lineHeight: 1.3, flex: 1 }}>{a.title}</span>
-          <button className="btn small" disabled={props.running || (agentMode === 'scripted' && !a.script)} onClick={() => startAgent(a.id)}>
-            Run
-          </button>
-        </div>
-      ))}
-      {exploreAgents.length === 0 && <p className="muted" style={{ margin: 0 }}>Define explore agents in cartographer.yaml (agents). Run onboarding from its own page.</p>}
+      {exploreAgents.map((a) => {
+        const runtime = resolveRuntime(project.project, a);
+        const mode = modeFor(a);
+        return (
+          <div key={a.id} style={{ marginBottom: 10 }}>
+            <div title={a.goal} style={{ lineHeight: 1.3, marginBottom: 4 }}>{a.title}</div>
+            <div className="row" style={{ gap: 6 }}>
+              <select className="text" style={{ flex: 1, minWidth: 0 }} value={mode} onChange={(e) => setModeByAgent({ ...modeByAgent, [a.id]: e.target.value as 'live' | 'scripted' })}>
+                {runtime && (
+                  <option value="live">
+                    Live — {runtimeTitle[runtime.provider]}{runtime.model ? ` · ${runtime.model}` : ''}
+                  </option>
+                )}
+                <option value="scripted">Recorded script, no model</option>
+              </select>
+              <button className="btn small" disabled={props.running || (mode === 'scripted' && !a.script)} onClick={() => startAgent(a.id, mode)}>
+                Run
+              </button>
+            </div>
+          </div>
+        );
+      })}
+      {exploreAgents.length === 0 && <p className="muted" style={{ margin: 0 }}>Add explore agents on the Agents page. Run onboarding from its own page.</p>}
     </div>
   );
 

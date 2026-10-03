@@ -12,6 +12,7 @@ import { ObjectsView } from './views/ObjectsView.tsx';
 import { OnboardingView } from './views/OnboardingView.tsx';
 import { BacklogView } from './views/BacklogView.tsx';
 import { ScenariosView } from './views/ScenariosView.tsx';
+import { AgentsView } from './views/AgentsView.tsx';
 import { SettingsView } from './views/SettingsView.tsx';
 import { ProjectSwitcher } from './views/ProjectSwitcher.tsx';
 import { ProjectsView } from './views/ProjectsView.tsx';
@@ -25,6 +26,7 @@ type Route =
   | { page: 'backlog' }
   | { page: 'proposals' }
   | { page: 'export' }
+  | { page: 'agents' }
   | { page: 'settings' }
   | { page: 'projects' };
 
@@ -97,6 +99,8 @@ export function App() {
   useEffect(
     () =>
       subscribe((e) => {
+        // Runtime test runs and sign-ins report on their own card on the Agents page.
+        if ((e.type === 'log' || e.type === 'job') && /^(test|login):/.test(e.job)) return;
         if (e.type === 'log') setLog((l) => [...l.slice(-800), e.line]);
         if (e.type === 'job') {
           setJob({ id: e.job, kind: e.kind, state: e.state, error: e.error });
@@ -225,6 +229,7 @@ export function App() {
         </button>
         <button aria-current={route.page === 'backlog' ? 'page' : undefined} onClick={() => go({ page: 'backlog' })}>Backlog</button>
         <button aria-current={route.page === 'export' ? 'page' : undefined} onClick={() => go({ page: 'export' })}>Export</button>
+        <button aria-current={route.page === 'agents' ? 'page' : undefined} onClick={() => go({ page: 'agents' })}>Agents</button>
         <button aria-current={route.page === 'settings' ? 'page' : undefined} onClick={() => go({ page: 'settings' })}>Settings</button>
         </div>
       </nav>
@@ -348,6 +353,16 @@ export function App() {
         )}
         {route.page === 'projects' && <ProjectsView disabled={dirty || running} onNotify={(m) => notify(m)} onError={(m) => notify(m, true)} />}
         {route.page === 'export' && <ExportView onError={(m) => notify(m, true)} />}
+        {route.page === 'agents' && (
+          <AgentsView
+            project={project}
+            onSaved={async () => {
+              await reloadAll();
+              notify('Project settings saved');
+            }}
+            onError={(m) => notify(m, true)}
+          />
+        )}
         {route.page === 'settings' && (
           <SettingsView
             project={project}

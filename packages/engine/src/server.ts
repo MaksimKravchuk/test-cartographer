@@ -9,7 +9,7 @@ import { readFile } from 'node:fs/promises';
 import { dirname, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
-  applyDecisions, applyProjectDecisions, Backlog, backlogCoverage, buildPlan, conflicts, coverage, Decision, Entity, objectParents, Project,
+  AgentProvider, applyDecisions, applyProjectDecisions, Backlog, backlogCoverage, buildPlan, conflicts, coverage, Decision, Entity, objectParents, Project,
   RevisionConflict, SourceKind, validateBacklog, validateEntity, validateProject, type ProjectState, type Workspace,
 } from '@tc/model';
 import { z } from 'zod';
@@ -18,6 +18,7 @@ import { runTests } from './run.ts';
 import { exportMarkdown } from './export.ts';
 import { explore } from './agents/explore.ts';
 import { onboard } from './agents/onboard.ts';
+import { cursorLogin, runtimeStatus, testRuntime } from './agents/runtime.ts';
 import { createEntity, createProject, forgetProject, openProject, pinProject, recentProjects, rememberProject, trashProject, UnknownParentError } from './projects.ts';
 
 type Event =
@@ -409,6 +410,27 @@ export function createApp(initial: Workspace) {
     const job = startJob('onboard', async (log, signal) => {
       const proposals = await onboard(ws, undefined, { onLog: log, provider, signal });
       return { proposals: proposals.map((p) => p.id), ops: proposals.reduce((n, p) => n + p.ops.length, 0), findings: proposals.reduce((n, p) => n + p.findings.length, 0) };
+    });
+    return c.json({ job });
+  });
+
+  // Claude Code and Codex as signed in on this machine — no prompt is sent.
+  app.get('/api/runtimes', async (c) => c.json(await runtimeStatus()));
+
+  app.post('/api/runtimes/:provider/test', async (c) => {
+    const provider = AgentProvider.parse(c.req.param('provider'));
+    const { model } = z.object({ model: z.string().optional() }).parse(await c.req.json().catch(() => ({})));
+    const job = startJob(`test:${provider}`, (log, signal) => testRuntime(provider, model, log, signal));
+    return c.json({ job });
+  });
+
+  // Cursor signs in through its SDK: the engine opens the login page in the
+  // browser and the job ends when the user has finished there.
+  app.post('/api/runtimes/cursor/login', (c) => {
+    const job = startJob('login:cursor', async (log, signal) => {
+      const email = await cursorLogin((url) => log(`Opened ${url} — finish signing in there.`), signal);
+      log(`✓ signed in${email ? ` as ${email}` : ''}`);
+      return { email };
     });
     return c.json({ job });
   });

@@ -6,6 +6,6 @@ export default defineConfig({
   base: './',
   server: {
     port: 5173,
-    proxy: { '/api': { target: 'http://127.0.0.1:4317', changeOrigin: true } },
+    proxy: { '/api': { target: `http://127.0.0.1:${process.env.TC_ENGINE_PORT ?? 4317}`, changeOrigin: true } },
   },
 });

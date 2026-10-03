@@ -655,6 +655,24 @@ table.matrix.backlog-actions td { padding: 4px 10px 4px 0; }
 .entity-relations { display: flex; flex-direction: column; gap: 2px; margin: -4px 0 12px; font-size: 12.5px; }
 .entity-relations span::before { content: '↳ '; color: var(--ink-3); }
 
+/* ── Agents ──────────────────────────────────────────────── */
+.flag.ready { background: var(--pass-wash); color: var(--pass); }
+.flag.notready { background: var(--fail-wash); color: var(--fail); }
+.runtime-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 14px; margin-bottom: 8px; }
+.runtime-card { border: 1px solid var(--rule); border-radius: 8px; background: var(--sheet); padding: 16px 18px; }
+.runtime-card h3 { margin: 0 0 6px; font-size: 15px; font-weight: 620; display: flex; align-items: center; gap: 8px; }
+.runtime-card .account { margin: 0 0 6px; color: var(--ink-2); font-size: 13px; }
+.runtime-card .note { margin: 10px 0 0; font-size: 12px; color: var(--ink-3); }
+.runtime-card .actions { display: flex; gap: 8px; margin-top: 10px; }
+.runtime-log { margin-top: 10px; background: var(--paper); border: 1px solid var(--rule); border-radius: 5px; padding: 8px 10px; font-family: var(--mono); font-size: 12px; color: var(--ink-2); max-height: 140px; overflow: auto; white-space: pre-wrap; }
+.runtime-result { margin: 8px 0 0; font-size: 13px; font-weight: 560; }
+.runtime-result.ok { color: var(--pass); }
+.runtime-result.fail { color: var(--fail); }
+
+.agent-card { border: 1px solid var(--rule); border-radius: 8px; background: var(--sheet); padding: 14px 16px; margin-bottom: 14px; max-width: 1100px; }
+.agent-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0 16px; }
+.agent-card .effective { margin: 2px 0 10px; font-size: 12.5px; }
+
 /* ── Objects map ─────────────────────────────────────────── */
 .objects-page { position: absolute; inset: 0; display: flex; flex-direction: column; }
 .objects-header { flex: none; padding: 20px 28px 0; }

@@ -5,8 +5,9 @@ import { nextId } from '../graph.ts';
 
 type Props = { project: ProjectState; onSaved(): void; onError(m: string): void };
 
-// Interfaces and roles of the project. MCP servers and inference stay in
-// cartographer.yaml: they hold commands and keys that are safer to edit in a file.
+// Interfaces and roles of the project. Agent runtimes live on the Agents page;
+// MCP servers stay in cartographer.yaml — they hold commands and keys that are
+// safer to edit in a file.
 export function SettingsView({ project, onSaved, onError }: Props) {
   const [draft, setDraft] = useState<Project>(project.project);
   const [busy, setBusy] = useState(false);
