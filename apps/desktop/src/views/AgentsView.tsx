@@ -109,7 +109,28 @@ export function AgentsView({ project, onSaved, onError }: Props) {
     [],
   );
 
-  const modelsFor = (provider: AgentProvider, current: string | undefined) => {
+  // A test or sign-in started before this page was opened (or before the user
+  // left it and came back) is still running in the engine: pick it up so its
+  // card shows it and can stop it. Its earlier log lines are gone.
+  useEffect(() => {
+    api
+      .project()
+      .then(({ jobs }) => {
+        for (const j of jobs) {
+          const m = /^(test|login):(\w+)$/.exec(j.kind);
+          const provider = providers.find((p) => p === m?.[2]);
+          if (j.state !== 'running' || !m || !provider) continue;
+          const pickedUp = { jobId: j.id, log: [] };
+          if (m[1] === 'test') setTests((t) => (t[provider] ? t : { ...t, [provider]: pickedUp }));
+          else setSignIns((s) => (s[provider] ? s : { ...s, [provider]: pickedUp }));
+        }
+      })
+      .catch((e) => onError((e as Error).message));
+  }, []);
+
+  const stop = (jobId: string) => api.cancel(jobId).catch((e) => onError((e as Error).message));
+
+  const modelsFor =(provider: AgentProvider, current: string | undefined) => {
     const models = runtimes?.find((r) => r.provider === provider)?.models ?? [];
     return current && !models.some((m) => m.id === current) ? [...models, { id: current, title: current }] : models;
   };
@@ -176,6 +197,7 @@ export function AgentsView({ project, onSaved, onError }: Props) {
             onTest={() => testRuntime(provider)}
             signIn={signIns[provider]}
             onSignIn={provider === 'cursor' ? () => api.cursorLogin().catch((e) => onError((e as Error).message)) : undefined}
+            onStop={stop}
           />
         ))}
       </div>
@@ -353,6 +375,7 @@ function RuntimeCard({
   onTest,
   signIn,
   onSignIn,
+  onStop,
 }: {
   provider: AgentProvider;
   status: RuntimeStatus | undefined;
@@ -363,6 +386,8 @@ function RuntimeCard({
   signIn: SignIn | undefined;
   // Runtimes that sign in from here rather than in their own CLI.
   onSignIn?(): void;
+  // Test runs and sign-ins stay off the app-wide job bar, so their card stops them.
+  onStop(jobId: string): void;
 }) {
   const running = !!test && !test.done && !test.error;
   const signingIn = !!signIn && !signIn.error;
@@ -388,6 +413,8 @@ function RuntimeCard({
         <button className="btn small" disabled={!status?.ready || checking || running} onClick={onTest}>
           {running ? 'Testing…' : 'Test run'}
         </button>
+        {signingIn && <button className="btn small" onClick={() => onStop(signIn.jobId)}>Stop</button>}
+        {running && <button className="btn small" onClick={() => onStop(test.jobId)}>Stop</button>}
       </div>
       {signIn && signIn.log.length > 0 && <pre className="runtime-log">{signIn.log.join('\n')}</pre>}
       {signIn?.error && <p className="runtime-result fail">✗ {signIn.error}</p>}

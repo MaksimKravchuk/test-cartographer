@@ -59,7 +59,8 @@ export function createApp(initial: Workspace) {
   void rememberProject(ws).catch(() => {});
 
   const switchTo = (next: Workspace) => {
-    if ([...jobs.values()].some((j) => j.state === 'running')) throw new HttpError(409, 'Wait for the running job to finish before switching projects');
+    const running = [...jobs.values()].find((j) => j.state === 'running');
+    if (running) throw new HttpError(409, `Wait for “${running.kind}” to finish (or stop it) before switching projects`);
     ws = next;
     watchProject();
     emit({ type: 'project', root: ws.root });
