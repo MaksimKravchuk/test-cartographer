@@ -5,7 +5,7 @@ import { chromium, type Page } from '@playwright/test';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { z } from 'zod';
 import {
-  dataContext, dataValues, Finding, Op, Proposal, redactFields, resolveRuntime, scrubSecrets, secretValues, toYaml, type Evidence, type Workspace,
+  checkRoles, dataContext, dataValues, Finding, Op, Proposal, redactFields, resolveRuntime, scrubSecrets, secretValues, toYaml, type Evidence, type Workspace,
 } from '@tc/model';
 import { McpPool, getPath, template } from '../mcp.ts';
 import { runAgent, type Tool } from './runtime.ts';
@@ -21,9 +21,10 @@ export type ExploreOptions = {
 const MAX_TEXT = 12_000;
 const clip = (s: string) => (s.length > MAX_TEXT ? s.slice(0, MAX_TEXT) + '\n…(truncated)' : s);
 
+// roleTitle is how the prose names the role; roleId is what the model's `by` references.
 const system = (p: {
-  role: string; iface: string; baseUrl: string; entity: string; goal: string; prepare: string[]; contracts: string[]; data: string;
-}) => `You are exploring a web application as the role “${p.role}” through the interface “${p.iface}” (${p.baseUrl}).
+  roleTitle: string; roleId: string; iface: string; baseUrl: string; entity: string; goal: string; prepare: string[]; contracts: string[]; data: string;
+}) => `You are exploring a web application as the role “${p.roleTitle}” (id \`${p.roleId}\`) through the interface “${p.iface}” (${p.baseUrl}).
 Goal: ${p.goal}
 
 Your task is to reconstruct the behavior of the entity “${p.entity}” — its variants, states, actions and transitions — and propose changes to the model.
@@ -56,9 +57,10 @@ Element shapes for ops (op=add, value):
   A verb the role can apply to the entity, named after what it does — not tied to a state or a permission yet.
   A UI verb you haven't seen before is proposed as an action op (its \`run\` is the name you'd give it in the
   actions/ library), together with the transition or permit op(s) that use it.
-- transition: { id, title, from, to, action: "<action id>", by: ["${p.role}"], variants?: [id], guards?: [text], effects?: [{ description, field?, equals? }] }
-  \`action\` refers to an action op's id (new or existing), \`by\` lists every role that may perform it.
-- permit: { id, title, action: "<action id>", by: ["${p.role}"], states?: [id], variants?: [id], effects?: [...] }
+- transition: { id, title, from, to, action: "<action id>", by: ["${p.roleId}"], variants?: [id], guards?: [text], effects?: [{ description, field?, equals? }] }
+  \`action\` refers to an action op's id (new or existing), \`by\` lists every role that may perform it — by role id
+  (the ids model() lists under roles), never by title.
+- permit: { id, title, action: "<action id>", by: ["${p.roleId}"], states?: [id], variants?: [id], effects?: [...] }
   Use a permit instead of a transition for an action that leaves the state as it is (read, update, a command with no state change).
 For op=update: { kind, id, set: { fields } }. For op=remove: { kind, id }.`;
 
@@ -247,6 +249,11 @@ export async function explore(ws: Workspace, agentId: string, opts: ExploreOptio
         const known = new Set(evidence.map((x) => x.id));
         const unknown = [...parsedOps.data, ...parsedFindings.data].flatMap((x) => x.evidence).filter((id) => !known.has(id));
         if (unknown.length) throw new Error(`Unknown evidence: ${[...new Set(unknown)].join(', ')}. Available: ${[...known].join(', ')}`);
+        const badRoles = parsedOps.data.flatMap((op, i) => {
+          const problem = checkRoles(op, project.roles);
+          return problem ? [`op #${i}: ${problem}`] : [];
+        });
+        if (badRoles.length) throw new Error(badRoles.join('\n'));
         proposal = Proposal.parse({
           id: proposalId,
           entity: entity.id,
@@ -282,7 +289,7 @@ export async function explore(ws: Workspace, agentId: string, opts: ExploreOptio
     await runAgent({
       runtime,
       system: system({
-        role: role.title, iface: iface.title, baseUrl: iface.baseUrl, entity: entity.title, goal: agent.goal,
+        roleTitle: role.title, roleId: role.id, iface: iface.title, baseUrl: iface.baseUrl, entity: entity.title, goal: agent.goal,
         prepare: prepareTools, contracts: project.contracts.map((c) => `${c.id} (${c.title})`),
         data: dataContext(project.roles, Object.values(catalog), process.env, role.id),
       }),

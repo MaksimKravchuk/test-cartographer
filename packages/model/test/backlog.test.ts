@@ -243,7 +243,7 @@ test('applyDecisions: a project-level op kind is a scope-mismatch error, the rev
     rationale: 'x',
     ops: [{ op: 'add', kind: 'role', value: { id: 'auditor', title: 'Auditor' } }],
   });
-  assert.throws(() => applyDecisions(baseEntity(), proposal, [{ op: 0, verdict: 'accept' }]), /not an entity-level operation/);
+  assert.throws(() => applyDecisions(baseEntity(), proposal, [{ op: 0, verdict: 'accept' }], project), /not an entity-level operation/);
 });
 
 test('proposals: an entity-level proposal for an entity that does not exist yet reports a conflict on every op', () => {
@@ -259,7 +259,7 @@ test('proposals: an entity-level proposal for an entity that does not exist yet 
       { op: 'add', kind: 'transition', value: { id: 'submit', title: 'Submit', from: '@new', to: 'new', action: 'write', by: ['client'] } },
     ],
   });
-  const cs = conflicts(undefined, proposal);
+  const cs = conflicts(undefined, proposal, project);
   assert.equal(cs.length, 2);
   for (const c of cs) assert.match(c.message, /Entity “review” doesn't exist yet — accept it in the project proposal first/);
 });

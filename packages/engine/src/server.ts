@@ -316,11 +316,11 @@ export function createApp(initial: Workspace) {
         continue;
       }
       if (!entityIds.includes(p.entity)) {
-        out.push({ ...p, stale: false, conflicts: p.status === 'pending' ? conflicts(undefined, p) : [] });
+        out.push({ ...p, stale: false, conflicts: p.status === 'pending' ? conflicts(undefined, p, project) : [] });
         continue;
       }
       const { entity, revision } = await ws.entity(p.entity);
-      out.push({ ...p, stale: p.baseRevision !== revision, conflicts: p.status === 'pending' ? conflicts(entity, p) : [] });
+      out.push({ ...p, stale: p.baseRevision !== revision, conflicts: p.status === 'pending' ? conflicts(entity, p, project) : [] });
     }
     return c.json(out);
   });
@@ -357,7 +357,7 @@ export function createApp(initial: Workspace) {
     if (!(await ws.entityIds()).includes(proposal.entity))
       throw new HttpError(409, `Entity “${proposal.entity}” doesn't exist yet — accept it in the project proposal first`);
     const { entity, revision } = await ws.entity(proposal.entity);
-    const next = applyDecisions(entity, proposal, decisions);
+    const next = applyDecisions(entity, proposal, decisions, await ws.project());
     await ws.saveEntity(next, revision);
     await ws.saveProposal({ ...proposal, status: 'decided', decisions, decidedAt: new Date().toISOString() });
     return c.json(await entityState(proposal.entity));
