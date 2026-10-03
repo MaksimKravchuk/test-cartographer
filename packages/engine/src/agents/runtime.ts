@@ -29,6 +29,15 @@ export type { RuntimeStatus } from './bridge.ts';
 
 export type Tool = { name: string; description: string; input: z.ZodObject; run(input: any): Promise<string> };
 
+// A list argument the agent is shown as `item[]` — its fields, enums and
+// required keys in the tool's JSON Schema — but that is parsed only as a list
+// of objects. The tool's `run` checks the items against `item` itself, so a
+// mistake is logged and answered with the tool's own message.
+export const listOf = (item: z.ZodType) => {
+  const { $schema: _, ...shown } = z.toJSONSchema(z.array(item), { io: 'input' });
+  return z.array(z.record(z.string(), z.unknown())).meta(shown);
+};
+
 export type AgentRun = {
   runtime: Runtime | 'scripted';
   system: string;
