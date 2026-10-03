@@ -50,6 +50,16 @@ const readBody = async (req: IncomingMessage) => {
 export async function openBridge(tools: BridgeTool[], invoke: (name: string, input: unknown) => Promise<BridgeResult>): Promise<Bridge> {
   const token = randomBytes(24).toString('hex');
 
+  // One call at a time, in arrival order, even when the agent issues several
+  // in parallel: tools share run state (the evidence counter, the remembered
+  // key, the browser page), so they must not interleave.
+  let queue: Promise<unknown> = Promise.resolve();
+  const serial = (name: string, input: unknown) => {
+    const result = queue.then(() => invoke(name, input));
+    queue = result.catch(() => {});
+    return result;
+  };
+
   // Stateless mode: a fresh MCP server per request, no session bookkeeping.
   const mcpServer = () => {
     const s = new Server({ name: 'test-cartographer', version: '0.1.0' }, { capabilities: { tools: {} } });
@@ -57,7 +67,7 @@ export async function openBridge(tools: BridgeTool[], invoke: (name: string, inp
       tools: tools.map((t) => ({ name: t.name, description: t.description, inputSchema: { type: 'object', ...t.inputSchema } })),
     }));
     s.setRequestHandler(CallToolRequestSchema, async (req) => {
-      const r = await invoke(req.params.name, req.params.arguments ?? {});
+      const r = await serial(req.params.name, req.params.arguments ?? {});
       return { content: [{ type: 'text', text: r.content }], isError: r.isError ?? false };
     });
     return s;

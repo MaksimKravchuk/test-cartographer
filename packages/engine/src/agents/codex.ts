@@ -1,6 +1,6 @@
 // Codex runtime: runs on the ChatGPT subscription Codex is signed in to,
-// through the Codex SDK (it drives the Codex CLI bundled with it). The agent
-// gets a read-only sandbox in an empty directory; our tools come over MCP.
+// through the Codex SDK (it drives the Codex CLI bundled with it). Its own
+// tools are switched off — the agent only has ours, over MCP.
 import { execFile } from 'node:child_process';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
@@ -10,18 +10,32 @@ import type { Harness, RuntimeStatus } from './bridge.ts';
 
 const TOKEN_ENV = 'TC_BRIDGE_TOKEN';
 
-// Without an API key in the environment Codex uses its ChatGPT sign-in.
+// Codex gets only what it needs to run and find its ChatGPT sign-in — not the
+// engine's environment, which may hold credentials (and an API key would
+// switch it to per-token billing).
+const PASS_ENV = ['PATH', 'HOME', 'USER', 'LOGNAME', 'SHELL', 'LANG', 'LC_ALL', 'TMPDIR', 'CODEX_HOME', 'HTTPS_PROXY', 'HTTP_PROXY', 'NO_PROXY', 'https_proxy', 'http_proxy', 'no_proxy', 'SSL_CERT_FILE', 'SSL_CERT_DIR'];
 const subscriptionEnv = () => {
   const env: Record<string, string> = {};
-  for (const [k, v] of Object.entries(process.env)) if (v !== undefined && k !== 'OPENAI_API_KEY' && k !== 'CODEX_API_KEY') env[k] = v;
+  for (const k of PASS_ENV) if (process.env[k] !== undefined) env[k] = process.env[k]!;
   return env;
 };
+
+// Codex features that give the agent tools of its own. A read-only sandbox
+// still lets the shell read the whole disk, so the shell goes too.
+const BUILTIN_TOOLS = [
+  'shell_tool', 'unified_exec', 'view_image', 'browser_use', 'browser_use_external', 'in_app_browser', 'computer_use',
+  'image_generation', 'apps', 'plugins', 'memories', 'multi_agent', 'skill_search', 'tool_suggest', 'goals',
+];
+// Item types that only a built-in tool produces. Seeing one means a feature
+// above slipped through (say, a new Codex version): the run is stopped.
+const BUILTIN_ITEMS = new Set(['command_execution', 'file_change', 'web_search']);
 
 export async function runCodex(h: Harness): Promise<void> {
   const codex = new Codex({
     env: { ...subscriptionEnv(), [TOKEN_ENV]: h.bridge.token },
     config: {
       developer_instructions: h.system,
+      features: Object.fromEntries(BUILTIN_TOOLS.map((f) => [f, false])),
       mcp_servers: {
         // `approve`: our tools run without asking — there is nobody to ask.
         tc: { url: h.bridge.url, bearer_token_env_var: TOKEN_ENV, default_tools_approval_mode: 'approve', tool_timeout_sec: 600 },
@@ -40,6 +54,10 @@ export async function runCodex(h: Harness): Promise<void> {
   });
   const { events } = await thread.runStreamed(h.prompt, { signal: h.abort.signal });
   for await (const e of events) {
+    if ((e.type === 'item.started' || e.type === 'item.completed') && BUILTIN_ITEMS.has(e.item.type)) {
+      h.abort.abort();
+      throw new Error(`Codex tried to use a built-in tool (${e.item.type}) — stopped the run`);
+    }
     if (e.type === 'item.completed' && e.item.type === 'agent_message' && e.item.text.trim()) h.onText(e.item.text.trim());
     if (e.type === 'turn.failed') throw new Error(`Codex: ${e.error.message}`);
     if (e.type === 'error') throw new Error(`Codex: ${e.message}`);
