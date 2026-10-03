@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test';
-import type { Interface, Role } from '@tc/model';
+import type { DataValues, Interface, Role } from '@tc/model';
 
 export type ActionContext = {
   page: Page;
@@ -13,6 +13,9 @@ export type ActionContext = {
   related: Record<string, string>;
   // Arguments for the action: login credentials for a login action.
   args: Record<string, string>;
+  // Fields people attached to roles and entities, real values ({{env.NAME}}
+  // resolved): data.roles.seller.password, data.entities.order.promo.
+  data: DataValues;
   // The last actual entity state that was read.
   entity: Record<string, unknown>;
   // Open a path relative to the baseUrl of the role's interface.

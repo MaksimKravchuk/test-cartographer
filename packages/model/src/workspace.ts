@@ -59,10 +59,8 @@ export class Workspace {
       if (current !== expectedRevision)
         throw new RevisionConflict(`Model “${entity.id}” has changed (revision ${current}, expected ${expectedRevision})`);
     }
-    const text = toYaml(Entity.parse(entity));
     await mkdir(this.path('entities'), { recursive: true });
-    await writeFile(file, text);
-    return revision(text);
+    return revision(await writeChangedKeys(file, Entity.parse(entity), (v) => Entity.parse(v)));
   }
 
   // Removing an entity moves its files to entities/.trash, so nothing is lost by a misclick.
@@ -74,23 +72,9 @@ export class Workspace {
       await rename(this.path('entities', `${id}.layout.json`), this.path('entities', '.trash', `${id}-${stamp}.layout.json`));
   }
 
-  // Rewrites only the top-level keys whose value actually changed, through the
-  // `yaml` package's Document API — so comments and formatting on every other
-  // key (roles, mcp, agents…) survive a save that, say, only touches `interfaces`.
-  // A file that doesn't exist yet gets a fresh dump; there are no comments to lose.
+  // Comments and formatting on every key the save doesn't change survive (see writeChangedKeys).
   async saveProject(project: Project): Promise<void> {
-    const next = Project.parse(project);
-    const file = this.path('cartographer.yaml');
-    const text = await readFile(file, 'utf8').catch(() => null);
-    if (text === null) {
-      await writeFile(file, toYaml(next));
-      return;
-    }
-    const doc = YAML.parseDocument(text);
-    const current = Project.parse(doc.toJS() ?? {});
-    for (const key of Object.keys(next) as (keyof Project)[])
-      if (JSON.stringify(current[key]) !== JSON.stringify(next[key])) doc.set(key, prune(next[key]));
-    await writeFile(file, String(doc));
+    await writeChangedKeys(this.path('cartographer.yaml'), Project.parse(project), (v) => Project.parse(v));
   }
 
   // ── Knowledge sources ─────────────────────────────────────────────────
@@ -214,6 +198,53 @@ export class Workspace {
 
 export class RevisionConflict extends Error {}
 
+// Writes `next` over a YAML file, rewriting only what changed, through the
+// `yaml` package's Document API — so comments and formatting everywhere else
+// survive a save that, say, only adds a field to one role. A file that doesn't
+// exist yet gets a fresh dump; there are no comments to lose. Returns the text.
+async function writeChangedKeys<T extends object>(file: string, next: T, parse: (v: unknown) => T): Promise<string> {
+  const text = await readFile(file, 'utf8').catch(() => null);
+  if (text === null) {
+    const out = toYaml(next);
+    await writeFile(file, out);
+    return out;
+  }
+  const doc = YAML.parseDocument(text);
+  if (YAML.isMap(doc.contents)) patchNode(doc, doc.contents, parse(doc.toJS() ?? {}), next);
+  else doc.contents = doc.createNode(prune(next)) as typeof doc.contents;
+  // The same style as toYaml, so untouched keys keep their text: no folding
+  // of long lines, no padding inside flow lists ([a, b], not [ a, b ]).
+  const out = doc.toString({ lineWidth: 0, flowCollectionPadding: false });
+  await writeFile(file, out);
+  return out;
+}
+
+const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
+const isRecord = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
+
+// Brings a map or a list node in line with `next`. `current` is what the node
+// holds now, parsed the same way as `next` (defaults filled in), so a value
+// only differs when the save really changed it. A map descends key by key, a
+// list of the same length item by item; anything else is replaced whole.
+function patchNode(doc: YAML.Document, node: YAML.YAMLMap | YAML.YAMLSeq, current: unknown, next: unknown): void {
+  const update = (key: string | number, cur: unknown, value: unknown, set: (v: unknown) => void, drop: () => void) => {
+    if (same(cur, value)) return;
+    // prune decides what a fresh dump would leave out (an empty `fields`, `secret: false`).
+    const kept = typeof key === 'string' ? (prune({ [key]: value }) as Record<string, unknown>)[key] : prune(value);
+    if (kept === undefined) return drop();
+    const child = node.get(key, true);
+    const nested = (isRecord(cur) && isRecord(value)) || (Array.isArray(cur) && Array.isArray(value) && cur.length === value.length);
+    if (nested && (YAML.isMap(child) || YAML.isSeq(child))) patchNode(doc, child, cur, value);
+    else set(doc.createNode(kept));
+  };
+  if (YAML.isMap(node) && isRecord(current) && isRecord(next)) {
+    for (const key of new Set([...Object.keys(current), ...Object.keys(next)]))
+      update(key, current[key], next[key], (v) => node.set(key, v), () => node.delete(key));
+  } else if (YAML.isSeq(node) && Array.isArray(current) && Array.isArray(next)) {
+    next.forEach((item, i) => update(i, current[i], item, (v) => node.set(i, v), () => node.delete(i)));
+  }
+}
+
 export function revision(text: string): string {
   return createHash('sha256').update(text).digest('hex').slice(0, 12);
 }
@@ -233,7 +264,8 @@ function prune(v: unknown): unknown {
     const out: Record<string, unknown> = {};
     for (const [k, x] of Object.entries(v)) {
       if (x === undefined) continue;
-      if (Array.isArray(x) && x.length === 0 && ['guards', 'effects', 'setup', 'evidence', 'refs', 'actions', 'permits', 'scenarios', 'tags'].includes(k)) continue;
+      if (k === 'secret' && x === false) continue;
+      if (Array.isArray(x) && x.length === 0 && ['guards', 'effects', 'setup', 'evidence', 'refs', 'actions', 'permits', 'scenarios', 'tags', 'fields'].includes(k)) continue;
       out[k] = prune(x);
     }
     return out;

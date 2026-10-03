@@ -251,6 +251,7 @@ export function App() {
               go({ page: 'entity', id, tab: 'map' });
             }}
             onDeleted={async () => setEntities(await api.entities())}
+            onChanged={reloadAll}
             onError={(m) => notify(m, true)}
           />
         )}

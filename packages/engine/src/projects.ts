@@ -133,7 +133,11 @@ export async function createProject(root: string, name: string): Promise<Workspa
         title: 'Signed-in user',
         kind: 'human',
         interface: 'web',
-        login: { action: 'auth.login', args: { username: '{{env.TC_USER}}', password: '{{env.TC_PASSWORD}}' } },
+        fields: [
+          { id: 'login', value: '{{env.TC_USER}}' },
+          { id: 'password', value: '{{env.TC_PASSWORD}}', secret: true },
+        ],
+        login: { action: 'auth.login', args: { username: '{{roles.user.login}}', password: '{{roles.user.password}}' } },
       },
     ],
   });

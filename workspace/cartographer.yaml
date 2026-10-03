@@ -15,21 +15,34 @@ roles:
     title: Buyer
     kind: human
     interface: client-ui
-    # Demo test account; for a real system use {{env.NAME}} placeholders.
+    # Demo test account; for a real system put {{env.NAME}} in the values.
+    # Agents see the login and only a reference to the password.
+    fields:
+      - id: login
+        value: buyer
+      - id: password
+        value: buyer-pass
+        secret: true
     login:
       action: auth.login
       args:
-        username: buyer
-        password: buyer-pass
+        username: "{{roles.client.login}}"
+        password: "{{roles.client.password}}"
   - id: seller
     title: Seller
     kind: human
     interface: marketplace-ui
+    fields:
+      - id: login
+        value: seller
+      - id: password
+        value: seller-pass
+        secret: true
     login:
       action: auth.login
       args:
-        username: seller
-        password: seller-pass
+        username: "{{roles.seller.login}}"
+        password: "{{roles.seller.password}}"
   # No interface, no login: it only acts through actions with an `invoke` tool
   # (the unpaid-order timeout, the auto out-of-stock reaction).
   - id: system

@@ -49,7 +49,29 @@ The app is organized as **project → entities → scenarios**.
 
 **Creating an instance** is a transition from `@new`. Its action creates the instance through the UI and returns the new key, so a state can be reached without a setup tool.
 
-**Roles sign in** with an action from the library before they act (`role.login` in `cartographer.yaml`). Credentials can use `{{env.NAME}}`. A role without a login acts as a guest.
+**Roles sign in** with an action from the library before they act (`role.login` in `cartographer.yaml`). Credentials can use `{{env.NAME}}` or a role's own data, `{{roles.<id>.<field>}}`. A role without a login acts as a guest.
+
+**Data on subjects and objects.** A role or an entity can carry `fields` — named values a person attaches for agents and tests: the seller's login and password, a test card number, a promo code. On the Objects page, click a subject in the Subjects strip (or on an object's card) to open its card; both cards have a **Data** section to add and edit them.
+
+```yaml
+roles:
+  - id: seller
+    fields:
+      - id: login
+        value: seller
+      - id: password
+        value: "{{env.SELLER_PASSWORD}}"   # or a literal, for a demo account
+        secret: true
+        note: the marketplace account   # told to agents as is
+    login:
+      action: auth.login
+      args: { username: "{{roles.seller.login}}", password: "{{roles.seller.password}}" }
+```
+
+- **Agents** get every subject's and object's fields in their instructions; the explorer's `model()` also shows the entities its entity is related to. An explorer can type into the app with `fill()`, passing a field reference such as `{{roles.seller.password}}`; the engine substitutes the value.
+- **A secret never reaches the model**: it sees only the reference, and any secret value that comes back in a page snapshot, a read result or an error is replaced with that reference before the agent gets it.
+- **Tests** template `{{roles.<id>.<field>}}` / `{{entities.<id>.<field>}}` in login args, and actions in the library get every value as `ctx.data`.
+- Values are stored as plain text in `cartographer.yaml` / `entities/<id>.yaml`; for a real account put `{{env.NAME}}` as the value.
 
 ## Layout
 

@@ -198,15 +198,16 @@ export function arrange(entity: Entity, variant: string, target: string, seen = 
   return { steps, method: 'auto' };
 }
 
-// Substitutes {{name}} and {{a.b}} in tool arguments. A string consisting entirely
-// of a single placeholder is replaced with the value as is (not only as a string).
+// Substitutes {{name}} and {{a.b}} in tool arguments (ids may hold "-", as in
+// {{entities.line-item.sku}}). A string consisting entirely of a single
+// placeholder is replaced with the value as is (not only as a string).
 export function template<T>(value: T, vars: Record<string, unknown>): T {
   const lookup = (path: string) =>
     path.split('.').reduce<unknown>((o, k) => (o && typeof o === 'object' ? (o as Record<string, unknown>)[k] : undefined), vars);
   if (typeof value === 'string') {
-    const whole = value.match(/^\{\{([\w.]+)\}\}$/);
+    const whole = value.match(/^\{\{([\w.-]+)\}\}$/);
     if (whole) return (lookup(whole[1]) ?? value) as T;
-    return value.replace(/\{\{([\w.]+)\}\}/g, (m, k) => {
+    return value.replace(/\{\{([\w.-]+)\}\}/g, (m, k) => {
       const v = lookup(k);
       return v === undefined ? m : String(v);
     }) as T;

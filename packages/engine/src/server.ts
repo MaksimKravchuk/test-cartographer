@@ -211,6 +211,7 @@ export function createApp(initial: Workspace) {
         parent: parents[id] ?? null,
         states: entity.states.filter((s) => s.status !== 'rejected').map((s) => ({ id: s.id, title: s.title, initial: s.initial ?? false, terminal: s.terminal ?? false, status: s.status })),
         roles: project.roles.filter((r) => roleIds.has(r.id)).map((r) => r.id),
+        fields: entity.fields,
         pendingProposals: proposals.filter((p) => p.entity === id && p.status === 'pending').length,
         errors: validateEntity(entity, project, undefined, catalog).filter((i) => i.level === 'error').length,
       });
