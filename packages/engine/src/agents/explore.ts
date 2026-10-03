@@ -4,9 +4,9 @@
 import { chromium, type Page } from '@playwright/test';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { z } from 'zod';
-import { Finding, Op, Proposal, toYaml, type Evidence, type Workspace } from '@tc/model';
+import { Finding, Op, Proposal, resolveRuntime, toYaml, type Evidence, type Workspace } from '@tc/model';
 import { McpPool, getPath, template } from '../mcp.ts';
-import { createSession, type ToolResult, type ToolSpec } from './providers.ts';
+import { runAgent, type Tool } from './runtime.ts';
 import { loadActions } from '../actions-loader.ts';
 
 export type ExploreOptions = {
@@ -66,8 +66,7 @@ export async function explore(ws: Workspace, agentId: string, opts: ExploreOptio
   if (!entity.reader) throw new Error(`Entity “${entity.id}” has no reader yet — add one to its model before exploring it`);
   const reader = entity.reader;
 
-  const scripted = opts.provider === 'scripted' || !project.inference || project.inference.provider === 'scripted';
-  const inference = scripted ? { provider: 'scripted' as const, model: 'script', maxSteps: 200, fallbacks: false } : project.inference!;
+  const runtime = opts.provider === 'scripted' ? 'scripted' : resolveRuntime(project, agent) ?? 'scripted';
 
   const proposalId = `${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}-${agent.id}`;
   const runTag = `explore-${proposalId}`;
@@ -105,7 +104,7 @@ export async function explore(ws: Workspace, agentId: string, opts: ExploreOptio
 
   const prepareTools = Object.entries(project.mcp).flatMap(([s, cfg]) => cfg.allow.prepare.map((t) => `${s}.${t}`));
 
-  const tools: (ToolSpec & { run(input: any): Promise<string> })[] = [
+  const tools: Tool[] = [
     {
       name: 'model',
       description: 'The current entity model (YAML) and the project roles.',
@@ -223,48 +222,26 @@ export async function explore(ws: Workspace, agentId: string, opts: ExploreOptio
     },
   ];
 
-  const session = await createSession(
-    inference,
-    {
+  try {
+    await runAgent({
+      runtime,
       system: system({
         role: role.title, iface: iface.title, baseUrl: iface.baseUrl, entity: entity.title, goal: agent.goal,
         prepare: prepareTools, contracts: project.contracts.map((c) => `${c.id} (${c.title})`),
       }),
       prompt: `Start exploring. Goal: ${agent.goal}`,
       tools,
+      deliver: 'propose',
+      script: agent.script ? ws.path(agent.script) : undefined,
       vars: () => ({ key }),
-    },
-    agent.script ? ws.path(agent.script) : undefined,
-  );
-
-  try {
-    let results: ToolResult[] = [];
-    for (let step = 0; step < inference.maxSteps && !proposal; step++) {
-      if (opts.signal?.aborted) throw new Error('Exploration stopped');
-      const turn = await session.next(results);
-      if (turn.text) log(`💬 ${turn.text}`);
-      if (turn.done) break;
-      results = [];
-      for (const call of turn.calls) {
-        const tool = tools.find((t) => t.name === call.name);
-        const parsed = tool?.input.safeParse(call.input);
-        if (!tool || !parsed?.success) {
-          results.push({ id: call.id, content: tool ? `Invalid arguments: ${z.prettifyError(parsed!.error!)}` : `No tool ${call.name}`, isError: true });
-          continue;
-        }
-        log(`🔧 ${call.name} ${JSON.stringify(call.input).slice(0, 160)}`);
-        try {
-          results.push({ id: call.id, content: await tool.run(parsed.data) });
-        } catch (e) {
-          log(`   ⚠ ${(e as Error).message}`);
-          results.push({ id: call.id, content: (e as Error).message, isError: true });
-        }
-      }
-    }
+      isDone: () => !!proposal,
+      onLog: log,
+      signal: opts.signal,
+    });
   } finally {
     await browser.close();
     await mcp.close();
   }
-  if (!proposal) throw new Error('The agent finished without a proposal (propose was not called)');
+  if (!proposal) throw new Error('The agent finished without an accepted proposal (propose was never called or was rejected)');
   return proposal;
 }

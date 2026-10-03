@@ -6,7 +6,7 @@ import YAML from 'yaml';
 import { Backlog, Entity, Project, Proposal, RunReport, Source, SourceRegistry, type ScenarioResult, type SourceKind } from './schema.ts';
 
 // A workspace is a plain folder that is easy to keep in git:
-//   cartographer.yaml     project: interfaces, roles, MCP, inference, agents
+//   cartographer.yaml     project: interfaces, roles, MCP, agent runtime, agents
 //   entities/*.yaml       entity models
 //   entities/*.layout.json  graph node positions (separate, to keep diffs quiet)
 //   sources.yaml          registry of uploaded knowledge sources (onboarding)

@@ -1,4 +1,4 @@
-import type { Backlog, BacklogCoverage, Coverage, Decision, Entity, Issue, Plan, Project, Proposal, ScenarioResult, Source, SourceKind } from '@tc/model';
+import type { AgentProvider, Backlog, BacklogCoverage, Coverage, Decision, Entity, Issue, Plan, Project, Proposal, ScenarioResult, Source, SourceKind } from '@tc/model';
 
 export type EntityState = {
   entity: Entity;
@@ -38,6 +38,19 @@ export type ProposalState = Proposal & { stale: boolean; conflicts: { op: number
 export type SourceInfo = Source & { lines: number; size: number };
 
 export type BacklogState = { backlog: Backlog; revision: string; coverage: BacklogCoverage; issues: Issue[] };
+
+export const runtimeTitle: Record<AgentProvider, string> = { claude: 'Claude Code', codex: 'Codex', copilot: 'GitHub Copilot', cursor: 'Cursor' };
+
+// A coding agent the engine can run agents in, as installed and signed in on this machine.
+export type RuntimeStatus = {
+  provider: AgentProvider;
+  ready: boolean;
+  version?: string;
+  account?: string;
+  plan?: string;
+  models: { id: string; title: string }[];
+  detail?: string;
+};
 
 // A project-level proposal (no `entity`) decides against the project and the
 // backlog instead of one entity's model — `created` names any entity ids the
@@ -106,6 +119,12 @@ export const api = {
     call<{ revision: string }>('/api/backlog', { method: 'PUT', body: JSON.stringify({ backlog, revision }) }),
   runOnboarding: (provider: 'live' | 'scripted') =>
     call<{ job: string }>('/api/onboarding/run', { method: 'POST', body: JSON.stringify({ provider }) }),
+  runtimes: () => call<RuntimeStatus[]>('/api/runtimes'),
+  // A short end-to-end run; the job's result is { ok: boolean; seconds: number }.
+  testRuntime: (provider: AgentProvider, model?: string) =>
+    call<{ job: string }>(`/api/runtimes/${provider}/test`, { method: 'POST', body: JSON.stringify({ model }) }),
+  // Opens Cursor's login page in the browser; the job is done once the user has signed in.
+  cursorLogin: () => call<{ job: string }>('/api/runtimes/cursor/login', { method: 'POST' }),
 };
 
 export const fileUrl = (path: string) => `/api/files/${path.split('/').map(encodeURIComponent).join('/')}`;

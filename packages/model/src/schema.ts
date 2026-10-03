@@ -70,16 +70,33 @@ export const McpServer = z.object({
 });
 export type McpServer = z.infer<typeof McpServer>;
 
-export const Inference = z.object({
-  provider: z.enum(['anthropic', 'openai-compatible', 'scripted']),
-  model: z.string(),
-  baseUrl: z.string().optional(),
-  apiKeyEnv: z.string().optional(),
-  maxSteps: z.number().int().positive().default(40),
-  // Server-side fallback to another model on refusal (Claude API only).
-  fallbacks: z.boolean().default(false),
+// Agents don't call model APIs directly: they run inside a coding agent the
+// user is already signed in to — Claude Code (Claude subscription), Codex
+// (ChatGPT), GitHub Copilot or Cursor — which reaches our tools over MCP.
+export const AgentProvider = z.enum(['claude', 'codex', 'copilot', 'cursor']);
+export type AgentProvider = z.infer<typeof AgentProvider>;
+export const Effort = z.enum(['low', 'medium', 'high', 'xhigh', 'max']);
+export type Effort = z.infer<typeof Effort>;
+
+export const Runtime = z.object({
+  provider: AgentProvider,
+  // Omitted: whatever the agent defaults to (its own settings).
+  model: z.string().optional(),
+  effort: Effort.optional(),
+  // Tool calls per run.
+  maxSteps: z.number().int().positive().default(60),
 });
-export type Inference = z.infer<typeof Inference>;
+export type Runtime = z.infer<typeof Runtime>;
+
+// Per-agent override of the project runtime. A model only carries over while
+// the provider stays the same — model names don't transfer between providers.
+export const RuntimeOverride = z.object({
+  provider: AgentProvider.optional(),
+  model: z.string().optional(),
+  effort: Effort.optional(),
+  maxSteps: z.number().int().positive().optional(),
+});
+export type RuntimeOverride = z.infer<typeof RuntimeOverride>;
 
 export const AgentSpec = z.object({
   id: Id,
@@ -91,8 +108,9 @@ export const AgentSpec = z.object({
   role: Id.optional(),
   entity: Id.optional(),
   goal: z.string(),
-  // Script for a deterministic run (provider=scripted): path from the workspace root.
+  // Script for a deterministic (scripted) run: path from the workspace root.
   script: z.string().optional(),
+  runtime: RuntimeOverride.optional(),
 });
 
 // Contracts available to agents: OpenAPI, GraphQL schemas, documentation.
@@ -110,10 +128,27 @@ export const Project = z.object({
   roles: z.array(Role).min(1),
   mcp: z.record(Id, McpServer).default({}),
   contracts: z.array(Contract).default([]),
-  inference: Inference.optional(),
+  // Default runtime for agents; without one (and no per-agent override) agents
+  // can only run scripted.
+  runtime: Runtime.optional(),
   agents: z.array(AgentSpec).default([]),
 });
 export type Project = z.infer<typeof Project>;
+
+// The runtime an agent actually runs with: its override on top of the project
+// default. Undefined when neither names a provider.
+export function resolveRuntime(project: Pick<Project, 'runtime'>, agent?: Pick<AgentSpec, 'runtime'>): Runtime | undefined {
+  const base = project.runtime;
+  const o = agent?.runtime ?? {};
+  const provider = o.provider ?? base?.provider;
+  if (!provider) return undefined;
+  return {
+    provider,
+    model: o.model ?? (provider === base?.provider ? base.model : undefined),
+    effort: o.effort ?? base?.effort,
+    maxSteps: o.maxSteps ?? base?.maxSteps ?? 60,
+  };
+}
 
 // ── Entity model ────────────────────────────────────────────────────────
 // Pseudo-state “before the instance exists”. A transition from NEW creates

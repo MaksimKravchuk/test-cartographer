@@ -120,7 +120,9 @@ A proposal patches one entity, or — with no `entity` field — the project its
 
 A proposal is created against a specific model revision (the backlog revision, for a project-level one). If the model has changed since, only operations that actually broke count as conflicts.
 
-Inference is configured in `cartographer.yaml → inference`: `anthropic`, `openai-compatible` (local and third-party models), or `scripted` — a deterministic replay of a script from `workspace/agents/*.yaml`, no model needed.
+Agents don't call model APIs and nothing is billed per token: they run inside a coding agent you're already signed in to — **Claude Code** on your Claude subscription, **Codex** on your ChatGPT subscription, **GitHub Copilot** on your Copilot plan, or **Cursor** on your Cursor plan. The engine drives it through the vendor's SDK (Claude Agent SDK, Codex SDK, Copilot SDK, Cursor SDK — all bundled, no separate CLI install) using the local sign-in: `claude auth login`, `codex login`, `gh auth login` (or `copilot login`), and for Cursor the **Sign in** button / `tc runtimes login cursor` and serves the agent's tools to it over MCP on `127.0.0.1` for the length of a run; built-in tools (shell, file edits, web) are off, so every call still goes through the engine and lands in the evidence. The runtime is set in `cartographer.yaml → runtime` (`provider: claude | codex | copilot | cursor`, optional `model`, `effort`, `maxSteps` — tool calls per run), and an agent can override it with its own `runtime:`; the GUI's **Agents** page edits both, shows each runtime's sign-in state and models, and has a **Test run** button. `tc runtimes` prints the same status, `tc runtimes test <provider>` does a short end-to-end run. Claude runs draw from your plan's Agent SDK allowance, Codex runs from your ChatGPT plan's Codex limits, Copilot runs from your Copilot plan's requests, Cursor runs from your Cursor plan's usage (effort doesn't apply to Cursor).
+
+`--scripted` (and **Scripted** in the GUI) replays the agent's script from `workspace/agents/*.yaml` instead — deterministic, no model needed.
 
 ### Onboarding
 

@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
 import type { DragEvent } from 'react';
 import type { Source, SourceKind } from '@tc/model';
-import { api, type Job, type ProjectState, type SourceInfo } from '../api.ts';
+// schema.ts only: the package index pulls in Node-only workspace.ts (see AccessMatrix.tsx).
+import { resolveRuntime } from '@tc/model/schema';
+import { api, runtimeTitle, type Job, type ProjectState, type SourceInfo } from '../api.ts';
 
 type Props = {
   project: ProjectState;
@@ -34,7 +36,11 @@ export function OnboardingView({ project, job, running, reloadToken, onOpenPropo
   const [busy, setBusy] = useState(false);
   const [confirmRemove, setConfirmRemove] = useState<string | null>(null);
   const [viewing, setViewing] = useState<{ source: Source; text: string } | null>(null);
-  const [provider, setProvider] = useState<'live' | 'scripted'>(project.project.inference ? 'live' : 'scripted');
+  // The onboarding agent is the project's `kind: 'onboard'` agent, if any —
+  // an onboard agent isn't tied to a role/entity, so there's only ever one to consider.
+  const onboardAgent = project.project.agents.find((a) => a.kind === 'onboard');
+  const runtime = resolveRuntime(project.project, onboardAgent);
+  const [provider, setProvider] = useState<'live' | 'scripted'>(runtime ? 'live' : 'scripted');
   const [ranJobId, setRanJobId] = useState<string | null>(null);
   const [finished, setFinished] = useState(false);
 
@@ -206,7 +212,11 @@ export function OnboardingView({ project, job, running, reloadToken, onOpenPropo
           <label className="field" style={{ marginBottom: 0 }}>
             <span>Who onboards</span>
             <select className="text" value={provider} onChange={(e) => setProvider(e.target.value as 'live' | 'scripted')}>
-              {project.project.inference && <option value="live">Model {project.project.inference.model}</option>}
+              {runtime && (
+                <option value="live">
+                  Live — {runtimeTitle[runtime.provider]}{runtime.model ? ` · ${runtime.model}` : ''}
+                </option>
+              )}
               <option value="scripted">Recorded script, no model</option>
             </select>
           </label>

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { parseArgs } from 'node:util';
 import { resolve } from 'node:path';
-import { backlogCoverage, buildPlan, coverage, type Totals, Workspace } from '@tc/model';
+import { AgentProvider, backlogCoverage, buildPlan, coverage, type Totals, Workspace } from '@tc/model';
 import { compile } from './compile.ts';
 import { runTests } from './run.ts';
 import { exportMarkdown } from './export.ts';
@@ -18,6 +18,9 @@ const usage = `Test Cartographer
   tc explore <agent> [--scripted]  run an explorer agent (--scripted: from a script, no model)
   tc onboard [agent] [--scripted]  run the onboarding agent over the knowledge sources
   tc backlog               show epics → features → stories, with totals and unmapped stories
+  tc runtimes              sign-in state of the runtimes agents run in: Claude Code, Codex, Copilot, Cursor
+  tc runtimes test <provider> [--model m]  short end-to-end run: sign-in, MCP bridge, tool calls
+  tc runtimes login cursor sign in to Cursor in the browser
   tc serve [--port 4317]   local engine API for the GUI
 
   --ws <path>              workspace (default: ./workspace or TC_WORKSPACE)`;
@@ -30,6 +33,7 @@ const { values, positionals } = parseArgs({
     port: { type: 'string' },
     help: { type: 'boolean', short: 'h' },
     scripted: { type: 'boolean' },
+    model: { type: 'string' },
   },
 });
 
@@ -114,6 +118,29 @@ switch (cmd) {
     const { explore } = await import('./agents/explore.ts');
     const p = await explore(ws, arg, { onLog: (l) => console.log(l), provider: values.scripted ? 'scripted' : 'live' });
     console.log(`\n✔ proposal ${p.id}: ${plural(p.ops.length, 'change')}, ${plural(p.findings.length, 'finding')}`);
+    break;
+  }
+  case 'runtimes': {
+    const { cursorLogin, runtimeStatus, runtimeTitle, testRuntime } = await import('./agents/runtime.ts');
+    if (arg === 'login') {
+      if (positionals[2] !== 'cursor') throw new Error('Only Cursor signs in from here: Claude Code — `claude auth login`, Codex — `codex login`, Copilot — `gh auth login`');
+      const email = await cursorLogin((url) => console.log(`Opened ${url} — finish signing in there.`));
+      console.log(`✔ signed in to Cursor${email ? ` as ${email}` : ''}`);
+      break;
+    }
+    if (arg === 'test') {
+      const provider = AgentProvider.parse(positionals[2]);
+      const r = await testRuntime(provider, values.model, (l) => console.log(l));
+      console.log(`\n${r.ok ? '✔' : '✘'} ${provider} in ${r.seconds}s`);
+      if (!r.ok) process.exitCode = 1;
+      break;
+    }
+    for (const s of await runtimeStatus()) {
+      const who = [s.account, s.plan, s.version && `v${s.version}`].filter(Boolean).join(' · ');
+      console.log(`${s.ready ? '✔' : '✘'} ${runtimeTitle(s.provider)}${who ? ` — ${who}` : ''}`);
+      if (s.detail) console.log(`  ${s.detail}`);
+      if (s.models.length) console.log(`  models: ${s.models.map((m) => m.id).join(', ')}`);
+    }
     break;
   }
   case 'onboard': {

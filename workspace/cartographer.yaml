@@ -49,12 +49,11 @@ contracts:
   - id: shop-openapi
     title: Demo shop OpenAPI
     url: http://localhost:4400/api/openapi.json
-inference:
-  provider: anthropic
+runtime:
+  provider: claude
   model: claude-opus-5
-  apiKeyEnv: ANTHROPIC_API_KEY
-  maxSteps: 40
-  fallbacks: true
+  effort: high
+  maxSteps: 60
 agents:
   - id: client-explorer
     title: Buyer storefront explorer
