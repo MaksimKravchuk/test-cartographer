@@ -27,6 +27,20 @@ const meta = {
   provenance: Provenance.optional(),
 };
 
+// A named value a person attaches to a subject or an object: an account's
+// login and password, a test card number, a tenant id. Agents get fields as
+// context and can type them into the app; tests reach them as
+// {{roles.<id>.<field>}} / {{entities.<id>.<field>}} (see data.ts).
+// `value` may use {{env.NAME}}. A secret is never shown to a model: the agent
+// sees only its {{…}} reference, and the engine substitutes the value itself.
+export const Field = z.object({
+  id: Id, // the key in references: {{roles.seller.password}}
+  value: z.string().default(''),
+  secret: z.boolean().default(false),
+  note: z.string().optional(), // what the value is for, in any language — told to agents as is
+});
+export type Field = z.infer<typeof Field>;
+
 // ── Project ─────────────────────────────────────────────────────────────
 export const Interface = z.object({
   id: Id,
@@ -52,6 +66,9 @@ export const Role = z.object({
       args: z.record(z.string(), z.string()).default({}),
     })
     .optional(),
+  // The role's own data: its account's login and password, a customer number…
+  // login.args can refer to them as {{roles.<id>.<field>}}.
+  fields: z.array(Field).default([]),
 });
 export type Role = z.infer<typeof Role>;
 
@@ -308,6 +325,9 @@ export const Entity = z.object({
   scenarios: z.array(Journey).default([]),
   rules: z.array(Rule).default([]),
   relations: z.array(Relation).default([]),
+  // Data a person attached to the object for agents and tests: a test card
+  // number, a promo code, an existing instance to start from.
+  fields: z.array(Field).default([]),
 });
 export type Entity = z.infer<typeof Entity>;
 

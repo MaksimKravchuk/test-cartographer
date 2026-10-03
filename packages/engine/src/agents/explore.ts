@@ -4,7 +4,9 @@
 import { chromium, type Page } from '@playwright/test';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { z } from 'zod';
-import { Finding, Op, Proposal, toYaml, type Evidence, type Workspace } from '@tc/model';
+import {
+  dataContext, dataValues, Finding, Op, Proposal, redactFields, scrubSecrets, secretValues, toYaml, type Evidence, type Workspace,
+} from '@tc/model';
 import { McpPool, getPath, template } from '../mcp.ts';
 import { createSession, type ToolResult, type ToolSpec } from './providers.ts';
 import { loadActions } from '../actions-loader.ts';
@@ -20,7 +22,7 @@ const MAX_TEXT = 12_000;
 const clip = (s: string) => (s.length > MAX_TEXT ? s.slice(0, MAX_TEXT) + '\n…(truncated)' : s);
 
 const system = (p: {
-  role: string; iface: string; baseUrl: string; entity: string; goal: string; prepare: string[]; contracts: string[];
+  role: string; iface: string; baseUrl: string; entity: string; goal: string; prepare: string[]; contracts: string[]; data: string;
 }) => `You are exploring a web application as the role “${p.role}” through the interface “${p.iface}” (${p.baseUrl}).
 Goal: ${p.goal}
 
@@ -39,8 +41,14 @@ Rules:
 - Prepare data only via prepare(); available setup tools: ${p.prepare.join(', ') || 'none'}. Verify every instance with read().
 - You may open only pages of your own interface (open takes a path relative to baseUrl).
 ${p.contracts.length ? `- Available contracts: ${p.contracts.join(', ')}.` : ''}
+- You are already signed in as your role, if it has a sign-in. To type into a form, use fill().
 - When the exploration is done, call propose() exactly once.
-
+${p.data ? `
+Data a person attached to subjects (roles) and objects (entities) — logins, test values, notes. Use it where an
+action needs it. A secret shows only as its {{…}} reference: pass that reference to fill() as is and the engine
+types the real value; you never see it and don't need to.
+${p.data}
+` : ''}
 Element shapes for ops (op=add, value):
 - variant: { id, title }
 - state: { id, title, variants?: [id], match: { <field from read()>: <value> } }
@@ -63,6 +71,16 @@ export async function explore(ws: Workspace, agentId: string, opts: ExploreOptio
   const role = project.roles.find((r) => r.id === agent.role)!;
   const iface = project.interfaces.find((i) => i.id === role.interface)!;
   const { entity, revision } = await ws.entity(agent.entity);
+  const catalog = await ws.catalog();
+  // Fields of every role and entity: real values for the engine (sign-in,
+  // fill), references in place of secrets for anything the model reads.
+  const data = dataValues(project.roles, Object.values(catalog), process.env);
+  const secrets = secretValues(project.roles, Object.values(catalog), process.env);
+  const related = new Set([
+    ...entity.relations.map((r) => r.entity),
+    ...Object.values(catalog).filter((e) => e.relations.some((r) => r.entity === entity.id)).map((e) => e.id),
+  ]);
+  related.delete(entity.id);
   if (!entity.reader) throw new Error(`Entity “${entity.id}” has no reader yet — add one to its model before exploring it`);
   const reader = entity.reader;
 
@@ -86,8 +104,8 @@ export async function explore(ws: Workspace, agentId: string, opts: ExploreOptio
     if (!login) throw new Error(`Login action “${role.login.action}” is not in the actions/ library`);
     log(`🔑 signing in as ${role.title}`);
     await login.run({
-      page, role, iface, variant: '', key: '', entity: {}, related: {},
-      args: template(role.login.args, { env: process.env }),
+      page, role, iface, variant: '', key: '', entity: {}, related: {}, data,
+      args: template(role.login.args, { env: process.env, ...data }),
       open: async (path = '') => {
         await page.goto(base + path);
       },
@@ -108,9 +126,18 @@ export async function explore(ws: Workspace, agentId: string, opts: ExploreOptio
   const tools: (ToolSpec & { run(input: any): Promise<string> })[] = [
     {
       name: 'model',
-      description: 'The current entity model (YAML) and the project roles.',
+      description: 'The current entity model (YAML), the project roles, and the entities it is related to (in brief).',
       input: z.object({}),
-      run: async () => toYaml({ roles: project.roles, entity }),
+      run: async () =>
+        toYaml({
+          roles: redactFields('roles', project.roles, process.env),
+          entity: redactFields('entities', [entity], process.env)[0],
+          related: redactFields('entities', [...related].flatMap((id) => (catalog[id] ? [catalog[id]] : [])), process.env).map((e) => ({
+            id: e.id, title: e.title, description: e.description, key: e.key, relations: e.relations, fields: e.fields,
+            states: e.states.map((s) => ({ id: s.id, title: s.title, match: s.match })),
+            actions: e.actions.map((a) => ({ id: a.id, title: a.title })),
+          })),
+        }),
     },
     {
       name: 'prepare',
@@ -178,6 +205,18 @@ export async function explore(ws: Workspace, agentId: string, opts: ExploreOptio
       },
     },
     {
+      name: 'fill',
+      description:
+        'Type into an input by data-testid (preferred) or by its label. `value` may hold {{roles.<id>.<field>}} / {{entities.<id>.<field>}} references to data from your instructions — the engine types the real value.',
+      input: z.object({ testId: z.string().optional(), label: z.string().optional(), value: z.string() }),
+      run: async ({ testId, label, value }) => {
+        const loc = testId ? page.getByTestId(testId) : label ? page.getByLabel(label) : null;
+        if (!loc) throw new Error('Provide testId or label');
+        await loc.first().fill(template(value, data), { timeout: 5_000 });
+        return `filled ${testId ?? label}`;
+      },
+    },
+    {
       name: 'contract',
       description: 'Read a system contract (OpenAPI, etc.) by id.',
       input: z.object({ id: z.string() }),
@@ -223,12 +262,26 @@ export async function explore(ws: Workspace, agentId: string, opts: ExploreOptio
     },
   ];
 
+  // Whatever a tool hands back — a page, a read result, an error — goes to the
+  // model with every secret's value replaced by its reference.
+  for (const tool of tools) {
+    const run = tool.run;
+    tool.run = async (input) => {
+      try {
+        return scrubSecrets(await run(input), secrets);
+      } catch (e) {
+        throw new Error(scrubSecrets((e as Error).message, secrets));
+      }
+    };
+  }
+
   const session = await createSession(
     inference,
     {
       system: system({
         role: role.title, iface: iface.title, baseUrl: iface.baseUrl, entity: entity.title, goal: agent.goal,
         prepare: prepareTools, contracts: project.contracts.map((c) => `${c.id} (${c.title})`),
+        data: dataContext(project.roles, Object.values(catalog), process.env, role.id),
       }),
       prompt: `Start exploring. Goal: ${agent.goal}`,
       tools,

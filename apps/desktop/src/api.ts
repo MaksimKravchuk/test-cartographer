@@ -1,4 +1,4 @@
-import type { Backlog, BacklogCoverage, Coverage, Decision, Entity, Issue, Plan, Project, Proposal, ScenarioResult, Source, SourceKind, Status } from '@tc/model';
+import type { Backlog, BacklogCoverage, Coverage, Decision, Entity, Field, Issue, Plan, Project, Proposal, ScenarioResult, Source, SourceKind, Status } from '@tc/model';
 
 export type EntityState = {
   entity: Entity;
@@ -36,6 +36,8 @@ export type EntitySummary = {
   // Subjects: ids of roles named in `by` of the entity's transitions and permits
   // (rejected ones left out), in the project's role order.
   roles: string[];
+  // Data people attached to the object for agents and tests (secrets included — the GUI masks them).
+  fields: Field[];
   pendingProposals: number;
   errors: number;
 };
