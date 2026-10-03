@@ -2,10 +2,10 @@
 // projects, creates new ones from a template and makes sure generated tests
 // and the action library can import the engine from any folder on disk.
 import { existsSync } from 'node:fs';
-import { mkdir, readFile, symlink, writeFile } from 'node:fs/promises';
+import { cp, mkdir, readFile, rename, rm, symlink, writeFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { homedir } from 'node:os';
-import { dirname, join, resolve } from 'node:path';
+import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Entity, Project, toYaml, Workspace } from '@tc/model';
 
@@ -13,23 +13,70 @@ const home = () => process.env.TC_HOME ?? join(homedir(), '.test-cartographer');
 const registry = () => join(home(), 'projects.json');
 const enginePackage = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
-export type RecentProject = { root: string; name: string; openedAt: string };
+// `pinned` projects are favorites: they stay at the top of the switcher and are
+// never dropped when the recent list is trimmed. `missing` is computed on read —
+// the folder was moved or deleted outside the app.
+export type RecentProject = { root: string; name: string; openedAt: string; pinned?: boolean; missing?: boolean };
 
-export async function recentProjects(): Promise<RecentProject[]> {
+const RECENT_LIMIT = 20;
+
+async function readRegistry(): Promise<RecentProject[]> {
   try {
-    const list = JSON.parse(await readFile(registry(), 'utf8')) as RecentProject[];
-    return list.filter((p) => existsSync(join(p.root, 'cartographer.yaml')));
+    return JSON.parse(await readFile(registry(), 'utf8')) as RecentProject[];
   } catch {
     return [];
   }
 }
 
+async function writeRegistry(list: RecentProject[]): Promise<void> {
+  let unpinned = 0;
+  const kept = list.filter((p) => p.pinned || ++unpinned <= RECENT_LIMIT).map(({ missing: _, ...p }) => p);
+  await mkdir(home(), { recursive: true });
+  await writeFile(registry(), JSON.stringify(kept, null, 2) + '\n');
+}
+
+export async function recentProjects(): Promise<RecentProject[]> {
+  return (await readRegistry()).map((p) => (existsSync(join(p.root, 'cartographer.yaml')) ? p : { ...p, missing: true }));
+}
+
 export async function rememberProject(ws: Workspace): Promise<void> {
   const { name } = await ws.project();
-  const list = (await recentProjects()).filter((p) => p.root !== ws.root);
-  list.unshift({ root: ws.root, name, openedAt: new Date().toISOString() });
-  await mkdir(home(), { recursive: true });
-  await writeFile(registry(), JSON.stringify(list.slice(0, 20), null, 2) + '\n');
+  const list = await readRegistry();
+  const pinned = list.find((p) => p.root === ws.root)?.pinned;
+  await writeRegistry([{ root: ws.root, name, openedAt: new Date().toISOString(), ...(pinned && { pinned }) }, ...list.filter((p) => p.root !== ws.root)]);
+}
+
+export async function pinProject(root: string, pinned: boolean): Promise<void> {
+  const list = await readRegistry();
+  const entry = list.find((p) => p.root === root);
+  if (!entry) throw new Error(`${root} is not in the project list`);
+  if (pinned) entry.pinned = true;
+  else delete entry.pinned;
+  await writeRegistry(list);
+}
+
+// Forgetting only drops the project from the list; its folder stays where it is.
+export async function forgetProject(root: string): Promise<void> {
+  await writeRegistry((await readRegistry()).filter((p) => p.root !== root));
+}
+
+// Deleting a project moves its whole folder to ~/.test-cartographer/trash,
+// like entities/.trash for an entity, so a misclick loses nothing.
+export async function trashProject(root: string): Promise<string> {
+  if (!existsSync(join(root, 'cartographer.yaml'))) throw new Error(`${root} is not a Test Cartographer project: cartographer.yaml is missing`);
+  const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+  const target = join(home(), 'trash', `${basename(root)}-${stamp}`);
+  await mkdir(dirname(target), { recursive: true });
+  try {
+    await rename(root, target);
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException).code !== 'EXDEV') throw e;
+    // Another volume: copy, then remove the original.
+    await cp(root, target, { recursive: true, verbatimSymlinks: true });
+    await rm(root, { recursive: true, force: true });
+  }
+  await forgetProject(root);
+  return target;
 }
 
 // Generated specs import `@tc/engine/runtime` and the action library imports
@@ -99,19 +146,34 @@ export async function createProject(root: string, name: string): Promise<Workspa
   return openProject(ws.root);
 }
 
+// Thrown by createEntity for a `partOf` that doesn't name an existing entity
+// — distinct from the "already exists" error so callers can tell them apart (see server.ts).
+export class UnknownParentError extends Error {}
+
+// "line-item" → "lineItem", for the part-of relation's field name.
+const camelCase = (id: string) => id.replace(/[-_]+([a-z0-9])/g, (_, c: string) => c.toUpperCase());
+
 // A new entity starts with one variant and no states. The reader points at an
 // allowed read tool named after the entity, or at a placeholder the validator
-// flags until someone picks the right tool.
-export async function createEntity(ws: Workspace, input: { id: string; title: string; description?: string }): Promise<Entity> {
+// flags until someone picks the right tool. With `partOf`, it starts nested
+// under that object: a part-of relation to it, keyed by its id.
+export async function createEntity(ws: Workspace, input: { id: string; title: string; description?: string; partOf?: string }): Promise<Entity> {
   if ((await ws.entityIds()).includes(input.id)) throw new Error(`Entity “${input.id}” already exists`);
   const project = await ws.project();
   const read = Object.entries(project.mcp).flatMap(([server, cfg]) => cfg.allow.read.map((t) => `${server}.${t}`));
+  let relations: Entity['relations'] = [];
+  if (input.partOf) {
+    if (!(await ws.entityIds()).includes(input.partOf)) throw new UnknownParentError(`Entity “${input.partOf}” doesn't exist`);
+    const { entity: parent } = await ws.entity(input.partOf);
+    relations = [{ id: input.partOf, title: parent.title, entity: input.partOf, field: `${camelCase(input.partOf)}Id`, kind: 'part-of' }];
+  }
   const entity = Entity.parse({
     ...input,
     reader: { tool: read.find((t) => t.includes(input.id.replace(/-/g, '_'))) ?? `mcp.get_${input.id.replace(/-/g, '_')}`, args: { id: '{{key}}' } },
     variants: [{ id: 'default', title: 'Default' }],
     actions: [],
     permits: [],
+    relations,
   });
   await ws.saveEntity(entity);
   return entity;

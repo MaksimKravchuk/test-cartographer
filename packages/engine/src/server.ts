@@ -6,10 +6,10 @@ import { serveStatic } from '@hono/node-server/serve-static';
 import { streamSSE } from 'hono/streaming';
 import { watch, existsSync, type FSWatcher } from 'node:fs';
 import { readFile } from 'node:fs/promises';
-import { dirname, relative, resolve } from 'node:path';
+import { dirname, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
-  AgentProvider, applyDecisions, applyProjectDecisions, Backlog, backlogCoverage, buildPlan, conflicts, coverage, Decision, Entity, Project,
+  AgentProvider, applyDecisions, applyProjectDecisions, Backlog, backlogCoverage, buildPlan, conflicts, coverage, Decision, Entity, objectParents, Project,
   RevisionConflict, SourceKind, validateBacklog, validateEntity, validateProject, type ProjectState, type Workspace,
 } from '@tc/model';
 import { z } from 'zod';
@@ -19,7 +19,7 @@ import { exportMarkdown } from './export.ts';
 import { explore } from './agents/explore.ts';
 import { onboard } from './agents/onboard.ts';
 import { cursorLogin, runtimeStatus, testRuntime } from './agents/runtime.ts';
-import { createEntity, createProject, openProject, recentProjects, rememberProject } from './projects.ts';
+import { createEntity, createProject, forgetProject, openProject, pinProject, recentProjects, rememberProject, trashProject, UnknownParentError } from './projects.ts';
 
 type Event =
   | { type: 'log'; job: string; line: string }
@@ -147,17 +147,46 @@ export function createApp(initial: Workspace) {
     return c.json({ root: ws.root });
   });
 
+  // The registry stores resolved paths; so does ws.root. A path sent as
+  // `shop/`, `.` or with `..` must compare equal to them.
+  const projectRoot = z.string().min(1).transform((p) => resolve(p));
+  const isOpen = (root: string) => root === ws.root || ws.root.startsWith(root.endsWith(sep) ? root : root + sep);
+
+  app.post('/api/projects/pin', async (c) => {
+    const { root, pinned } = z.object({ root: projectRoot, pinned: z.boolean() }).parse(await c.req.json());
+    await pinProject(root, pinned).catch((e: Error) => { throw new HttpError(400, e.message); });
+    return c.json({ ok: true });
+  });
+
+  app.post('/api/projects/forget', async (c) => {
+    const { root } = z.object({ root: projectRoot }).parse(await c.req.json());
+    if (root === ws.root) throw new HttpError(409, 'This project is open. Switch to another one first');
+    await forgetProject(root);
+    return c.json({ ok: true });
+  });
+
+  app.post('/api/projects/trash', async (c) => {
+    const { root } = z.object({ root: projectRoot }).parse(await c.req.json());
+    if (isOpen(root)) throw new HttpError(409, 'This project is open. Switch to another one first');
+    const trashedTo = await trashProject(root).catch((e: Error) => { throw new HttpError(400, e.message); });
+    return c.json({ trashedTo });
+  });
+
   // The entity catalog: one row per entity with its size and test status.
   app.get('/api/entities', async (c) => {
     const project = await ws.project();
-  const catalog = await ws.catalog();
+    const catalog = await ws.catalog();
     const results = await ws.latestResults();
     const proposals = await ws.proposals();
+    const parents = objectParents(Object.values(catalog));
     const out = [];
     for (const id of await ws.entityIds()) {
-      const { entity } = await ws.entity(id);
+      const entity = catalog[id];
       const plan = buildPlan(entity, project, catalog);
       const cov = coverage(entity, plan, results, project);
+      const roleIds = new Set<string>();
+      for (const t of entity.transitions) if (t.status !== 'rejected') for (const r of t.by) roleIds.add(r);
+      for (const p of entity.permits) if (p.status !== 'rejected') for (const r of p.by) roleIds.add(r);
       out.push({
         id,
         title: entity.title,
@@ -178,7 +207,11 @@ export function createApp(initial: Workspace) {
           entity: r.entity,
           title: catalog[r.entity]?.title ?? r.entity,
           requires: catalog[r.entity]?.states.find((x) => x.id === r.requires)?.title ?? r.requires ?? null,
+          kind: r.kind,
         })),
+        parent: parents[id] ?? null,
+        states: entity.states.filter((s) => s.status !== 'rejected').map((s) => ({ id: s.id, title: s.title, initial: s.initial ?? false, terminal: s.terminal ?? false, status: s.status })),
+        roles: project.roles.filter((r) => roleIds.has(r.id)).map((r) => r.id),
         pendingProposals: proposals.filter((p) => p.entity === id && p.status === 'pending').length,
         errors: validateEntity(entity, project, undefined, catalog).filter((i) => i.level === 'error').length,
       });
@@ -187,8 +220,10 @@ export function createApp(initial: Workspace) {
   });
 
   app.post('/api/entities', async (c) => {
-    const input = z.object({ id: z.string().regex(/^[a-z][a-z0-9_-]*$/), title: z.string().min(1), description: z.string().optional() }).parse(await c.req.json());
-    const entity = await createEntity(ws, input).catch((e: Error) => { throw new HttpError(409, e.message); });
+    const input = z
+      .object({ id: z.string().regex(/^[a-z][a-z0-9_-]*$/), title: z.string().min(1), description: z.string().optional(), partOf: z.string().optional() })
+      .parse(await c.req.json());
+    const entity = await createEntity(ws, input).catch((e: Error) => { throw new HttpError(e instanceof UnknownParentError ? 400 : 409, e.message); });
     return c.json(await entityState(entity.id));
   });
 

@@ -1,10 +1,17 @@
 id: line-item
 title: Line Item
+description: One product line inside an order.
 key: id
 reader:
   tool: mcp.get_line_item
   args:
     id: "{{key}}"
+relations:
+  - id: order
+    title: Order
+    entity: order
+    field: orderId
+    kind: part-of
 variants:
   - id: default
     title: Default

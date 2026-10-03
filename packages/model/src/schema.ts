@@ -302,6 +302,10 @@ export const Relation = z.object({
   field: z.string(),
   requires: Id.optional(),
   variants: z.record(Id, Id).optional(),
+  // reference — this entity holds the related one's key and needs it to exist (an order and its listing).
+  // part-of   — this entity lives inside the related one (a line item inside an order): the objects
+  //             map draws it within the parent's card. An entity is part of at most one parent.
+  kind: z.enum(['reference', 'part-of']).default('reference'),
 });
 export type Relation = z.infer<typeof Relation>;
 
