@@ -382,7 +382,7 @@ test('proposals: accept → requirement, observe → observation, reject is kept
     { op: 1, verdict: 'observe', note: 'looks like a bug' },
     { op: 2, verdict: 'accept' },
     { op: 3, verdict: 'reject' },
-  ]);
+  ], project);
   const cancel = next.transitions.find((t) => t.id === 'cancel')!;
   assert.equal(cancel.status, 'confirmed');
   assert.deepEqual(cancel.provenance, { source: 'agent', agent: 'explorer', proposal: 'p1', evidence: ['e1'], sources: [] });
@@ -398,12 +398,45 @@ test('proposals: accept → requirement, observe → observation, reject is kept
 });
 
 test('proposals: conflicts are computed per operation, not per revision', () => {
-  assert.deepEqual(conflicts(entity(), proposal), []);
+  assert.deepEqual(conflicts(entity(), proposal, project), []);
   const e = entity();
   e.states = e.states.filter((s) => s.id !== 'shipped');
   e.transitions = e.transitions.filter((t) => t.to !== 'shipped' && t.from !== 'shipped');
-  assert.deepEqual(conflicts(e, proposal).map((c) => c.op), [2]);
-  assert.throws(() => applyDecisions(e, proposal, [{ op: 2, verdict: 'accept' }]), /is not in the model/);
+  assert.deepEqual(conflicts(e, proposal, project).map((c) => c.op), [2]);
+  assert.throws(() => applyDecisions(e, proposal, [{ op: 2, verdict: 'accept' }], project), /is not in the model/);
+});
+
+test('proposals: a role named by its title instead of its id is a conflict — it can be rejected, not kept', () => {
+  const byTitle = Proposal.parse({
+    id: 'p2',
+    entity: 'order',
+    agent: 'explorer',
+    createdAt: '2026-10-03T00:00:00Z',
+    baseRevision: 'old',
+    rationale: 'by: role title, as a live explorer wrote it',
+    ops: [
+      { op: 'add', kind: 'transition', value: { id: 'refund', title: 'Refund', from: 'done', to: 'new', action: 'pay', by: ['Seller'] } },
+      { op: 'add', kind: 'permit', value: { id: 'view', title: 'View', action: 'pay', by: ['client', 'auditor'] } },
+      { op: 'update', kind: 'transition', id: 'ship', set: { by: ['seller', 'Client'] } },
+      { op: 'add', kind: 'rule', value: { id: 'only-sellers', title: 'Only sellers', text: 'x', transition: 'ship', requires: [{ kind: 'roles', roles: ['Seller'] }] } },
+      { op: 'add', kind: 'transition', value: { id: 'reship', title: 'Reship', from: 'shipped', to: 'shipped', action: 'ship', by: ['seller'] } },
+    ],
+  });
+  const cs = conflicts(entity(), byTitle, project);
+  assert.deepEqual(cs.map((c) => c.op), [0, 1, 2, 3]);
+  assert.match(cs[0].message, /Unknown role “Seller” \(did you mean “seller”\?\) — roles are referenced by id: client, seller/);
+  assert.match(cs[1].message, /Unknown role “auditor” — /);
+  assert.match(cs[2].message, /Unknown role “Client” \(did you mean “client”\?\)/);
+
+  for (const verdict of ['accept', 'observe'] as const)
+    assert.throws(() => applyDecisions(entity(), byTitle, [{ op: 0, verdict }], project), /Operation #0: Unknown role “Seller”/);
+  // Rejecting drops it: the model can't hold even a rejected element with an unknown role.
+  const next = applyDecisions(entity(), byTitle, [...[0, 1, 2, 3].map((op) => ({ op, verdict: 'reject' as const })), { op: 4, verdict: 'accept' as const }], project);
+  assert.ok(!next.transitions.some((t) => t.id === 'refund'));
+  assert.ok(!next.permits.some((p) => p.id === 'view'));
+  assert.deepEqual(next.transitions.find((t) => t.id === 'ship')!.by, ['seller']);
+  assert.ok(!next.rules.some((r) => r.id === 'only-sellers'));
+  assert.equal(next.transitions.find((t) => t.id === 'reship')!.status, 'confirmed');
 });
 
 // ── Coverage and Markdown ─────────────────────────────────────────────────

@@ -4,7 +4,7 @@
 // never touches a running app: everything it knows comes from what was
 // uploaded, and every operation must cite an exact quote from it.
 import { z } from 'zod';
-import { Finding, Op, Proposal, redactFields, resolveRuntime, type AgentSpec, type Evidence, type Workspace } from '@tc/model';
+import { checkRoles, Finding, Op, Proposal, redactFields, resolveRuntime, type AgentSpec, type Evidence, type Workspace } from '@tc/model';
 import { runAgent, type Tool } from './runtime.ts';
 
 export type OnboardOptions = {
@@ -200,8 +200,22 @@ export async function onboard(ws: Workspace, agentId: string | undefined, opts: 
         const { rationale: r, project: projectIn, entities: entitiesIn } = input;
         const known = new Set(evidence.map((e) => e.id));
         if (!projectIn && !entitiesIn) throw new Error('propose needs at least a project or an entities group');
-        if (projectIn) projectGroup = parseGroup('project', projectIn.ops, projectIn.findings, known);
-        for (const [id, group] of Object.entries(entitiesIn ?? {})) entityGroups.set(id, parseGroup(`entity “${id}”`, group.ops, group.findings, known));
+        const parsedProject = projectIn && parseGroup('project', projectIn.ops, projectIn.findings, known);
+        const parsedEntities = Object.entries(entitiesIn ?? {}).map(([id, group]) => [id, parseGroup(`entity “${id}”`, group.ops, group.findings, known)] as const);
+        // `by` and rule roles reference role ids — the project's, or ones this same proposal adds.
+        const roles = [
+          ...project.roles,
+          ...(parsedProject?.ops ?? []).flatMap((op) => (op.kind === 'role' && op.op === 'add' ? [{ id: String(op.value.id), title: String(op.value.title ?? op.value.id) }] : [])),
+        ];
+        const badRoles = parsedEntities.flatMap(([id, group]) =>
+          group.ops.flatMap((op, i) => {
+            const problem = checkRoles(op, roles);
+            return problem ? [`entity “${id}” op #${i}: ${problem}`] : [];
+          }),
+        );
+        if (badRoles.length) throw new Error(badRoles.join('\n'));
+        projectGroup = parsedProject;
+        for (const [id, group] of parsedEntities) entityGroups.set(id, group);
         rationale = r;
         done = true;
         return 'proposal(s) recorded';
