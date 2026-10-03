@@ -80,18 +80,43 @@ function checkProjectOp(state: ProjectState, op: Op): string | null {
   return list.some((x) => x.id === op.id) ? null : `“${op.id}” is not in the model`;
 }
 
+// The roles an op names as performers: a transition's or permit's `by`, a
+// rule's `roles` condition.
+function namedRoles(op: Op): unknown[] {
+  if (op.op === 'remove') return [];
+  const fields = op.op === 'add' ? op.value : op.set;
+  if (op.kind === 'transition' || op.kind === 'permit') return Array.isArray(fields.by) ? fields.by : [];
+  if (op.kind === 'rule' && Array.isArray(fields.requires))
+    return fields.requires.flatMap((c) => (c?.kind === 'roles' && Array.isArray(c.roles) ? c.roles : []));
+  return [];
+}
+
+// Roles are referenced by id. An op that names a role the project doesn't
+// define — typically its title, “Seller” for `seller` — would land a
+// transition no role can perform, so it can't be accepted as it is.
+export function checkRoles(op: Op, roles: { id: string; title: string }[]): string | null {
+  const ids = new Set(roles.map((r) => r.id));
+  const unknown = [...new Set(namedRoles(op).filter((r) => !ids.has(r as string)))];
+  if (!unknown.length) return null;
+  const name = (r: unknown) => {
+    const match = typeof r === 'string' && roles.find((x) => x.title.toLowerCase() === r.toLowerCase() || x.id.toLowerCase() === r.toLowerCase());
+    return `“${String(r)}”${match ? ` (did you mean “${match.id}”?)` : ''}`;
+  };
+  return `Unknown role ${unknown.map(name).join(', ')} — roles are referenced by id: ${roles.map((r) => r.id).join(', ') || 'none defined'}`;
+}
+
 // Checks whether an operation can be applied to the current model. The proposal
 // was created against baseRevision; if the model has changed since then, only
 // operations that actually broke count as conflicts.
-export function checkOp(entity: Entity, op: Op): string | null;
+export function checkOp(entity: Entity, op: Op, project: Project): string | null;
 export function checkOp(state: ProjectState, op: Op): string | null;
-export function checkOp(target: Entity | ProjectState, op: Op): string | null {
-  return isProjectState(target) ? checkProjectOp(target, op) : checkEntityOp(target, op);
+export function checkOp(target: Entity | ProjectState, op: Op, project?: Project): string | null {
+  return isProjectState(target) ? checkProjectOp(target, op) : (checkEntityOp(target, op) ?? checkRoles(op, project!.roles));
 }
 
-export function conflicts(entity: Entity | undefined, proposal: Proposal): Conflict[];
+export function conflicts(entity: Entity | undefined, proposal: Proposal, project: Project): Conflict[];
 export function conflicts(state: ProjectState, proposal: Proposal): Conflict[];
-export function conflicts(target: Entity | ProjectState | undefined, proposal: Proposal): Conflict[] {
+export function conflicts(target: Entity | ProjectState | undefined, proposal: Proposal, project?: Project): Conflict[] {
   // An entity-level proposal for an entity that doesn't exist yet (still only a
   // project-level proposal to create it) — every op is blocked the same way.
   if (!target) {
@@ -99,7 +124,7 @@ export function conflicts(target: Entity | ProjectState | undefined, proposal: P
     return proposal.ops.map((_, i) => ({ op: i, message }));
   }
   return proposal.ops.flatMap((op, i) => {
-    const message = isProjectState(target) ? checkProjectOp(target, op) : checkEntityOp(target, op);
+    const message = isProjectState(target) ? checkProjectOp(target, op) : checkOp(target, op, project!);
     return message ? [{ op: i, message }] : [];
   });
 }
@@ -125,13 +150,20 @@ function buildProvenance(proposal: Proposal, evidenceIds: string[], note?: strin
 // accept  → the element becomes a requirement (confirmed);
 // observe → the element is recorded as observed behavior (observed);
 // reject  → for add, the element is kept as rejected so agents don't propose it again.
-export function applyDecisions(entity: Entity, proposal: Proposal, decisions: Decision[]): Entity {
+export function applyDecisions(entity: Entity, proposal: Proposal, decisions: Decision[], project: Project): Entity {
   const next: Entity = structuredClone(entity);
   for (const d of decisions) {
     const op = proposal.ops[d.op];
     if (!op) throw new Error(`No operation #${d.op}`);
     const problem = checkEntityOp(next, op);
     if (problem) throw new Error(`Operation #${d.op}: ${problem}`);
+    const unknownRole = checkRoles(op, project.roles);
+    if (unknownRole) {
+      // The model can't hold an element with an unknown role, not even a
+      // rejected one — rejecting it just drops it.
+      if (d.verdict === 'reject') continue;
+      throw new Error(`Operation #${d.op}: ${unknownRole}`);
+    }
     if (d.verdict === 'reject' && op.op !== 'add') continue;
     // checkEntityOp above already rejected a non-element kind — this guard only narrows the type.
     if (!isElementKind(op.kind)) throw new Error(`Operation #${d.op}: not an entity-level operation`);
