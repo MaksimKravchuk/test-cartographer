@@ -135,7 +135,18 @@ What a person still had to do:
 The plan: **749 scenarios: 17 positive, 732 deny.**
 
 - Positive: **16 / 17 pass**. The one failure is the storefront checkout defect above.
-- Deny matrix: the full run was still going when this was committed; its results follow in the next commit.
+- Deny matrix: 732 scenarios, 29 minutes on 2 workers. `oracle/deny.ts` sorts them against the oracle:
+
+  | result | count |
+  |---|---|
+  | passed: denied in the app as well | 629 |
+  | **UI offers it and the role may really do it — the model is missing it** | 23 |
+  | **UI offers it, the server refuses — the admin ignores permissions (support)** | 30 |
+  | UI offers it, the oracle doesn't allow it | 11 |
+  | failed before the check: another test moved the shared buyer cart on | 36 |
+  | test timeout | 3 |
+
+  So the deny matrix doubles as a recall check on the agents' model. Its 23 "missing" cells are exactly what the explorers didn't reach: refund & cancel, modify and fulfil from the other shipping states, and cancel at payment. It also found a rule nobody had modelled: Vendure's default `OrderByCodeAccessStrategy('2h')` lets anyone who is signed out open any order by its code for two hours, and the guest cells caught it. Of the 11 cells the oracle doesn't allow, 5 are the action library's fault: `available()` for "modify" checks only that "Manually transition to state..." is in the menu, not that Modifying is one of its options. The other 6 are real: settle on a cancelled order; cancel offered on a cart and a draft; the buyer's own cart shown on the confirmation page.
 
 ## What this says about Cartographer
 
