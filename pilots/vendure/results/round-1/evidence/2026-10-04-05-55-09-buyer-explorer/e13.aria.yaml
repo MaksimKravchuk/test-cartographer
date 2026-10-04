@@ -1,0 +1,216 @@
+- banner:
+  - paragraph:
+    - text: "Exclusive: Get your own"
+    - link "FREE storefront starter kit":
+      - /url: https://github.com/vendure-ecommerce/storefront-remix-starter
+  - link "My Account":
+    - /url: /account
+  - heading "commmon.logoAlt" [level=1]:
+    - link "commmon.logoAlt":
+      - /url: /
+      - img "commmon.logoAlt"
+  - link "Electronics":
+    - /url: /collections/electronics
+  - link "Home & Garden":
+    - /url: /collections/home-garden
+  - link "Sports & Outdoor":
+    - /url: /collections/sports-outdoor
+  - searchbox "Search"
+  - button "Open cart tray": "1"
+- main:
+  - text: Date placed October 4, 2026 Total sum $27.79 Order number 1TBU3TMY4WYQBY2Y Payment authorized
+  - group:
+    - button "Actions for this order (Not implemented)"
+    - button "Expand this order"
+  - link:
+    - /url: /products/cordless-mouse
+    - img
+  - link "Wireless Optical Mouse":
+    - /url: /products/cordless-mouse
+  - button "$22.79"
+  - text: Not shipped yet
+  - button "Detailed overview"
+  - text: Date placed October 4, 2026 Total sum $0.00 Order number 5S88Q5WFH5S9T56Z Cancelled
+  - group:
+    - button "Actions for this order (Not implemented)"
+    - button "Expand this order"
+  - link:
+    - /url: /products/cordless-mouse
+    - img
+  - link "Wireless Optical Mouse":
+    - /url: /products/cordless-mouse
+  - button "$0.00"
+  - text: Not shipped yet
+  - button "Detailed overview"
+  - text: Date placed October 4, 2026 Total sum $27.79 Order number GUBF43PXJXSYTBX1 Delivered
+  - group:
+    - button "Actions for this order (Not implemented)"
+    - button "Expand this order"
+  - link:
+    - /url: /products/cordless-mouse
+    - img
+  - link "Wireless Optical Mouse":
+    - /url: /products/cordless-mouse
+  - button "$22.79"
+  - text: "1 Or 1 items fulfilled Delivered: Oct 4, 2026"
+  - button "Track package"
+  - button "Detailed overview"
+  - text: Date placed October 4, 2026 Total sum $422.59 Order number K2AEZM2K8CDQLPQH Partially delivered
+  - group:
+    - button "Actions for this order (Not implemented)"
+    - button "Expand this order"
+  - link:
+    - /url: /products/cordless-mouse
+    - img
+  - link "Wireless Optical Mouse":
+    - /url: /products/cordless-mouse
+  - button "$22.79"
+  - text: Not shipped yet
+  - link:
+    - /url: /products/tablet
+    - img
+  - link "Tablet 32GB":
+    - /url: /products/tablet
+  - button "$394.80"
+  - text: "1 Or 1 items fulfilled Delivered: Oct 4, 2026"
+  - button "Track package"
+  - button "Detailed overview"
+  - text: Date placed October 4, 2026 Total sum $27.79 Order number W6XPJY372A2MB22C Shipped
+  - group:
+    - button "Actions for this order (Not implemented)"
+    - button "Expand this order"
+  - link:
+    - /url: /products/cordless-mouse
+    - img
+  - link "Wireless Optical Mouse":
+    - /url: /products/cordless-mouse
+  - button "$22.79"
+  - text: "1 Or 1 items fulfilled Shipped: Oct 4, 2026"
+  - button "Track package"
+  - button "Detailed overview"
+  - text: Date placed October 4, 2026 Total sum $422.59 Order number 4FD8J5ZWZ1K3GA5H Partially shipped
+  - group:
+    - button "Actions for this order (Not implemented)"
+    - button "Expand this order"
+  - link:
+    - /url: /products/cordless-mouse
+    - img
+  - link "Wireless Optical Mouse":
+    - /url: /products/cordless-mouse
+  - button "$22.79"
+  - text: Not shipped yet
+  - link:
+    - /url: /products/tablet
+    - img
+  - link "Tablet 32GB":
+    - /url: /products/tablet
+  - button "$394.80"
+  - text: "1 Or 1 items fulfilled Shipped: Oct 4, 2026"
+  - button "Track package"
+  - button "Detailed overview"
+  - text: Date placed October 4, 2026 Total sum $27.79 Order number CR3A7VCFAHBYED6E Payment settled
+  - group:
+    - button "Actions for this order (Not implemented)"
+    - button "Expand this order"
+  - link:
+    - /url: /products/cordless-mouse
+    - img
+  - link "Wireless Optical Mouse":
+    - /url: /products/cordless-mouse
+  - button "$22.79"
+  - text: Not shipped yet
+  - button "Detailed overview"
+  - text: Date placed October 4, 2026 Total sum $27.79 Order number 8HC8KCHZBKYCXJTK Payment authorized
+  - group:
+    - button "Actions for this order (Not implemented)"
+    - button "Expand this order"
+  - link:
+    - /url: /products/cordless-mouse
+    - img
+  - link "Wireless Optical Mouse":
+    - /url: /products/cordless-mouse
+  - button "$22.79"
+  - text: Not shipped yet
+  - button "Detailed overview"
+  - text: Date placed October 4, 2026 Total sum $0.00 Order number ERHPDL4SRVBZ51MT Cancelled
+  - group:
+    - button "Actions for this order (Not implemented)"
+    - button "Expand this order"
+  - link:
+    - /url: /products/cordless-mouse
+    - img
+  - link "Wireless Optical Mouse":
+    - /url: /products/cordless-mouse
+  - button "$0.00"
+  - text: Not shipped yet
+  - button "Detailed overview"
+  - text: Date placed October 4, 2026 Total sum $27.79 Order number MPYV3KQ1B8GXWBKE Delivered
+  - group:
+    - button "Actions for this order (Not implemented)"
+    - button "Expand this order"
+  - link:
+    - /url: /products/cordless-mouse
+    - img
+  - link "Wireless Optical Mouse":
+    - /url: /products/cordless-mouse
+  - button "$22.79"
+  - text: "1 Or 1 items fulfilled Delivered: Oct 4, 2026"
+  - button "Track package"
+  - button "Detailed overview"
+  - text: Showing orders 1 to 10 of 39
+  - combobox:
+    - option "10 per Page" [selected]
+    - option "20 per Page"
+    - option "30 per Page"
+  - group:
+    - button "Prev." [disabled]
+    - button "Next"
+- contentinfo "Footer":
+  - heading "Footer" [level=2]
+  - heading "Shop" [level=3]
+  - list:
+    - listitem:
+      - link "Electronics":
+        - /url: /collections/electronics
+    - listitem:
+      - link "Home & Garden":
+        - /url: /collections/home-garden
+    - listitem:
+      - link "Sports & Outdoor":
+        - /url: /collections/sports-outdoor
+  - heading "Support" [level=3]
+  - list:
+    - listitem:
+      - link "Help":
+        - /url: "#"
+    - listitem:
+      - link "Track order":
+        - /url: "#"
+    - listitem:
+      - link "Shipping":
+        - /url: "#"
+    - listitem:
+      - link "Returns":
+        - /url: "#"
+  - heading "account.company" [level=3]
+  - list:
+    - listitem:
+      - link "About":
+        - /url: "#"
+    - listitem:
+      - link "Blog":
+        - /url: "#"
+    - listitem:
+      - link "Corporate responsibility":
+        - /url: "#"
+    - listitem:
+      - link "Press":
+        - /url: "#"
+  - heading "Subscribe to our newsletter" [level=3]
+  - paragraph: Be the first to know about exclusive offers & deals.
+  - text: acount.emailAddress
+  - textbox "acount.emailAddress":
+    - /placeholder: Enter your email
+  - button "Subscribe"
+  - link "github.com/vendure-ecommerce/storefront-remix-starter":
+    - /url: https://github.com/vendure-ecommerce/storefront-remix-starter

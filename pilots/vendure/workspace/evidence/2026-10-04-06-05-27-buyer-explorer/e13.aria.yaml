@@ -1,0 +1,148 @@
+- generic [ref=f7e1]:
+  - banner [ref=f7e2]:
+    - generic [ref=f7e4]:
+      - paragraph [ref=f7e6]:
+        - text: "Exclusive: Get your own"
+        - link "FREE storefront starter kit" [ref=f7e7]:
+          - /url: https://github.com/vendure-ecommerce/storefront-remix-starter
+      - link "My Account" [ref=f7e9]:
+        - /url: /account
+    - generic [ref=f7e13]:
+      - heading [level=1] [ref=f7e14]:
+        - link [ref=f7e15]:
+          - /url: /
+          - img "commmon.logoAlt" [ref=f7e16]
+      - generic [ref=f7e17]:
+        - link "Electronics" [ref=f7e18]:
+          - /url: /collections/electronics
+        - link "Home & Garden" [ref=f7e19]:
+          - /url: /collections/home-garden
+        - link "Sports & Outdoor" [ref=f7e20]:
+          - /url: /collections/sports-outdoor
+      - searchbox "Search" [ref=f7e23]
+      - button "Open cart tray" [active] [ref=f7e25]:
+        - generic [ref=f7e28]: "3"
+  - main [ref=f7e29]:
+    - generic [ref=f7e210]:
+      - heading "Checkout" [level=2] [ref=f7e211]
+      - navigation "cart.progress" [ref=f7e212]:
+        - list [ref=f7e213]:
+          - listitem [ref=f7e214]:
+            - generic [ref=f7e215]: Shipping
+          - listitem [ref=f7e218]:
+            - generic [ref=f7e219]: Payment
+          - listitem [ref=f7e222]:
+            - generic [ref=f7e223]: Confirmation
+      - generic [ref=f7e226]:
+        - heading "Order summary" [level=2] [ref=f7e227]
+        - list [ref=f7e229]:
+          - listitem [ref=f7e230]:
+            - img "Tablet 32GB" [ref=f7e232]
+            - generic [ref=f7e233]:
+              - generic [ref=f7e235]:
+                - heading [level=3] [ref=f7e236]:
+                  - link "Tablet 32GB" [ref=f7e237]:
+                    - /url: /products/tablet
+                - paragraph [ref=f7e238]: $394.80
+              - generic [ref=f7e239]:
+                - generic [ref=f7e240]:
+                  - text: Quantity
+                  - combobox "Quantity" [ref=f7e241]:
+                    - option "1" [selected]
+                    - option "2"
+                    - option "3"
+                    - option "4"
+                    - option "5"
+                    - option "6"
+                    - option "7"
+                    - option "8"
+                - button "Remove" [ref=f7e243]
+          - listitem [ref=f7e244]:
+            - img "Wireless Optical Mouse" [ref=f7e246]
+            - generic [ref=f7e247]:
+              - generic [ref=f7e249]:
+                - heading [level=3] [ref=f7e250]:
+                  - link "Wireless Optical Mouse" [ref=f7e251]:
+                    - /url: /products/cordless-mouse
+                - paragraph [ref=f7e252]: $45.58
+              - generic [ref=f7e253]:
+                - generic [ref=f7e254]:
+                  - text: Quantity
+                  - combobox "Quantity" [ref=f7e255]:
+                    - option "1"
+                    - option "2" [selected]
+                    - option "3"
+                    - option "4"
+                    - option "5"
+                    - option "6"
+                    - option "7"
+                    - option "8"
+                - button "Remove" [ref=f7e257]
+        - generic [ref=f7e258]:
+          - generic [ref=f7e259]:
+            - term [ref=f7e260]: Subtotal
+            - definition [ref=f7e261]: $440.38
+          - generic [ref=f7e262]:
+            - term [ref=f7e263]: Shipping
+            - definition [ref=f7e264]: $0.00
+          - generic [ref=f7e265]:
+            - term [ref=f7e266]: Total
+            - definition [ref=f7e267]: $440.38
+  - contentinfo [ref=f7e158]:
+    - heading "Footer" [level=2] [ref=f7e159]
+    - generic [ref=f7e160]:
+      - generic [ref=f7e161]:
+        - generic [ref=f7e162]:
+          - generic [ref=f7e163]:
+            - generic [ref=f7e164]:
+              - heading "Shop" [level=3] [ref=f7e165]
+              - list [ref=f7e166]:
+                - listitem [ref=f7e167]:
+                  - link "Electronics" [ref=f7e168]:
+                    - /url: /collections/electronics
+                - listitem [ref=f7e169]:
+                  - link "Home & Garden" [ref=f7e170]:
+                    - /url: /collections/home-garden
+                - listitem [ref=f7e171]:
+                  - link "Sports & Outdoor" [ref=f7e172]:
+                    - /url: /collections/sports-outdoor
+            - generic [ref=f7e173]:
+              - heading "Support" [level=3] [ref=f7e174]
+              - list [ref=f7e175]:
+                - listitem [ref=f7e176]:
+                  - link "Help" [ref=f7e177]:
+                    - /url: "#"
+                - listitem [ref=f7e178]:
+                  - link "Track order" [ref=f7e179]:
+                    - /url: "#"
+                - listitem [ref=f7e180]:
+                  - link "Shipping" [ref=f7e181]:
+                    - /url: "#"
+                - listitem [ref=f7e182]:
+                  - link "Returns" [ref=f7e183]:
+                    - /url: "#"
+          - generic [ref=f7e185]:
+            - heading "account.company" [level=3] [ref=f7e186]
+            - list [ref=f7e187]:
+              - listitem [ref=f7e188]:
+                - link "About" [ref=f7e189]:
+                  - /url: "#"
+              - listitem [ref=f7e190]:
+                - link "Blog" [ref=f7e191]:
+                  - /url: "#"
+              - listitem [ref=f7e192]:
+                - link "Corporate responsibility" [ref=f7e193]:
+                  - /url: "#"
+              - listitem [ref=f7e194]:
+                - link "Press" [ref=f7e195]:
+                  - /url: "#"
+        - generic [ref=f7e196]:
+          - heading "Subscribe to our newsletter" [level=3] [ref=f7e197]
+          - paragraph [ref=f7e198]: Be the first to know about exclusive offers & deals.
+          - generic [ref=f7e199]:
+            - generic [ref=f7e200]: acount.emailAddress
+            - textbox "acount.emailAddress" [ref=f7e201]:
+              - /placeholder: Enter your email
+            - button "Subscribe" [ref=f7e203]
+      - link "github.com/vendure-ecommerce/storefront-remix-starter" [ref=f7e205]:
+        - /url: https://github.com/vendure-ecommerce/storefront-remix-starter

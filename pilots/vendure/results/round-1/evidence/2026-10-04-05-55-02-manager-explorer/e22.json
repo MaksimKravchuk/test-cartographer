@@ -1,0 +1,19 @@
+{
+  "id": "51",
+  "code": "RELVAMR8V77TA3DG",
+  "state": "ArrangingPayment",
+  "active": true,
+  "placed": false,
+  "customer": "guest+explore-2026-10-04-05-55-02-manager-explorer@shop.test",
+  "paymentMethod": null,
+  "paymentState": null,
+  "fulfillmentStates": [],
+  "lines": [
+    {
+      "id": "67",
+      "variant": "Wireless Optical Mouse",
+      "quantity": 1
+    }
+  ],
+  "totalWithTax": 2779
+}

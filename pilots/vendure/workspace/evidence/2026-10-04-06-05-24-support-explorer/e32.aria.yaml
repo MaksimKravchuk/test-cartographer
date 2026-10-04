@@ -1,0 +1,15 @@
+- generic [ref=f12e2]:
+  - generic [ref=f12e450]:
+    - generic [ref=f12e451]: Hi! Welcome back. Good to see you.
+    - generic [ref=f12e454]:
+      - paragraph [ref=f12e455]: Log in to Vendure
+      - generic [ref=f12e457]:
+        - textbox "Username" [ref=f12e458]
+        - textbox "Password" [ref=f12e459]
+        - img "Error" [ref=f12e464]
+        - generic [ref=f12e469]:
+          - checkbox "Remember me" [ref=f12e470]
+          - generic [ref=f12e471]: Remember me
+        - button "Log in" [disabled] [ref=f12e473]
+  - generic: You are not currently authorized to access "transitionFulfillmentToState". Either you lack permissions, or your session has expired.
+  - generic: Could not connect to the Vendure server at auto:auto

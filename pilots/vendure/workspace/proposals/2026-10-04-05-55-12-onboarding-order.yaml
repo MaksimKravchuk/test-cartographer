@@ -1,0 +1,535 @@
+id: 2026-10-04-05-55-12-onboarding-order
+entity: order
+agent: onboarding
+createdAt: 2026-10-04T05:57:35.596Z
+baseRevision: 03860b80ef9f
+rationale: "I read both sources: the stand wiki and the SHOP Jira export. Roles, interfaces and the order entity already existed and match the wiki (URLs and accounts), so no project-level role or interface changes are needed. I propose an order lifecycle: payment step → (card: authorized → manager settles) / (prepaid: paid immediately) → shipped → delivered, with manager cancellation before shipment. There are view permits for the manager and for support, rules for settle, ship and cancel, and three journeys. The backlog has the 3 Jira epics, 4 features sliced by order actions, and the Jira stories plus the SHOP-112 task, each mapped to the elements it covers. Unmapped items (buyer cancel, drafts, partial shipment, RMA, the cart bug) are reported as gaps. Conflicts are reported as contradictions instead of being resolved silently: «Оплачен» vs card authorization, and support refunds vs support being view-only."
+evidence:
+  - id: e1
+    kind: source
+    summary: По карте деньги сначала замораживаются, списывает менеджер вручную в админке.
+    path: jira.csv#L2-L2
+    source: jira
+  - id: e2
+    kind: source
+    summary: SHOP-102,Story,Предоплаченная карта как способ оплаты,Done,SHOP-100,Деньги списываются сразу при оплате.
+    path: jira.csv#L3-L3
+    source: jira
+  - id: e3
+    kind: source
+    summary: Покупатель оплачивает заказ на шаге оплаты.
+    path: jira.csv#L2-L2
+    source: jira
+  - id: e4
+    kind: source
+    summary: Заказ после оплаты висит в статусе «Оплачен», дальше менеджер его отгружает.
+    path: qa-stand.md#L23-L23
+    source: qa-stand
+  - id: e5
+    kind: source
+    summary: Менеджер создаёт отправление, отмечает что отправлено, потом что доставлено.
+    path: jira.csv#L4-L4
+    source: jira
+  - id: e6
+    kind: source
+    summary: Отменить заказ можно только до отгрузки.
+    path: qa-stand.md#L24-L24
+    source: qa-stand
+  - id: e7
+    kind: source
+    summary: Менеджер может отменить заказ до отгрузки. После отгрузки только через возврат.
+    path: jira.csv#L7-L7
+    source: jira
+  - id: e8
+    kind: source
+    summary: "Менеджер работает с заказами: смотрит, списывает оплату, отгружает, отменяет."
+    path: qa-stand.md#L19-L19
+    source: qa-stand
+  - id: e9
+    kind: source
+    summary: Поддержка отвечает клиентам, заказы только смотрит, ничего не меняет.
+    path: qa-stand.md#L20-L20
+    source: qa-stand
+  - id: e10
+    kind: source
+    summary: SHOP-130,Story,Роль поддержки,Done,SHOP-200,Только просмотр заказов и клиентов.
+    path: jira.csv#L9-L9
+    source: jira
+  - id: e11
+    kind: source
+    summary: Каталог — товары и остатки, в заказы не ходит.
+    path: qa-stand.md#L21-L21
+    source: qa-stand
+  - id: e12
+    kind: source
+    summary: SHOP-111,Bug,Не отгружается неоплаченный заказ,Won't Do,SHOP-100,
+    path: jira.csv#L5-L5
+    source: jira
+  - id: e13
+    kind: source
+    summary: SHOP-112,Task,Частичная отгрузка,Done,SHOP-100,
+    path: jira.csv#L6-L6
+    source: jira
+  - id: e14
+    kind: source
+    summary: Ещё поддержка делает возвраты, если клиент пожаловался.
+    path: qa-stand.md#L20-L20
+    source: qa-stand
+  - id: e15
+    kind: source
+    summary: SHOP-121,Story,Покупатель отменяет заказ из личного кабинета,To Do,SHOP-100,"Пока нет, покупатель пишет в поддержку."
+    path: jira.csv#L8-L8
+    source: jira
+  - id: e16
+    kind: source
+    summary: SHOP-140,Story,Черновики заказов,Done,SHOP-100,
+    path: jira.csv#L10-L10
+    source: jira
+  - id: e17
+    kind: source
+    summary: Оплата картой на стенде ненастоящая, любые данные проходят.
+    path: qa-stand.md#L26-L26
+    source: qa-stand
+ops:
+  - op: add
+    kind: variant
+    value:
+      id: card
+      title: Оплата картой (заморозка, ручное списание)
+    evidence:
+      - e1
+  - op: add
+    kind: variant
+    value:
+      id: prepaid_card
+      title: Оплата предоплаченной картой (сразу списание)
+    evidence:
+      - e2
+  - op: add
+    kind: state
+    value:
+      id: awaiting_payment
+      title: На шаге оплаты
+      match: {}
+    evidence:
+      - e3
+  - op: add
+    kind: state
+    value:
+      id: payment_authorized
+      title: Оплата заморожена (авторизована)
+      variants:
+        - card
+      match: {}
+    evidence:
+      - e1
+  - op: add
+    kind: state
+    value:
+      id: paid
+      title: Оплачен
+      match:
+        status: Оплачен
+    evidence:
+      - e4
+  - op: add
+    kind: state
+    value:
+      id: shipped
+      title: Отправлен
+      match: {}
+    evidence:
+      - e5
+  - op: add
+    kind: state
+    value:
+      id: delivered
+      title: Доставлен
+      match: {}
+    evidence:
+      - e5
+  - op: add
+    kind: state
+    value:
+      id: cancelled
+      title: Отменён
+      match: {}
+    evidence:
+      - e6
+      - e7
+  - op: add
+    kind: action
+    value:
+      id: pay
+      title: Оплатить заказ
+      kind: command
+    evidence:
+      - e3
+  - op: add
+    kind: action
+    value:
+      id: settle
+      title: Списать оплату
+      kind: command
+    evidence:
+      - e1
+      - e8
+  - op: add
+    kind: action
+    value:
+      id: ship
+      title: Отгрузить (создать отправление, отметить отправленным)
+      kind: command
+    evidence:
+      - e5
+  - op: add
+    kind: action
+    value:
+      id: deliver
+      title: Отметить доставленным
+      kind: command
+    evidence:
+      - e5
+  - op: add
+    kind: action
+    value:
+      id: cancel
+      title: Отменить заказ
+      kind: command
+    evidence:
+      - e7
+      - e8
+  - op: add
+    kind: action
+    value:
+      id: view
+      title: Просмотреть заказ
+      kind: read
+    evidence:
+      - e8
+      - e9
+  - op: add
+    kind: transition
+    value:
+      id: pay_card
+      title: Покупатель оплачивает картой — деньги замораживаются
+      from: awaiting_payment
+      to: payment_authorized
+      action: pay
+      by:
+        - buyer
+      effects:
+        - description: Деньги заморожены на карте, не списаны
+    evidence:
+      - e3
+      - e1
+  - op: add
+    kind: transition
+    value:
+      id: pay_prepaid
+      title: Покупатель оплачивает предоплаченной картой — деньги списываются сразу
+      from: awaiting_payment
+      to: paid
+      action: pay
+      by:
+        - buyer
+      effects:
+        - description: Деньги списаны сразу при оплате
+    evidence:
+      - e2
+  - op: add
+    kind: transition
+    value:
+      id: settle
+      title: Менеджер вручную списывает замороженные деньги
+      from: payment_authorized
+      to: paid
+      action: settle
+      by:
+        - manager
+      effects:
+        - description: Замороженные деньги списаны
+    evidence:
+      - e1
+      - e8
+  - op: add
+    kind: transition
+    value:
+      id: ship
+      title: Менеджер отгружает оплаченный заказ
+      from: paid
+      to: shipped
+      action: ship
+      by:
+        - manager
+      guards:
+        - Заказ оплачен
+    evidence:
+      - e4
+      - e5
+  - op: add
+    kind: transition
+    value:
+      id: deliver
+      title: Менеджер отмечает доставку
+      from: shipped
+      to: delivered
+      action: deliver
+      by:
+        - manager
+    evidence:
+      - e5
+  - op: add
+    kind: transition
+    value:
+      id: cancel_awaiting_payment
+      title: Менеджер отменяет заказ на шаге оплаты
+      from: awaiting_payment
+      to: cancelled
+      action: cancel
+      by:
+        - manager
+    evidence:
+      - e7
+      - e6
+  - op: add
+    kind: transition
+    value:
+      id: cancel_authorized
+      title: Менеджер отменяет заказ с замороженной оплатой
+      from: payment_authorized
+      to: cancelled
+      action: cancel
+      by:
+        - manager
+    evidence:
+      - e7
+      - e6
+  - op: add
+    kind: transition
+    value:
+      id: cancel_paid
+      title: Менеджер отменяет оплаченный, но не отгруженный заказ
+      from: paid
+      to: cancelled
+      action: cancel
+      by:
+        - manager
+    evidence:
+      - e7
+      - e6
+  - op: add
+    kind: permit
+    value:
+      id: view_by_manager
+      title: Менеджер смотрит заказы
+      action: view
+      by:
+        - manager
+    evidence:
+      - e8
+  - op: add
+    kind: permit
+    value:
+      id: view_by_support
+      title: Поддержка только смотрит заказы
+      action: view
+      by:
+        - support
+    evidence:
+      - e9
+      - e10
+  - op: add
+    kind: rule
+    value:
+      id: settle_by_manager
+      title: Списание — только менеджер вручную в админке
+      text: Замороженные по карте деньги списывает менеджер вручную в админке.
+      transition: settle
+      requires:
+        - kind: roles
+          roles:
+            - manager
+    evidence:
+      - e1
+  - op: add
+    kind: rule
+    value:
+      id: ship_only_paid
+      title: Отгружается только оплаченный заказ
+      text: Отгрузка возможна только из статуса «Оплачен»; неоплаченный заказ не отгружается (SHOP-111 закрыт как Won't Do).
+      transition: ship
+      requires:
+        - kind: roles
+          roles:
+            - manager
+    evidence:
+      - e4
+      - e12
+  - op: add
+    kind: rule
+    value:
+      id: cancel_by_manager_before_shipment
+      title: Отмена — менеджером и только до отгрузки
+      text: Менеджер может отменить заказ до отгрузки. После отгрузки только через возврат.
+      transition: cancel_paid
+      requires:
+        - kind: roles
+          roles:
+            - manager
+    evidence:
+      - e7
+      - e6
+  - op: add
+    kind: scenario
+    value:
+      id: card_order_to_delivery
+      title: Оплата картой → списание → отгрузка → доставка
+      start: awaiting_payment
+      path:
+        - pay_card
+        - settle
+        - ship
+        - deliver
+    evidence:
+      - e1
+      - e5
+  - op: add
+    kind: scenario
+    value:
+      id: prepaid_order_to_delivery
+      title: Предоплаченная карта → отгрузка → доставка
+      start: awaiting_payment
+      path:
+        - pay_prepaid
+        - ship
+        - deliver
+    evidence:
+      - e2
+      - e5
+  - op: add
+    kind: scenario
+    value:
+      id: card_order_cancelled_before_settle
+      title: Оплата картой → отмена менеджером до списания
+      start: awaiting_payment
+      path:
+        - pay_card
+        - cancel_authorized
+    evidence:
+      - e1
+      - e7
+findings:
+  - kind: contradiction
+    note: "Wiki: after payment the order sits in status «Оплачен». SHOP-101: for card payments money is only frozen first and the manager settles it manually. So for card orders there is an intermediate 'authorized' state before «Оплачен». Modelled per Jira (payment_authorized → settle → paid); please confirm what status the UI shows for a card order before settlement."
+    refs:
+      - state:order.paid
+      - state:order.payment_authorized
+      - transition:order.settle
+    evidence:
+      - e4
+      - e1
+  - kind: question
+    note: "Where are states awaiting_payment, payment_authorized, shipped, delivered, cancelled observable (status label in admin/storefront, or the vendure.get_order 'state' field)? Only «Оплачен» is named by a source. Also confirm the paid match field: the wiki names a UI status «Оплачен», but the reader is vendure.get_order, whose field/value may differ."
+    refs:
+      - state:order.awaiting_payment
+      - state:order.payment_authorized
+      - state:order.shipped
+      - state:order.delivered
+      - state:order.cancelled
+      - state:order.paid
+    evidence:
+      - e3
+      - e5
+      - e4
+  - kind: question
+    note: "'Cancel only before shipment' — does that include orders still at the payment step and partially shipped orders (SHOP-112)? Cancellation from awaiting_payment is proposed by extension; partial shipment is not modelled. Also: on cancelling a card order with frozen money, is the hold released / is a paid order refunded automatically?"
+    refs:
+      - transition:order.cancel_awaiting_payment
+      - transition:order.cancel_paid
+    evidence:
+      - e6
+      - e13
+  - kind: contradiction
+    note: "Support role: wiki says support changes nothing and only views orders, yet the same page says support does refunds when a customer complains. SHOP-130 says view-only. Only a view permit is proposed for support."
+    refs:
+      - permit:order.view_by_support
+    evidence:
+      - e9
+      - e14
+      - e10
+  - kind: question
+    note: Catalog manager 'doesn't go into orders' — should we add a negative check that the catalog role cannot view/modify orders? No permit given to catalog.
+    evidence:
+      - e11
+  - kind: gap
+    note: "SHOP-121: buyer self-cancel isn't implemented yet ('пока нет'); no buyer cancel transition proposed."
+    evidence:
+      - e15
+  - kind: gap
+    note: SHOP-140 order drafts are Done but undescribed — no draft state or create-draft action proposed.
+    evidence:
+      - e16
+  - kind: question
+    note: Card payment on the stand is fake and accepts any data — declined/failed payment paths can't be exercised on this stand. Is there a way to simulate a declined card?
+    refs:
+      - transition:order.pay_card
+    evidence:
+      - e17
+status: decided
+decisions:
+  - op: 0
+    verdict: reject
+  - op: 1
+    verdict: reject
+  - op: 2
+    verdict: reject
+  - op: 3
+    verdict: reject
+  - op: 4
+    verdict: reject
+  - op: 8
+    verdict: reject
+  - op: 9
+    verdict: reject
+  - op: 10
+    verdict: reject
+  - op: 11
+    verdict: reject
+  - op: 12
+    verdict: reject
+  - op: 13
+    verdict: reject
+  - op: 14
+    verdict: reject
+  - op: 15
+    verdict: reject
+  - op: 16
+    verdict: reject
+  - op: 17
+    verdict: reject
+  - op: 18
+    verdict: reject
+  - op: 19
+    verdict: reject
+  - op: 20
+    verdict: reject
+  - op: 21
+    verdict: reject
+  - op: 22
+    verdict: reject
+  - op: 23
+    verdict: reject
+  - op: 24
+    verdict: reject
+  - op: 25
+    verdict: reject
+  - op: 26
+    verdict: reject
+  - op: 27
+    verdict: reject
+  - op: 28
+    verdict: reject
+  - op: 29
+    verdict: reject
+decidedAt: 2026-10-04T06:09:43.896Z

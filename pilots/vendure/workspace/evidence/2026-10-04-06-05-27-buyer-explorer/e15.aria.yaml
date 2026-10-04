@@ -1,0 +1,84 @@
+- generic [active] [ref=f8e1]:
+  - banner [ref=f8e2]:
+    - generic [ref=f8e4]:
+      - paragraph [ref=f8e6]:
+        - text: "Exclusive: Get your own"
+        - link "FREE storefront starter kit" [ref=f8e7]:
+          - /url: https://github.com/vendure-ecommerce/storefront-remix-starter
+      - link "My Account" [ref=f8e9]:
+        - /url: /account
+    - generic [ref=f8e13]:
+      - heading [level=1] [ref=f8e14]:
+        - link [ref=f8e15]:
+          - /url: /
+          - img "commmon.logoAlt" [ref=f8e16]
+      - generic [ref=f8e17]:
+        - link "Electronics" [ref=f8e18]:
+          - /url: /collections/electronics
+        - link "Home & Garden" [ref=f8e19]:
+          - /url: /collections/home-garden
+        - link "Sports & Outdoor" [ref=f8e20]:
+          - /url: /collections/sports-outdoor
+      - searchbox "Search" [ref=f8e23]
+      - button "Open cart tray" [ref=f8e25]:
+        - generic [ref=f8e28]: "2"
+  - main [ref=f8e29]:
+    - heading "Please wait while we process your order..." [level=2] [ref=f8e31]
+  - contentinfo [ref=f8e32]:
+    - heading "Footer" [level=2] [ref=f8e33]
+    - generic [ref=f8e34]:
+      - generic [ref=f8e35]:
+        - generic [ref=f8e36]:
+          - generic [ref=f8e37]:
+            - generic [ref=f8e38]:
+              - heading "Shop" [level=3] [ref=f8e39]
+              - list [ref=f8e40]:
+                - listitem [ref=f8e41]:
+                  - link "Electronics" [ref=f8e42]:
+                    - /url: /collections/electronics
+                - listitem [ref=f8e43]:
+                  - link "Home & Garden" [ref=f8e44]:
+                    - /url: /collections/home-garden
+                - listitem [ref=f8e45]:
+                  - link "Sports & Outdoor" [ref=f8e46]:
+                    - /url: /collections/sports-outdoor
+            - generic [ref=f8e47]:
+              - heading "Support" [level=3] [ref=f8e48]
+              - list [ref=f8e49]:
+                - listitem [ref=f8e50]:
+                  - link "Help" [ref=f8e51]:
+                    - /url: "#"
+                - listitem [ref=f8e52]:
+                  - link "Track order" [ref=f8e53]:
+                    - /url: "#"
+                - listitem [ref=f8e54]:
+                  - link "Shipping" [ref=f8e55]:
+                    - /url: "#"
+                - listitem [ref=f8e56]:
+                  - link "Returns" [ref=f8e57]:
+                    - /url: "#"
+          - generic [ref=f8e59]:
+            - heading "account.company" [level=3] [ref=f8e60]
+            - list [ref=f8e61]:
+              - listitem [ref=f8e62]:
+                - link "About" [ref=f8e63]:
+                  - /url: "#"
+              - listitem [ref=f8e64]:
+                - link "Blog" [ref=f8e65]:
+                  - /url: "#"
+              - listitem [ref=f8e66]:
+                - link "Corporate responsibility" [ref=f8e67]:
+                  - /url: "#"
+              - listitem [ref=f8e68]:
+                - link "Press" [ref=f8e69]:
+                  - /url: "#"
+        - generic [ref=f8e70]:
+          - heading "Subscribe to our newsletter" [level=3] [ref=f8e71]
+          - paragraph [ref=f8e72]: Be the first to know about exclusive offers & deals.
+          - generic [ref=f8e73]:
+            - generic [ref=f8e74]: acount.emailAddress
+            - textbox "acount.emailAddress" [ref=f8e75]:
+              - /placeholder: Enter your email
+            - button "Subscribe" [ref=f8e77]
+      - link "github.com/vendure-ecommerce/storefront-remix-starter" [ref=f8e79]:
+        - /url: https://github.com/vendure-ecommerce/storefront-remix-starter

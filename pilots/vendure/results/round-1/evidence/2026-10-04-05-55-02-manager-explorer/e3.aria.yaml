@@ -1,0 +1,143 @@
+- link:
+  - /url: /admin/
+  - img
+- navigation:
+  - text: Sales
+  - link "Orders Orders":
+    - /url: /admin/orders
+    - img "Orders"
+    - text: Orders
+  - text: Customers
+  - link "Customers Customers":
+    - /url: /admin/customer/customers
+    - img "Customers"
+    - text: Customers
+  - text: Marketing
+  - link "Promotions Promotions":
+    - /url: /admin/marketing/promotions
+    - img "Promotions"
+    - text: Promotions
+- separator
+- navigation:
+  - text: Settings
+  - button "Expand entries":
+    - img "Expand entries"
+- text: v3.7.3
+- navigation:
+  - list:
+    - listitem "Dashboard":
+      - link "Dashboard":
+        - /url: /admin/
+      - img
+    - listitem "Orders":
+      - link "Orders":
+        - /url: /admin/orders
+      - img
+    - listitem "T974MLQRWPJU3PML"
+- button:
+  - img
+- button "Olga Manager":
+  - img
+  - text: Olga Manager
+  - img
+- heading "T974MLQRWPJU3PML" [level=1]
+- button "Fulfill order" [disabled]
+- button:
+  - img
+- table:
+  - rowgroup:
+    - row "Image Product name Product variant SKU Unit price Quantity Total":
+      - columnheader "Image"
+      - columnheader "Product name"
+      - columnheader "Product variant"
+      - columnheader "SKU"
+      - columnheader "Unit price"
+      - columnheader "Quantity"
+      - columnheader "Total"
+      - columnheader:
+        - button "Select table columns":
+          - img
+  - rowgroup:
+    - row "Wireless Optical Mouse Wireless Optical Mouse 834444 $22.79 $18.99 1 $22.79 $18.99":
+      - cell:
+        - img
+      - cell "Wireless Optical Mouse":
+        - link "Wireless Optical Mouse":
+          - /url: /admin/catalog/products/3
+          - text: Wireless Optical Mouse
+          - img
+      - cell "Wireless Optical Mouse":
+        - link "Wireless Optical Mouse":
+          - /url: /admin/catalog/products/3/variants/7
+          - text: Wireless Optical Mouse
+          - img
+      - cell "834444"
+      - cell "$22.79 $18.99"
+      - cell "1"
+      - cell "$22.79 $18.99"
+      - cell
+    - row "Sub total $22.79 $18.99":
+      - cell "Sub total"
+      - cell
+      - cell "$22.79 $18.99"
+      - cell
+    - row "Shipping Standard Shipping $5.00 $5.00":
+      - cell "Shipping"
+      - cell "Standard Shipping"
+      - cell "$5.00 $5.00"
+      - cell
+    - row "Total $27.79 $23.99":
+      - cell "Total"
+      - cell
+      - cell "$27.79 $23.99"
+      - cell
+- text: Tax summary
+- table:
+  - rowgroup:
+    - row "Description Tax rate Tax base Tax total":
+      - columnheader "Description"
+      - columnheader "Tax rate"
+      - columnheader "Tax base"
+      - columnheader "Tax total"
+  - rowgroup:
+    - row "Standard Tax Europe 20% $18.99 $3.80":
+      - cell "Standard Tax Europe"
+      - cell "20%"
+      - cell "$18.99"
+      - cell "$3.80"
+    - row "shipping tax 0% $5.00 $0.00":
+      - cell "shipping tax"
+      - cell "0%"
+      - cell "$5.00"
+      - cell "$0.00"
+- text: Order history
+- img
+- textbox
+- button "Add note" [disabled]
+- checkbox "Note is private" [checked]
+- text: "Note is private Visible to admins only 10/4/26, 5:55 AM Guest Buyer Order transitioned from Created to AddingItems 10/4/26, 5:55 AM Guest Buyer Order transitioned from AddingItems to ArrangingPayment 10/4/26, 5:55 AM Guest Buyer Payment #null transitioned from Created to Authorized 10/4/26, 5:55 AM Guest Buyer Order transitioned from ArrangingPayment to PaymentAuthorized 10/4/26, 5:55 AM Order created State"
+- button "Order state diagram":
+  - img
+- text: Payment authorized Customer
+- button "Assign order to another customer":
+  - img
+- link "Guest Buyer":
+  - /url: /admin/customer/customers/2
+  - img
+  - text: Guest Buyer
+  - img
+- text: Shipping address
+- list:
+  - listitem: Test Buyer
+  - listitem: 1 Test Street
+  - listitem: Berlin
+  - listitem: "10115"
+  - listitem:
+    - img
+    - text: Germany
+- text: Payments Payment $27.79 Authorized Payment method standard-payment Amount $27.79 Transaction ID ed4umeoyyi Payment metadata
+- list
+- button "Settle payment"
+- button:
+  - img
+- text: "ID: 43 Created at: 10/4/26, 5:55 AM Updated at: 10/4/26, 5:55 AM"

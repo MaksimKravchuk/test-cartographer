@@ -1,0 +1,19 @@
+{
+  "id": "54",
+  "code": "3SYLLR5N32WJAHB2",
+  "state": "Draft",
+  "active": false,
+  "placed": false,
+  "customer": null,
+  "paymentMethod": null,
+  "paymentState": null,
+  "fulfillmentStates": [],
+  "lines": [
+    {
+      "id": "70",
+      "variant": "Wireless Optical Mouse",
+      "quantity": 1
+    }
+  ],
+  "totalWithTax": 2279
+}

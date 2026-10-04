@@ -1,0 +1,13 @@
+- text: Hi! Welcome back. Good to see you.
+- paragraph: Log in to Vendure
+- textbox "Username"
+- textbox "Password"
+- img "Error"
+- checkbox "Remember me"
+- text: Remember me
+- button "Log in" [disabled]
+- img
+- img
+- text: You are not currently authorized to access "settlePayment". Either you lack permissions, or your session has expired.
+- img
+- text: Could not connect to the Vendure server at auto:auto

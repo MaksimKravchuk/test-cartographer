@@ -1,0 +1,21 @@
+{
+  "id": "61",
+  "code": "NV45TY5G3GGHPWJH",
+  "state": "Cancelled",
+  "active": false,
+  "placed": true,
+  "customer": "guest+explore-2026-10-04-06-05-21-manager-explorer@shop.test",
+  "paymentMethod": "standard-payment",
+  "paymentState": "Settled",
+  "fulfillmentStates": [
+    "Delivered"
+  ],
+  "lines": [
+    {
+      "id": "78",
+      "variant": "Wireless Optical Mouse",
+      "quantity": 0
+    }
+  ],
+  "totalWithTax": 0
+}

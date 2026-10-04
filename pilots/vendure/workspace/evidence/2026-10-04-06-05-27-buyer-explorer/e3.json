@@ -1,0 +1,19 @@
+{
+  "id": "63",
+  "code": "JGJL61BK2TW1HG6K",
+  "state": "PaymentAuthorized",
+  "active": false,
+  "placed": true,
+  "customer": "guest+explore-2026-10-04-06-05-27-buyer-explorer@shop.test",
+  "paymentMethod": "standard-payment",
+  "paymentState": "Authorized",
+  "fulfillmentStates": [],
+  "lines": [
+    {
+      "id": "80",
+      "variant": "Wireless Optical Mouse",
+      "quantity": 1
+    }
+  ],
+  "totalWithTax": 2779
+}

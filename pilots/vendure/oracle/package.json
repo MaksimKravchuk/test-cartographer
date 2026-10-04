@@ -1,0 +1,8 @@
+{
+  "name": "@tc/vendure-pilot-oracle",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": { "score": "node score.ts" },
+  "dependencies": { "yaml": "^2.8.0" }
+}

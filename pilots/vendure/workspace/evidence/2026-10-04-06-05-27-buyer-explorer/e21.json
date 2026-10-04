@@ -1,0 +1,19 @@
+{
+  "id": "70",
+  "code": "Y419CVBDYSQS1RKB",
+  "state": "Cancelled",
+  "active": false,
+  "placed": true,
+  "customer": "guest+explore-2026-10-04-06-05-27-buyer-explorer@shop.test",
+  "paymentMethod": "standard-payment",
+  "paymentState": "Authorized",
+  "fulfillmentStates": [],
+  "lines": [
+    {
+      "id": "87",
+      "variant": "Wireless Optical Mouse",
+      "quantity": 0
+    }
+  ],
+  "totalWithTax": 0
+}

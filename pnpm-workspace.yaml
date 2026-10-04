@@ -3,6 +3,9 @@ packages:
   - apps/*
   - demo/*
   - workspace
+  - pilots/*/workspace
+  - pilots/*/mcp
+  - pilots/*/oracle
 allowBuilds:
   electron: true
   esbuild: true

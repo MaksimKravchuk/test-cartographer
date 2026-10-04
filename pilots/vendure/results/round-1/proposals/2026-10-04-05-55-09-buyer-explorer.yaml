@@ -1,0 +1,394 @@
+id: 2026-10-04-05-55-09-buyer-explorer
+entity: order
+agent: buyer-explorer
+role: buyer
+createdAt: 2026-10-04T05:57:20.716Z
+baseRevision: 03860b80ef9f
+rationale: "As the buyer (Anna Buyer, buyer@shop.test) in the storefront: adding a product to the cart creates or fills the buyer's active order (id 45, state AddingItems). The buyer can remove a cart line and the order stays in AddingItems. Checkout has three steps (Shipping, Payment, Confirmation). The Shipping step shows no address or shipping-method form. The Payment page offers \"Pay with Standard Payment\" and \"Pay with Prepaid card\", but both fail with \"Cannot transition Order from AddingItems to ArrangingPayment\", and the order stays unchanged. So paying could not be completed in the UI. After an order is placed, the buyer can only view it: purchase history (status, lines, \"Detailed overview\" totals) and the confirmation page by code. \"Actions for this order\" is marked Not implemented. The buyer cannot see another customer's order by its code. States are matched on the `state` field returned by read()."
+evidence:
+  - id: e1
+    kind: screenshot
+    summary: Storefront home
+    path: evidence/2026-10-04-05-55-09-buyer-explorer/e1.png
+    url: http://localhost:4500/
+  - id: e2
+    kind: screenshot
+    summary: Electronics collection
+    path: evidence/2026-10-04-05-55-09-buyer-explorer/e2.png
+    url: http://localhost:4500/collections/electronics
+  - id: e3
+    kind: screenshot
+    summary: Product page Wireless mouse
+    path: evidence/2026-10-04-05-55-09-buyer-explorer/e3.png
+    url: http://localhost:4500/products/cordless-mouse
+  - id: e4
+    kind: screenshot
+    summary: After add to cart
+    path: evidence/2026-10-04-05-55-09-buyer-explorer/e4.png
+    url: http://localhost:4500/products/cordless-mouse
+  - id: e5
+    kind: screenshot
+    summary: Cart tray open
+    path: evidence/2026-10-04-05-55-09-buyer-explorer/e5.png
+    url: http://localhost:4500/products/cordless-mouse
+  - id: e6
+    kind: screenshot
+    summary: Checkout page
+    path: evidence/2026-10-04-05-55-09-buyer-explorer/e6.png
+    url: http://localhost:4500/checkout
+  - id: e7
+    kind: probe
+    summary: "read 46: {}"
+    path: evidence/2026-10-04-05-55-09-buyer-explorer/e7.json
+  - id: e8
+    kind: screenshot
+    summary: Account page
+    path: evidence/2026-10-04-05-55-09-buyer-explorer/e8.png
+    url: http://localhost:4500/account
+  - id: e9
+    kind: screenshot
+    summary: Checkout retry
+    path: evidence/2026-10-04-05-55-09-buyer-explorer/e9.png
+    url: http://localhost:4500/checkout
+  - id: e10
+    kind: screenshot
+    summary: Checkout payment page direct
+    path: evidence/2026-10-04-05-55-09-buyer-explorer/e10.png
+    url: http://localhost:4500/checkout/payment
+  - id: e11
+    kind: screenshot
+    summary: After clicking Pay with Standard Payment
+    path: evidence/2026-10-04-05-55-09-buyer-explorer/e11.png
+    url: http://localhost:4500/checkout/payment
+  - id: e12
+    kind: screenshot
+    summary: Addresses page
+    path: evidence/2026-10-04-05-55-09-buyer-explorer/e12.png
+    url: http://localhost:4500/account/addresses
+  - id: e13
+    kind: screenshot
+    summary: Purchase history
+    path: evidence/2026-10-04-05-55-09-buyer-explorer/e13.png
+    url: http://localhost:4500/account/history
+  - id: e14
+    kind: screenshot
+    summary: After clicking Actions for this order on first order
+    path: evidence/2026-10-04-05-55-09-buyer-explorer/e14.png
+    url: http://localhost:4500/account/history
+  - id: e15
+    kind: screenshot
+    summary: Confirmation page for buyer's PaymentAuthorized order
+    path: evidence/2026-10-04-05-55-09-buyer-explorer/e15.png
+    url: http://localhost:4500/checkout/confirmation/1TBU3TMY4WYQBY2Y
+  - id: e16
+    kind: screenshot
+    summary: Checkout after changing quantity to 2
+    path: evidence/2026-10-04-05-55-09-buyer-explorer/e16.png
+    url: http://localhost:4500/checkout
+  - id: e17
+    kind: probe
+    summary: "read 45: {}"
+    path: evidence/2026-10-04-05-55-09-buyer-explorer/e17.json
+  - id: e18
+    kind: screenshot
+    summary: Checkout reached via cart tray link (client navigation)
+    path: evidence/2026-10-04-05-55-09-buyer-explorer/e18.png
+    url: http://localhost:4500/checkout
+  - id: e19
+    kind: screenshot
+    summary: After clicking Remove on order line in checkout
+    path: evidence/2026-10-04-05-55-09-buyer-explorer/e19.png
+    url: http://localhost:4500/checkout
+  - id: e20
+    kind: probe
+    summary: "read 45: {}"
+    path: evidence/2026-10-04-05-55-09-buyer-explorer/e20.json
+  - id: e21
+    kind: probe
+    summary: "read 45: {}"
+    path: evidence/2026-10-04-05-55-09-buyer-explorer/e21.json
+  - id: e22
+    kind: screenshot
+    summary: After Pay with Prepaid card
+    path: evidence/2026-10-04-05-55-09-buyer-explorer/e22.png
+    url: http://localhost:4500/checkout/payment
+  - id: e23
+    kind: probe
+    summary: "read 45: {}"
+    path: evidence/2026-10-04-05-55-09-buyer-explorer/e23.json
+  - id: e24
+    kind: screenshot
+    summary: /checkout/shipping attempt
+    path: evidence/2026-10-04-05-55-09-buyer-explorer/e24.png
+    url: http://localhost:4500/checkout/shipping
+  - id: e25
+    kind: probe
+    summary: "read 53: {}"
+    path: evidence/2026-10-04-05-55-09-buyer-explorer/e25.json
+  - id: e26
+    kind: screenshot
+    summary: Buyer opening confirmation of a foreign (guest) order by code
+    path: evidence/2026-10-04-05-55-09-buyer-explorer/e26.png
+    url: http://localhost:4500/checkout/confirmation/769YBQQ86ZH1BDUG
+  - id: e27
+    kind: screenshot
+    summary: After clicking Detailed overview
+    path: evidence/2026-10-04-05-55-09-buyer-explorer/e27.png
+    url: http://localhost:4500/account/history
+ops:
+  - op: add
+    kind: state
+    value:
+      id: adding-items
+      title: Adding items (cart)
+      match:
+        state: AddingItems
+    evidence:
+      - e7
+      - e17
+      - e20
+      - e21
+  - op: add
+    kind: state
+    value:
+      id: arranging-payment
+      title: Arranging payment
+      match:
+        state: ArrangingPayment
+    evidence:
+      - e11
+      - e22
+  - op: add
+    kind: state
+    value:
+      id: payment-authorized
+      title: Payment authorized
+      match:
+        state: PaymentAuthorized
+    evidence:
+      - e13
+  - op: add
+    kind: state
+    value:
+      id: payment-settled
+      title: Payment settled
+      match:
+        state: PaymentSettled
+    evidence:
+      - e13
+      - e25
+  - op: add
+    kind: state
+    value:
+      id: partially-shipped
+      title: Partially shipped
+      match:
+        state: PartiallyShipped
+    evidence:
+      - e13
+  - op: add
+    kind: state
+    value:
+      id: shipped
+      title: Shipped
+      match:
+        state: Shipped
+    evidence:
+      - e13
+  - op: add
+    kind: state
+    value:
+      id: partially-delivered
+      title: Partially delivered
+      match:
+        state: PartiallyDelivered
+    evidence:
+      - e13
+  - op: add
+    kind: state
+    value:
+      id: delivered
+      title: Delivered
+      match:
+        state: Delivered
+    evidence:
+      - e13
+  - op: add
+    kind: state
+    value:
+      id: cancelled
+      title: Cancelled
+      match:
+        state: Cancelled
+    evidence:
+      - e13
+  - op: add
+    kind: action
+    value:
+      id: add-to-cart
+      title: Add product to cart
+      kind: create
+      run: shop.add_to_cart
+    evidence:
+      - e3
+      - e4
+      - e5
+      - e17
+  - op: add
+    kind: permit
+    value:
+      id: buyer-add-to-cart
+      title: Buyer adds items to the active order
+      action: add-to-cart
+      by:
+        - buyer
+      states:
+        - adding-items
+      effects:
+        - description: Order stays active in AddingItems with the new line
+          field: state
+          equals: AddingItems
+    evidence:
+      - e4
+      - e17
+      - e21
+  - op: add
+    kind: action
+    value:
+      id: remove-order-line
+      title: Remove line from cart
+      kind: update
+      run: shop.remove_order_line
+    evidence:
+      - e19
+      - e20
+  - op: add
+    kind: permit
+    value:
+      id: buyer-remove-order-line
+      title: Buyer removes a line from the active order
+      action: remove-order-line
+      by:
+        - buyer
+      states:
+        - adding-items
+      effects:
+        - description: Line removed; order remains in AddingItems
+          field: state
+          equals: AddingItems
+    evidence:
+      - e19
+      - e20
+  - op: add
+    kind: action
+    value:
+      id: pay-order
+      title: Pay for order (Standard Payment / Prepaid card)
+      kind: command
+      run: shop.pay_order
+    evidence:
+      - e10
+      - e11
+      - e22
+  - op: add
+    kind: transition
+    value:
+      id: buyer-proceed-to-payment
+      title: Buyer moves order to payment
+      from: adding-items
+      to: arranging-payment
+      action: pay-order
+      by:
+        - buyer
+      guards:
+        - "Order must have a shipping address and shipping method set (transition rejected otherwise: 'Cannot transition Order from AddingItems to ArrangingPayment')"
+    evidence:
+      - e10
+      - e11
+      - e22
+      - e23
+  - op: add
+    kind: action
+    value:
+      id: view-order
+      title: View placed order (history / confirmation)
+      kind: read
+      run: shop.view_order
+    evidence:
+      - e13
+      - e15
+      - e27
+  - op: add
+    kind: permit
+    value:
+      id: buyer-view-own-order
+      title: Buyer views own placed order
+      action: view-order
+      by:
+        - buyer
+      states:
+        - payment-authorized
+        - payment-settled
+        - partially-shipped
+        - shipped
+        - partially-delivered
+        - delivered
+        - cancelled
+    evidence:
+      - e13
+      - e15
+      - e27
+      - e26
+findings:
+  - kind: question
+    note: The checkout cannot be completed in the storefront. On the Shipping step (/checkout) there is no address form, saved-address selector or shipping-method selector, only the order summary. The buyer does have a default address (Test Buyer, Berlin). Both 'Pay with Standard Payment' and 'Pay with Prepaid card' on /checkout/payment fail with 400 'Cannot transition Order from AddingItems to ArrangingPayment', and the order stays in AddingItems. Is the missing shipping form a bug? Because of this, the transitions ArrangingPayment -> PaymentAuthorized/PaymentSettled could not be observed for the buyer. The buyer's history does contain PaymentAuthorized and PaymentSettled orders, and a prepared settled order has paymentMethod 'standard-payment'.
+    refs:
+      - buyer-proceed-to-payment
+      - pay-order
+    evidence:
+      - e6
+      - e9
+      - e18
+      - e12
+      - e10
+      - e11
+      - e22
+      - e23
+      - e13
+      - e25
+  - kind: question
+    note: The 'pay-order' action is used for the AddingItems -> ArrangingPayment step because the storefront's pay buttons attempt that transition first. The step that adds the payment (ArrangingPayment -> PaymentAuthorized or PaymentSettled, which depends on the payment method) is not modelled because it could not be observed. A person should confirm whether Standard Payment settles immediately and whether Prepaid card only authorizes.
+    refs:
+      - pay-order
+    evidence:
+      - e10
+      - e13
+      - e25
+  - kind: question
+    note: "After an order is placed, the buyer can only read it: purchase history with 'Detailed overview' totals, and /checkout/confirmation/<code>. The 'Actions for this order (Not implemented)' button does nothing, so the buyer cannot cancel or return an order. 'Track package' appears on shipped and delivered orders. Should the buyer have post-purchase actions (cancel, return)?"
+    refs:
+      - buyer-view-own-order
+    evidence:
+      - e13
+      - e14
+      - e15
+      - e27
+  - kind: question
+    note: The order is created implicitly by the first 'Add to cart'; the active order 45 belongs to buyer@shop.test. Because there is no 'initial' state, creation is modelled as a permit in adding-items rather than a transition. A cart quantity selector exists but could not be operated with the tools (a <select> cannot be filled).
+    refs:
+      - add-to-cart
+      - buyer-add-to-cart
+    evidence:
+      - e4
+      - e5
+      - e16
+      - e17
+  - kind: question
+    note: "Access control checked: when the buyer opens the confirmation page of another customer's (guest) placed order by its code, the order is not shown, only 'Please wait while we process your order...'."
+    refs:
+      - buyer-view-own-order
+    evidence:
+      - e25
+      - e26
+status: pending
+decisions: []

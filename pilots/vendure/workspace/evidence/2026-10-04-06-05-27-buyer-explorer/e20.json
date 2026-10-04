@@ -1,0 +1,19 @@
+{
+  "id": "69",
+  "code": "2N6YE573NA4MK2LV",
+  "state": "PaymentSettled",
+  "active": false,
+  "placed": true,
+  "customer": "guest+explore-2026-10-04-06-05-27-buyer-explorer@shop.test",
+  "paymentMethod": "standard-payment",
+  "paymentState": "Settled",
+  "fulfillmentStates": [],
+  "lines": [
+    {
+      "id": "86",
+      "variant": "Wireless Optical Mouse",
+      "quantity": 1
+    }
+  ],
+  "totalWithTax": 2779
+}

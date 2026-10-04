@@ -1,0 +1,19 @@
+{
+  "id": "46",
+  "code": "9WUK8K5TN2H1ABHS",
+  "state": "AddingItems",
+  "active": true,
+  "placed": false,
+  "customer": "guest+explore-2026-10-04-05-55-09-buyer-explorer@shop.test",
+  "paymentMethod": null,
+  "paymentState": null,
+  "fulfillmentStates": [],
+  "lines": [
+    {
+      "id": "60",
+      "variant": "Wireless Optical Mouse",
+      "quantity": 1
+    }
+  ],
+  "totalWithTax": 2279
+}

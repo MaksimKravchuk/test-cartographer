@@ -1,0 +1,19 @@
+{
+  "id": "78",
+  "code": "HNDEHTEBLMUJ588B",
+  "state": "Cancelled",
+  "active": false,
+  "placed": true,
+  "customer": "guest+explore-2026-10-04-06-05-24-support-explorer@shop.test",
+  "paymentMethod": "standard-payment",
+  "paymentState": "Authorized",
+  "fulfillmentStates": [],
+  "lines": [
+    {
+      "id": "97",
+      "variant": "Wireless Optical Mouse",
+      "quantity": 0
+    }
+  ],
+  "totalWithTax": 0
+}

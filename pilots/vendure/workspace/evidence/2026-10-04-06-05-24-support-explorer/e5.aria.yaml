@@ -1,0 +1,14 @@
+- generic [ref=f2e2]:
+  - generic [ref=f2e369]:
+    - generic [ref=f2e370]: Hi! Welcome back. Good to see you.
+    - generic [ref=f2e373]:
+      - paragraph [ref=f2e374]: Log in to Vendure
+      - generic [ref=f2e376]:
+        - textbox "Username" [ref=f2e377]
+        - textbox "Password" [ref=f2e378]
+        - img "Error" [ref=f2e383]
+        - generic [ref=f2e388]:
+          - checkbox "Remember me" [ref=f2e389]
+          - generic [ref=f2e390]: Remember me
+        - button "Log in" [disabled] [ref=f2e392]
+  - generic: You are not currently authorized to access "settlePayment". Either you lack permissions, or your session has expired.

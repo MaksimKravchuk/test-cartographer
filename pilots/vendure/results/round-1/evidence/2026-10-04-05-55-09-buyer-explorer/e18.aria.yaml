@@ -1,0 +1,111 @@
+- banner:
+  - paragraph:
+    - text: "Exclusive: Get your own"
+    - link "FREE storefront starter kit":
+      - /url: https://github.com/vendure-ecommerce/storefront-remix-starter
+  - link "My Account":
+    - /url: /account
+  - heading "commmon.logoAlt" [level=1]:
+    - link "commmon.logoAlt":
+      - /url: /
+      - img "commmon.logoAlt"
+  - link "Electronics":
+    - /url: /collections/electronics
+  - link "Home & Garden":
+    - /url: /collections/home-garden
+  - link "Sports & Outdoor":
+    - /url: /collections/sports-outdoor
+  - searchbox "Search"
+  - button "Open cart tray": "1"
+- main:
+  - heading "Checkout" [level=2]
+  - navigation "cart.progress":
+    - list:
+      - listitem: Shipping
+      - listitem: Payment
+      - listitem: Confirmation
+  - heading "Order summary" [level=2]
+  - list:
+    - listitem:
+      - img "Wireless Optical Mouse"
+      - heading "Wireless Optical Mouse" [level=3]:
+        - link "Wireless Optical Mouse":
+          - /url: /products/cordless-mouse
+      - paragraph: $22.79
+      - text: Quantity
+      - combobox "Quantity":
+        - option "1" [selected]
+        - option "2"
+        - option "3"
+        - option "4"
+        - option "5"
+        - option "6"
+        - option "7"
+        - option "8"
+      - button "Remove"
+  - term: Subtotal
+  - definition: $22.79
+  - term: Shipping
+  - definition: $0.00
+  - term: Total
+  - definition: $22.79
+- contentinfo "Footer":
+  - heading "Footer" [level=2]
+  - heading "Shop" [level=3]
+  - list:
+    - listitem:
+      - link "Electronics":
+        - /url: /collections/electronics
+    - listitem:
+      - link "Home & Garden":
+        - /url: /collections/home-garden
+    - listitem:
+      - link "Sports & Outdoor":
+        - /url: /collections/sports-outdoor
+  - heading "Support" [level=3]
+  - list:
+    - listitem:
+      - link "Help":
+        - /url: "#"
+    - listitem:
+      - link "Track order":
+        - /url: "#"
+    - listitem:
+      - link "Shipping":
+        - /url: "#"
+    - listitem:
+      - link "Returns":
+        - /url: "#"
+  - heading "account.company" [level=3]
+  - list:
+    - listitem:
+      - link "About":
+        - /url: "#"
+    - listitem:
+      - link "Blog":
+        - /url: "#"
+    - listitem:
+      - link "Corporate responsibility":
+        - /url: "#"
+    - listitem:
+      - link "Press":
+        - /url: "#"
+  - heading "Subscribe to our newsletter" [level=3]
+  - paragraph: Be the first to know about exclusive offers & deals.
+  - text: acount.emailAddress
+  - textbox "acount.emailAddress":
+    - /placeholder: Enter your email
+  - button "Subscribe"
+  - link "github.com/vendure-ecommerce/storefront-remix-starter":
+    - /url: https://github.com/vendure-ecommerce/storefront-remix-starter
+- dialog "Shopping cart":
+  - heading "Shopping cart" [level=2]
+  - button "Close panel"
+  - list:
+    - listitem:
+      - img "Wireless Optical Mouse"
+      - heading "Wireless Optical Mouse" [level=3]:
+        - link "Wireless Optical Mouse":
+          - /url: /products/cordless-mouse
+      - paragraph: $22.79
+      - text: Quantity1

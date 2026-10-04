@@ -1,0 +1,249 @@
+- link:
+  - /url: /admin/
+  - img
+- navigation:
+  - text: Sales
+  - link "Orders Orders":
+    - /url: /admin/orders
+    - img "Orders"
+    - text: Orders
+  - text: Customers
+  - link "Customers Customers":
+    - /url: /admin/customer/customers
+    - img "Customers"
+    - text: Customers
+  - text: Marketing
+  - link "Promotions Promotions":
+    - /url: /admin/marketing/promotions
+    - img "Promotions"
+    - text: Promotions
+- separator
+- navigation:
+  - text: Settings
+  - button "Expand entries":
+    - img "Expand entries"
+- text: v3.7.3
+- navigation:
+  - list:
+    - listitem "Dashboard":
+      - link "Dashboard":
+        - /url: /admin/
+      - img
+    - listitem "Orders":
+      - link "Orders":
+        - /url: /admin/orders
+      - img
+    - listitem "XXT1E8WR3TCCP23A"
+- button:
+  - img
+- button "Olga Manager":
+  - img
+  - text: Olga Manager
+  - img
+- heading "XXT1E8WR3TCCP23A" [level=1]
+- button "Fulfill order"
+- button:
+  - img
+- table:
+  - rowgroup:
+    - row "Image Product name Product variant SKU Unit price Quantity Total":
+      - columnheader "Image"
+      - columnheader "Product name"
+      - columnheader "Product variant"
+      - columnheader "SKU"
+      - columnheader "Unit price"
+      - columnheader "Quantity"
+      - columnheader "Total"
+      - columnheader:
+        - button "Select table columns":
+          - img
+  - rowgroup:
+    - row "Tablet Tablet 32GB TBL200032 $394.80 $329.00 1 $394.80 $329.00":
+      - cell:
+        - img
+      - cell "Tablet":
+        - link "Tablet":
+          - /url: /admin/catalog/products/2
+          - text: Tablet
+          - img
+      - cell "Tablet 32GB":
+        - link "Tablet 32GB":
+          - /url: /admin/catalog/products/2/variants/5
+          - text: Tablet 32GB
+          - img
+      - cell "TBL200032"
+      - cell "$394.80 $329.00"
+      - cell "1":
+        - text: "1"
+        - button:
+          - img
+      - cell "$394.80 $329.00"
+      - cell
+    - row "Wireless Optical Mouse Wireless Optical Mouse 834444 $22.79 $18.99 1 $22.79 $18.99":
+      - cell:
+        - img
+      - cell "Wireless Optical Mouse":
+        - link "Wireless Optical Mouse":
+          - /url: /admin/catalog/products/3
+          - text: Wireless Optical Mouse
+          - img
+      - cell "Wireless Optical Mouse":
+        - link "Wireless Optical Mouse":
+          - /url: /admin/catalog/products/3/variants/7
+          - text: Wireless Optical Mouse
+          - img
+      - cell "834444"
+      - cell "$22.79 $18.99"
+      - cell "1":
+        - text: "1"
+        - button:
+          - img
+      - cell "$22.79 $18.99"
+      - cell
+    - row "Sub total $417.59 $347.99":
+      - cell "Sub total"
+      - cell
+      - cell "$417.59 $347.99"
+      - cell
+    - row "Shipping Standard Shipping $5.00 $5.00":
+      - cell "Shipping"
+      - cell "Standard Shipping"
+      - cell "$5.00 $5.00"
+      - cell
+    - row "Total $422.59 $352.99":
+      - cell "Total"
+      - cell
+      - cell "$422.59 $352.99"
+      - cell
+- text: Tax summary
+- table:
+  - rowgroup:
+    - row "Description Tax rate Tax base Tax total":
+      - columnheader "Description"
+      - columnheader "Tax rate"
+      - columnheader "Tax base"
+      - columnheader "Tax total"
+  - rowgroup:
+    - row "Standard Tax Europe 20% $347.99 $69.60":
+      - cell "Standard Tax Europe"
+      - cell "20%"
+      - cell "$347.99"
+      - cell "$69.60"
+    - row "shipping tax 0% $5.00 $0.00":
+      - cell "shipping tax"
+      - cell "0%"
+      - cell "$5.00"
+      - cell "$0.00"
+- text: Order history
+- img
+- textbox
+- button "Add note" [disabled]
+- checkbox "Note is private" [checked]
+- text: Note is private Visible to admins only
+- img
+- text: "10/4/26, 5:56 AM Olga Manager Fulfillment delivered Tracking code: explore-2026-10-04-05-55-02-manager-explorer"
+- button "Details":
+  - img
+  - text: Details
+- text: 10/4/26, 5:56 AM Olga Manager Order transitioned from PartiallyShipped to PartiallyDelivered
+- img
+- text: "10/4/26, 5:56 AM Super Admin Fulfillment shipped Tracking code: explore-2026-10-04-05-55-02-manager-explorer"
+- button "Details":
+  - img
+  - text: Details
+- text: "10/4/26, 5:56 AM Super Admin Order transitioned from PaymentSettled to PartiallyShipped 10/4/26, 5:56 AM Guest Buyer Order transitioned from Created to AddingItems 10/4/26, 5:56 AM Guest Buyer Order transitioned from AddingItems to ArrangingPayment 10/4/26, 5:56 AM Guest Buyer Payment #null transitioned from Created to Authorized 10/4/26, 5:56 AM Guest Buyer Order transitioned from ArrangingPayment to PaymentAuthorized"
+- img
+- text: 10/4/26, 5:56 AM Super Admin Payment settled 10/4/26, 5:56 AM Super Admin Order transitioned from PaymentAuthorized to PaymentSettled 10/4/26, 5:56 AM Super Admin Fulfillment created
+- button "Details":
+  - img
+  - text: Details
+- text: 10/4/26, 5:56 AM Super Admin Fulfillment transitioned from Created to Pending
+- button "Details":
+  - img
+  - text: Details
+- text: 10/4/26, 5:56 AM Order created State
+- button "Order state diagram":
+  - img
+- img
+- text: Partially delivered Customer
+- button "Assign order to another customer":
+  - img
+- link "Guest Buyer":
+  - /url: /admin/customer/customers/2
+  - img
+  - text: Guest Buyer
+  - img
+- text: Shipping address
+- list:
+  - listitem: Test Buyer
+  - listitem: 1 Test Street
+  - listitem: Berlin
+  - listitem: "10115"
+  - listitem:
+    - img
+    - text: Germany
+- text: Payments Payment $422.59
+- img
+- text: Settled Payment method standard-payment Amount $422.59 Transaction ID hx1bky5ax Payment metadata
+- list
+- button:
+  - img
+- text: Fulfillment
+- img
+- text: Delivered Created at Oct 4, 2026, 5:56:16 AM Fulfillment method Courier Tracking code explore-2026-10-04-05-55-02-manager-explorer Contents
+- list:
+  - listitem "Tablet 32GB":
+    - text: "1"
+    - img
+    - text: Tablet 32GB
+- button:
+  - img
+- text: "ID: 49 Created at: 10/4/26, 5:56 AM Updated at: 10/4/26, 5:56 AM"
+- dialog "Fulfill order":
+  - text: Beginning of Modal Content
+  - heading "Fulfill order" [level=3]
+  - table:
+    - rowgroup:
+      - row "Product name SKU Unfulfilled Stock Fulfill":
+        - columnheader
+        - columnheader "Product name"
+        - columnheader "SKU"
+        - columnheader "Unfulfilled"
+        - columnheader "Stock"
+        - columnheader "Fulfill"
+    - row "Tablet 32GB TBL200032 0 92":
+      - cell:
+        - img
+      - cell "Tablet 32GB"
+      - cell "TBL200032"
+      - cell "0"
+      - cell "92"
+      - cell:
+        - spinbutton [disabled]: "0"
+    - row "Wireless Optical Mouse 834444 1 89":
+      - cell:
+        - img
+      - cell "Wireless Optical Mouse"
+      - cell "834444"
+      - cell "1"
+      - cell "89"
+      - cell:
+        - spinbutton: "1"
+  - list:
+    - listitem: Test Buyer
+    - listitem: 1 Test Street
+    - listitem: Berlin
+    - listitem: "10115"
+    - listitem:
+      - img
+      - text: Germany
+  - heading "Shipping method" [level=6]
+  - text: Standard Shipping
+  - strong: $5.00
+  - text: Manually enter fulfillment details Method
+  - textbox
+  - text: Tracking code
+  - textbox
+  - button "Cancel"
+  - button "Create fulfillment"
+  - text: End of Modal Content

@@ -1,0 +1,111 @@
+name: Vendure shop (pilot)
+# A real open-source shop instead of the demo: Vendure 3.7 with its stock Admin UI
+# and the community Remix storefront, nothing adapted for testing (no test ids,
+# no test-only endpoints). See ../README.md for how to run the stand.
+interfaces:
+  - id: admin-ui
+    title: Admin (back office)
+    baseUrl: http://localhost:3000/admin
+  - id: storefront
+    title: Storefront
+    baseUrl: http://localhost:4500
+roles:
+  - id: guest
+    title: Guest
+    kind: human
+    interface: storefront
+  - id: buyer
+    title: Buyer
+    kind: human
+    interface: storefront
+    fields:
+      - id: login
+        value: buyer@shop.test
+      - id: password
+        value: buyer-pass
+        secret: true
+    login:
+      action: shop.login
+      args:
+        email: "{{roles.buyer.login}}"
+        password: "{{roles.buyer.password}}"
+  - id: manager
+    title: Order manager
+    kind: human
+    interface: admin-ui
+    fields:
+      - id: login
+        value: manager@shop.test
+      - id: password
+        value: manager-pass
+        secret: true
+    login:
+      action: admin.login
+      args:
+        username: "{{roles.manager.login}}"
+        password: "{{roles.manager.password}}"
+  - id: support
+    title: Support
+    kind: human
+    interface: admin-ui
+    fields:
+      - id: login
+        value: support@shop.test
+      - id: password
+        value: support-pass
+        secret: true
+    login:
+      action: admin.login
+      args:
+        username: "{{roles.support.login}}"
+        password: "{{roles.support.password}}"
+  - id: catalog
+    title: Catalog manager
+    kind: human
+    interface: admin-ui
+    fields:
+      - id: login
+        value: catalog@shop.test
+      - id: password
+        value: catalog-pass
+        secret: true
+    login:
+      action: admin.login
+      args:
+        username: "{{roles.catalog.login}}"
+        password: "{{roles.catalog.password}}"
+mcp:
+  vendure:
+    command: node
+    args: [../mcp/server.ts]
+    env:
+      VENDURE_URL: http://localhost:3000
+    allow:
+      prepare: [create_order]
+      read: [get_order]
+      trigger: []
+runtime:
+  provider: claude
+  model: opus
+  effort: high
+  maxSteps: 80
+agents:
+  - id: manager-explorer
+    title: Back office explorer (order manager)
+    role: manager
+    entity: order
+    goal: Find which order actions an order manager can take in the back office in each order state, and what state each one leads to.
+  - id: support-explorer
+    title: Back office explorer (support)
+    role: support
+    entity: order
+    goal: Find what a support agent can see and do with an order in the back office in each order state.
+  - id: buyer-explorer
+    title: Storefront explorer (buyer)
+    role: buyer
+    entity: order
+    goal: Find how a buyer creates and pays for an order in the storefront and what they can do with it afterwards.
+  - id: onboarding
+    kind: onboard
+    title: Onboarding from what the team has
+    goal: Read the team's stand notes and tracker export and propose the first roles, order model and backlog.

@@ -81,6 +81,7 @@ packages/engine   engine: local API, MCP clients, test compiler and runner, agen
 packages/model    model schema, reachability, plan, coverage, proposals, Markdown — no browser I/O
 demo/shop         demo shop (buyer storefront + Marketplace) and its MCP server
 workspace         example workspace — a plain folder that works well in git (entities/, sources.yaml + sources/, backlog.yaml)
+pilots/vendure    a pilot on a real, undocumented shop (Vendure) with a ground-truth oracle and scorer — see its README
 ```
 
 The GUI stores nothing on its own: workspace files are the source of truth. The engine watches them and tells the GUI when they change.

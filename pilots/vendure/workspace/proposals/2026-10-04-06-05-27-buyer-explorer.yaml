@@ -1,0 +1,469 @@
+id: 2026-10-04-06-05-27-buyer-explorer
+entity: order
+agent: buyer-explorer
+role: buyer
+createdAt: 2026-10-04T06:07:40.100Z
+baseRevision: 03860b80ef9f
+rationale: "I explored the Storefront as the buyer. Building a cart (add to cart, change quantity, remove a line) works and was observed. The Payment step shows two dummy payment methods, but the Shipping step renders no address or shipping-method form. Paying therefore fails with \"Cannot transition Order from AddingItems to ArrangingPayment\" (e8), so I couldn't complete checkout end-to-end in the UI. The setup tool creates orders for a guest customer (it ignores a customer argument), so I couldn't pay a prepared order as the buyer either. I took the state list from the setup tool's enum and verified every state with read() (e3, e18–e25); the buyer's order history shows the same states (e2). After placing an order, the buyer can view it in Order history and on the confirmation page (only their own: another customer's order code never loads, e15). The per-order \"Actions\" button is labelled \"Not implemented\" and does nothing (e17), so the buyer has no cancel or return action."
+evidence:
+  - id: e1
+    kind: screenshot
+    summary: Storefront home
+    path: evidence/2026-10-04-06-05-27-buyer-explorer/e1.png
+    url: http://localhost:4500/
+  - id: e2
+    kind: screenshot
+    summary: Order history
+    path: evidence/2026-10-04-06-05-27-buyer-explorer/e2.png
+    url: http://localhost:4500/account/history
+  - id: e3
+    kind: probe
+    summary: "read 63: {}"
+    path: evidence/2026-10-04-06-05-27-buyer-explorer/e3.json
+  - id: e4
+    kind: screenshot
+    summary: Cart tray
+    path: evidence/2026-10-04-06-05-27-buyer-explorer/e4.png
+    url: http://localhost:4500/account/history
+  - id: e5
+    kind: screenshot
+    summary: Checkout shipping step
+    path: evidence/2026-10-04-06-05-27-buyer-explorer/e5.png
+    url: http://localhost:4500/checkout
+  - id: e6
+    kind: screenshot
+    summary: Checkout after load
+    path: evidence/2026-10-04-06-05-27-buyer-explorer/e6.png
+    url: http://localhost:4500/checkout
+  - id: e7
+    kind: screenshot
+    summary: Checkout payment step
+    path: evidence/2026-10-04-06-05-27-buyer-explorer/e7.png
+    url: http://localhost:4500/checkout/payment
+  - id: e8
+    kind: screenshot
+    summary: After pay with Standard Payment
+    path: evidence/2026-10-04-06-05-27-buyer-explorer/e8.png
+    url: http://localhost:4500/checkout/payment
+  - id: e9
+    kind: screenshot
+    summary: Checkout again
+    path: evidence/2026-10-04-06-05-27-buyer-explorer/e9.png
+    url: http://localhost:4500/checkout#
+  - id: e10
+    kind: screenshot
+    summary: Buyer addresses
+    path: evidence/2026-10-04-06-05-27-buyer-explorer/e10.png
+    url: http://localhost:4500/account/addresses
+  - id: e11
+    kind: screenshot
+    summary: Product page
+    path: evidence/2026-10-04-06-05-27-buyer-explorer/e11.png
+    url: http://localhost:4500/products/cordless-mouse
+  - id: e12
+    kind: screenshot
+    summary: Checkout via cart tray link
+    path: evidence/2026-10-04-06-05-27-buyer-explorer/e12.png
+    url: http://localhost:4500/checkout
+  - id: e13
+    kind: screenshot
+    summary: After changing mouse quantity to 2
+    path: evidence/2026-10-04-06-05-27-buyer-explorer/e13.png
+    url: http://localhost:4500/checkout
+  - id: e14
+    kind: screenshot
+    summary: After removing Tablet line
+    path: evidence/2026-10-04-06-05-27-buyer-explorer/e14.png
+    url: http://localhost:4500/checkout
+  - id: e15
+    kind: screenshot
+    summary: Confirmation page for guest-owned order 63 viewed by buyer
+    path: evidence/2026-10-04-06-05-27-buyer-explorer/e15.png
+    url: http://localhost:4500/checkout/confirmation/JGJL61BK2TW1HG6K
+  - id: e16
+    kind: screenshot
+    summary: Confirmation page for buyer's own PaymentAuthorized order
+    path: evidence/2026-10-04-06-05-27-buyer-explorer/e16.png
+    url: http://localhost:4500/checkout/confirmation/1TBU3TMY4WYQBY2Y
+  - id: e17
+    kind: screenshot
+    summary: After clicking Actions for this order
+    path: evidence/2026-10-04-06-05-27-buyer-explorer/e17.png
+    url: http://localhost:4500/account/history
+  - id: e18
+    kind: probe
+    summary: "read 67: {}"
+    path: evidence/2026-10-04-06-05-27-buyer-explorer/e18.json
+  - id: e19
+    kind: probe
+    summary: "read 68: {}"
+    path: evidence/2026-10-04-06-05-27-buyer-explorer/e19.json
+  - id: e20
+    kind: probe
+    summary: "read 69: {}"
+    path: evidence/2026-10-04-06-05-27-buyer-explorer/e20.json
+  - id: e21
+    kind: probe
+    summary: "read 70: {}"
+    path: evidence/2026-10-04-06-05-27-buyer-explorer/e21.json
+  - id: e22
+    kind: probe
+    summary: "read 71: {}"
+    path: evidence/2026-10-04-06-05-27-buyer-explorer/e22.json
+  - id: e23
+    kind: probe
+    summary: "read 72: {}"
+    path: evidence/2026-10-04-06-05-27-buyer-explorer/e23.json
+  - id: e24
+    kind: probe
+    summary: "read 73: {}"
+    path: evidence/2026-10-04-06-05-27-buyer-explorer/e24.json
+  - id: e25
+    kind: probe
+    summary: "read 74: {}"
+    path: evidence/2026-10-04-06-05-27-buyer-explorer/e25.json
+  - id: e26
+    kind: screenshot
+    summary: Tablet added to cart
+    path: evidence/2026-10-04-06-05-27-buyer-explorer/e26.png
+    url: http://localhost:4500/products/tablet
+ops:
+  - op: add
+    kind: state
+    value:
+      id: adding-items
+      title: Adding items (cart)
+      match:
+        state: AddingItems
+    evidence:
+      - e19
+      - e8
+  - op: add
+    kind: state
+    value:
+      id: arranging-payment
+      title: Arranging payment
+      match:
+        state: ArrangingPayment
+    evidence:
+      - e18
+  - op: add
+    kind: state
+    value:
+      id: payment-authorized
+      title: Payment authorized
+      match:
+        state: PaymentAuthorized
+    evidence:
+      - e3
+      - e2
+  - op: add
+    kind: state
+    value:
+      id: payment-settled
+      title: Payment settled
+      match:
+        state: PaymentSettled
+    evidence:
+      - e20
+      - e2
+  - op: add
+    kind: state
+    value:
+      id: partially-shipped
+      title: Partially shipped
+      match:
+        state: PartiallyShipped
+    evidence:
+      - e24
+      - e2
+  - op: add
+    kind: state
+    value:
+      id: shipped
+      title: Shipped
+      match:
+        state: Shipped
+    evidence:
+      - e22
+      - e2
+  - op: add
+    kind: state
+    value:
+      id: partially-delivered
+      title: Partially delivered
+      match:
+        state: PartiallyDelivered
+    evidence:
+      - e25
+      - e2
+  - op: add
+    kind: state
+    value:
+      id: delivered
+      title: Delivered
+      match:
+        state: Delivered
+    evidence:
+      - e23
+      - e2
+  - op: add
+    kind: state
+    value:
+      id: cancelled
+      title: Cancelled
+      match:
+        state: Cancelled
+    evidence:
+      - e21
+      - e2
+  - op: add
+    kind: action
+    value:
+      id: add-to-cart
+      title: Add product to cart
+      kind: create
+      run: shop.add-to-cart
+    evidence:
+      - e26
+  - op: add
+    kind: action
+    value:
+      id: change-line-quantity
+      title: Change cart line quantity
+      kind: update
+      run: shop.change-line-quantity
+    evidence:
+      - e13
+  - op: add
+    kind: action
+    value:
+      id: remove-cart-line
+      title: Remove cart line
+      kind: update
+      run: shop.remove-cart-line
+    evidence:
+      - e14
+  - op: add
+    kind: action
+    value:
+      id: proceed-to-payment
+      title: Set shipping details and proceed to payment
+      kind: command
+      run: shop.proceed-to-payment
+    evidence:
+      - e5
+      - e8
+  - op: add
+    kind: action
+    value:
+      id: pay-order
+      title: Pay for order (Standard Payment / Prepaid card)
+      kind: command
+      run: shop.pay-order
+    evidence:
+      - e7
+      - e8
+  - op: add
+    kind: action
+    value:
+      id: view-order
+      title: View placed order (history / confirmation)
+      kind: read
+      run: shop.view-order
+    evidence:
+      - e2
+      - e16
+  - op: add
+    kind: transition
+    value:
+      id: buyer-starts-cart
+      title: Buyer adds first item, creating the active order
+      from: "@new"
+      to: adding-items
+      action: add-to-cart
+      by:
+        - buyer
+      effects:
+        - description: Order is active and not placed
+          field: active
+          equals: true
+    evidence:
+      - e26
+      - e19
+  - op: add
+    kind: permit
+    value:
+      id: buyer-adds-items
+      title: Buyer adds more items to the cart
+      action: add-to-cart
+      by:
+        - buyer
+      states:
+        - adding-items
+    evidence:
+      - e26
+  - op: add
+    kind: permit
+    value:
+      id: buyer-changes-quantity
+      title: Buyer changes a cart line quantity
+      action: change-line-quantity
+      by:
+        - buyer
+      states:
+        - adding-items
+    evidence:
+      - e13
+  - op: add
+    kind: permit
+    value:
+      id: buyer-removes-line
+      title: Buyer removes a cart line
+      action: remove-cart-line
+      by:
+        - buyer
+      states:
+        - adding-items
+    evidence:
+      - e14
+  - op: add
+    kind: transition
+    value:
+      id: buyer-proceeds-to-payment
+      title: Buyer sets shipping address/method and proceeds to payment
+      from: adding-items
+      to: arranging-payment
+      action: proceed-to-payment
+      by:
+        - buyer
+      guards:
+        - Shipping address and shipping method must be set (otherwise 'Cannot transition Order from AddingItems to ArrangingPayment')
+    evidence:
+      - e5
+      - e8
+      - e18
+  - op: add
+    kind: transition
+    value:
+      id: buyer-pays-order
+      title: Buyer pays with a storefront payment method
+      from: arranging-payment
+      to: payment-authorized
+      action: pay-order
+      by:
+        - buyer
+      effects:
+        - description: Order becomes placed
+          field: placed
+          equals: true
+        - description: Payment authorized
+          field: paymentState
+          equals: Authorized
+    evidence:
+      - e7
+      - e3
+      - e16
+  - op: add
+    kind: permit
+    value:
+      id: buyer-views-placed-order
+      title: Buyer views their own placed order
+      action: view-order
+      by:
+        - buyer
+      states:
+        - payment-authorized
+        - payment-settled
+        - partially-shipped
+        - shipped
+        - partially-delivered
+        - delivered
+        - cancelled
+    evidence:
+      - e2
+      - e16
+      - e15
+findings:
+  - kind: question
+    note: Checkout is blocked in the Storefront. /checkout shows the Shipping/Payment/Confirmation steps and the order summary, but no address selector, shipping-method selector or 'proceed' button, even though the buyer has a default Shipping & Billing address. Clicking 'Pay with Standard Payment' on /checkout/payment returns 400 'Cannot transition Order from "AddingItems" to "ArrangingPayment"'. So I could not observe buyer-proceeds-to-payment and buyer-pays-order end-to-end. They are inferred from the payment buttons, the error, and placed orders in the buyer's history (Payment authorized, $5.00 shipping). Is the shipping step broken, or is shipping set some other way?
+    refs:
+      - buyer-proceeds-to-payment
+      - buyer-pays-order
+    evidence:
+      - e5
+      - e6
+      - e12
+      - e7
+      - e8
+      - e10
+      - e16
+  - kind: question
+    note: The storefront has two payment methods ('Standard Payment' and 'Prepaid card'). Seeded and prepared orders with standard-payment end in PaymentAuthorized, but I couldn't confirm what Prepaid card produces (it might settle immediately, going straight to PaymentSettled).
+    refs:
+      - buyer-pays-order
+    evidence:
+      - e7
+      - e3
+  - kind: gap
+    note: After an order is placed, the buyer has no actions on it in the Storefront. Each order in Order history has an 'Actions for this order (Not implemented)' button that does nothing; 'Track package' and 'Detailed overview' are display-only. The buyer can't cancel or request a return, so cancelling is presumably done by admin roles.
+    evidence:
+      - e17
+      - e2
+  - kind: question
+    note: The buyer sees only their own placed orders. Opening the confirmation page with another customer's order code just shows 'Please wait while we process your order...' and never shows the order. The view-order permit should be limited to the order's owner; the model has no ownership rule or relation for this yet.
+    refs:
+      - buyer-views-placed-order
+    evidence:
+      - e15
+      - e16
+  - kind: question
+    note: A Cancelled order keeps paymentState 'Authorized' while its line quantities and totals drop to 0. Is the authorized payment supposed to be voided or refunded on cancellation?
+    refs:
+      - cancelled
+    evidence:
+      - e21
+  - kind: gap
+    note: I didn't observe who moves orders between payment-authorized, payment-settled, (partially) shipped, (partially) delivered and cancelled. The buyer has no storefront control for any of these, so they are presumably admin (manager/support) transitions and should be explored from the admin-ui interface.
+    evidence:
+      - e2
+      - e20
+      - e22
+      - e23
+      - e24
+      - e25
+  - kind: question
+    note: The vendure.create_order setup tool ignores a 'customer' argument and always creates orders for a generated guest customer. So prepared orders can't be used to test buyer-owned flows such as paying a prepared ArrangingPayment order.
+    evidence:
+      - e18
+status: decided
+decisions:
+  - op: 4
+    verdict: accept
+  - op: 6
+    verdict: accept
+  - op: 9
+    verdict: accept
+  - op: 10
+    verdict: accept
+  - op: 11
+    verdict: accept
+  - op: 12
+    verdict: accept
+  - op: 13
+    verdict: accept
+  - op: 15
+    verdict: accept
+  - op: 16
+    verdict: accept
+  - op: 17
+    verdict: accept
+  - op: 18
+    verdict: accept
+  - op: 19
+    verdict: accept
+  - op: 20
+    verdict: accept
+  - op: 21
+    verdict: accept
+decidedAt: 2026-10-04T06:09:28.019Z

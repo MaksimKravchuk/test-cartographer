@@ -1,0 +1,101 @@
+- banner:
+  - paragraph:
+    - text: "Exclusive: Get your own"
+    - link "FREE storefront starter kit":
+      - /url: https://github.com/vendure-ecommerce/storefront-remix-starter
+  - link "My Account":
+    - /url: /account
+  - heading "commmon.logoAlt" [level=1]:
+    - link "commmon.logoAlt":
+      - /url: /
+      - img "commmon.logoAlt"
+  - link "Electronics":
+    - /url: /collections/electronics
+  - link "Home & Garden":
+    - /url: /collections/home-garden
+  - link "Sports & Outdoor":
+    - /url: /collections/sports-outdoor
+  - searchbox "Search"
+  - button "Open cart tray"
+- main:
+  - heading "Vendure Remix Starter" [level=1]
+  - paragraph:
+    - text: A headless commerce storefront starter kit built with
+    - link "Vendure":
+      - /url: https://www.vendure.io
+    - text: "&"
+    - link "Remix":
+      - /url: ~/routes/__cart/index
+  - paragraph:
+    - text: "Read more:"
+    - link "Lightning Fast Headless Commerce with Vendure and Remix":
+      - /url: https://www.vendure.io/blog/2022/05/lightning-fast-headless-commerce-with-vendure-and-remix
+  - region "Shop by Category":
+    - heading "Shop by Category" [level=2]
+    - link "Electronics":
+      - /url: /collections/electronics
+    - link "Computers":
+      - /url: /collections/computers
+    - link "Furniture":
+      - /url: /collections/furniture
+    - link "Equipment":
+      - /url: /collections/equipment
+    - link "Camera & Photo":
+      - /url: /collections/camera-photo
+    - link "Home & Garden":
+      - /url: /collections/home-garden
+    - link "Plants":
+      - /url: /collections/plants
+    - link "Footwear":
+      - /url: /collections/footwear
+    - link "Sports & Outdoor":
+      - /url: /collections/sports-outdoor
+- contentinfo "Footer":
+  - heading "Footer" [level=2]
+  - heading "Shop" [level=3]
+  - list:
+    - listitem:
+      - link "Electronics":
+        - /url: /collections/electronics
+    - listitem:
+      - link "Home & Garden":
+        - /url: /collections/home-garden
+    - listitem:
+      - link "Sports & Outdoor":
+        - /url: /collections/sports-outdoor
+  - heading "Support" [level=3]
+  - list:
+    - listitem:
+      - link "Help":
+        - /url: "#"
+    - listitem:
+      - link "Track order":
+        - /url: "#"
+    - listitem:
+      - link "Shipping":
+        - /url: "#"
+    - listitem:
+      - link "Returns":
+        - /url: "#"
+  - heading "account.company" [level=3]
+  - list:
+    - listitem:
+      - link "About":
+        - /url: "#"
+    - listitem:
+      - link "Blog":
+        - /url: "#"
+    - listitem:
+      - link "Corporate responsibility":
+        - /url: "#"
+    - listitem:
+      - link "Press":
+        - /url: "#"
+  - heading "Subscribe to our newsletter" [level=3]
+  - paragraph: Be the first to know about exclusive offers & deals.
+  - text: acount.emailAddress
+  - textbox "acount.emailAddress":
+    - /placeholder: Enter your email
+  - button "Subscribe"
+  - link "github.com/vendure-ecommerce/storefront-remix-starter":
+    - /url: https://github.com/vendure-ecommerce/storefront-remix-starter

@@ -1,0 +1,165 @@
+- banner:
+  - paragraph:
+    - text: "Exclusive: Get your own"
+    - link "FREE storefront starter kit":
+      - /url: https://github.com/vendure-ecommerce/storefront-remix-starter
+  - link "My Account":
+    - /url: /account
+  - heading "commmon.logoAlt" [level=1]:
+    - link "commmon.logoAlt":
+      - /url: /
+      - img "commmon.logoAlt"
+  - link "Electronics":
+    - /url: /collections/electronics
+  - link "Home & Garden":
+    - /url: /collections/home-garden
+  - link "Sports & Outdoor":
+    - /url: /collections/sports-outdoor
+  - searchbox "Search"
+  - button "Open cart tray"
+- main:
+  - heading "Electronics" [level=2]
+  - navigation "Breadcrumb":
+    - list:
+      - listitem:
+        - link "home":
+          - /url: /
+      - listitem:
+        - link "Electronics":
+          - /url: /collections/electronics
+  - heading "Collections" [level=2]
+  - link "Computers":
+    - /url: /collections/computers
+  - link "Camera & Photo":
+    - /url: /collections/camera-photo
+  - heading "category" [level=3]:
+    - button "category" [expanded]
+  - checkbox "Computers"
+  - text: Computers
+  - checkbox "Photo"
+  - text: Photo
+  - heading "brand" [level=3]:
+    - button "brand" [expanded]
+  - checkbox "Apple"
+  - text: Apple
+  - checkbox "Logitech"
+  - text: Logitech
+  - checkbox "Samsung"
+  - text: Samsung
+  - checkbox "Corsair"
+  - text: Corsair
+  - checkbox "ADMI"
+  - text: ADMI
+  - checkbox "Seagate"
+  - text: Seagate
+  - checkbox "Polaroid"
+  - text: Polaroid
+  - checkbox "Nikkon"
+  - text: Nikkon
+  - checkbox "Agfa"
+  - text: Agfa
+  - checkbox "Manfrotto"
+  - text: Manfrotto
+  - checkbox "Kodak"
+  - text: Kodak
+  - checkbox "Sony"
+  - text: Sony
+  - checkbox "Rolleiflex"
+  - text: Rolleiflex
+  - link "Laptop $1,558.80 - $2,758.80":
+    - /url: /products/laptop
+  - link "Tablet $394.80 - $534.00":
+    - /url: /products/tablet
+  - link "Wireless Optical Mouse $22.79":
+    - /url: /products/cordless-mouse
+  - link "32-Inch Monitor $372.00":
+    - /url: /products/32-inch-monitor
+  - link "Curvy Monitor $172.49 - $203.93":
+    - /url: /products/curvy-monitor
+  - link "High Performance RAM $165.42 - $338.17":
+    - /url: /products/high-performance-ram
+  - link "Gaming PC $1,117.44 - $1,319.94":
+    - /url: /products/gaming-pc
+  - link "Hard Drive $45.59 - $161.22":
+    - /url: /products/hard-drive
+  - link "Clacky Keyboard $89.87":
+    - /url: /products/clacky-keyboard
+  - link "Ethernet Cable $7.16":
+    - /url: /products/ethernet-cable
+  - link "USB Cable $82.80":
+    - /url: /products/usb-cable
+  - link "Instant Camera $209.99":
+    - /url: /products/instant-camera
+  - link "Camera Lens $124.80":
+    - /url: /products/camera-lens
+  - link "Vintage Folding Camera $6,420.00":
+    - /url: /products/vintage-folding-camera
+  - link "Tripod $17.98":
+    - /url: /products/tripod
+  - link "Instamatic Camera $24.00":
+    - /url: /products/instamatic-camera
+  - link "Compact Digital Camera $1,079.99":
+    - /url: /products/compact-digital-camera
+  - link "Nikkormat SLR Camera $738.00":
+    - /url: /products/nikkormat-slr-camera
+  - link "Compact SLR Camera $625.20":
+    - /url: /products/compact-slr-camera
+  - link "Twin Lens Camera $958.80":
+    - /url: /products/twin-lens-camera
+  - text: Showing products 1 to 20
+  - combobox:
+    - option "25 per Page" [selected]
+    - option "50 per Page"
+    - option "100 per Page"
+  - group:
+    - button "Prev." [disabled]
+    - button "Next" [disabled]
+- contentinfo "Footer":
+  - heading "Footer" [level=2]
+  - heading "Shop" [level=3]
+  - list:
+    - listitem:
+      - link "Electronics":
+        - /url: /collections/electronics
+    - listitem:
+      - link "Home & Garden":
+        - /url: /collections/home-garden
+    - listitem:
+      - link "Sports & Outdoor":
+        - /url: /collections/sports-outdoor
+  - heading "Support" [level=3]
+  - list:
+    - listitem:
+      - link "Help":
+        - /url: "#"
+    - listitem:
+      - link "Track order":
+        - /url: "#"
+    - listitem:
+      - link "Shipping":
+        - /url: "#"
+    - listitem:
+      - link "Returns":
+        - /url: "#"
+  - heading "account.company" [level=3]
+  - list:
+    - listitem:
+      - link "About":
+        - /url: "#"
+    - listitem:
+      - link "Blog":
+        - /url: "#"
+    - listitem:
+      - link "Corporate responsibility":
+        - /url: "#"
+    - listitem:
+      - link "Press":
+        - /url: "#"
+  - heading "Subscribe to our newsletter" [level=3]
+  - paragraph: Be the first to know about exclusive offers & deals.
+  - text: acount.emailAddress
+  - textbox "acount.emailAddress":
+    - /placeholder: Enter your email
+  - button "Subscribe"
+  - link "github.com/vendure-ecommerce/storefront-remix-starter":
+    - /url: https://github.com/vendure-ecommerce/storefront-remix-starter

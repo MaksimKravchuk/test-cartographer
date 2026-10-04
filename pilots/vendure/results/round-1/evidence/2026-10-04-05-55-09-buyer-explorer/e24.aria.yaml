@@ -1,0 +1,6 @@
+- main:
+  - text: 404 error
+  - heading "Not Found" [level=1]
+  - paragraph: "Error: No route matches URL \"/checkout/shipping\""
+  - link "Go back home":
+    - /url: /

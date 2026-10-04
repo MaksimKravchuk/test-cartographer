@@ -1,0 +1,1200 @@
+id: order
+title: Order
+description: A customer's order in the shop
+key: id
+reader:
+  tool: vendure.get_order
+  args:
+    id: "{{key}}"
+variants:
+  - id: any
+    title: Any order
+    status: confirmed
+  - id: card
+    title: Оплата картой (заморозка, ручное списание)
+    status: rejected
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-10-04-05-55-12-onboarding-order
+      evidence:
+        - e1
+      sources:
+        - jira
+  - id: prepaid_card
+    title: Оплата предоплаченной картой (сразу списание)
+    status: rejected
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-10-04-05-55-12-onboarding-order
+      evidence:
+        - e2
+      sources:
+        - jira
+states:
+  - id: payment-authorized
+    title: Payment authorized
+    match:
+      state: PaymentAuthorized
+    status: confirmed
+    provenance:
+      source: agent
+      agent: manager-explorer
+      proposal: 2026-10-04-06-05-21-manager-explorer
+      evidence:
+        - e1
+        - e2
+        - e21
+      sources: []
+    setup:
+      - kind: tool
+        tool: vendure.create_order
+        key: id
+        args:
+          state: PaymentAuthorized
+          owner: buyer
+          tag: "{{runTag}}"
+  - id: payment-settled
+    title: Payment settled
+    match:
+      state: PaymentSettled
+    status: confirmed
+    provenance:
+      source: agent
+      agent: manager-explorer
+      proposal: 2026-10-04-06-05-21-manager-explorer
+      evidence:
+        - e4
+        - e6
+      sources: []
+    setup:
+      - kind: tool
+        tool: vendure.create_order
+        key: id
+        args:
+          state: PaymentSettled
+          owner: buyer
+          tag: "{{runTag}}"
+  - id: shipped
+    title: Shipped
+    match:
+      state: Shipped
+    status: confirmed
+    provenance:
+      source: agent
+      agent: manager-explorer
+      proposal: 2026-10-04-06-05-21-manager-explorer
+      evidence:
+        - e8
+        - e30
+        - e31
+      sources: []
+    setup:
+      - kind: tool
+        tool: vendure.create_order
+        key: id
+        args:
+          state: Shipped
+          owner: buyer
+          tag: "{{runTag}}"
+  - id: delivered
+    title: Delivered
+    match:
+      state: Delivered
+    status: confirmed
+    provenance:
+      source: agent
+      agent: manager-explorer
+      proposal: 2026-10-04-06-05-21-manager-explorer
+      evidence:
+        - e9
+        - e10
+      sources: []
+    setup:
+      - kind: tool
+        tool: vendure.create_order
+        key: id
+        args:
+          state: Delivered
+          owner: buyer
+          tag: "{{runTag}}"
+  - id: modifying
+    title: Modifying
+    match:
+      state: Modifying
+    status: confirmed
+    provenance:
+      source: agent
+      agent: manager-explorer
+      proposal: 2026-10-04-06-05-21-manager-explorer
+      evidence:
+        - e24
+        - e25
+      sources: []
+  - id: cancelled
+    title: Cancelled
+    match:
+      state: Cancelled
+    status: confirmed
+    provenance:
+      source: agent
+      agent: manager-explorer
+      proposal: 2026-10-04-06-05-21-manager-explorer
+      evidence:
+        - e18
+        - e19
+        - e20
+        - e29
+      sources: []
+    setup:
+      - kind: tool
+        tool: vendure.create_order
+        key: id
+        args:
+          state: Cancelled
+          owner: buyer
+          tag: "{{runTag}}"
+  - id: adding-items
+    title: Adding items
+    match:
+      state: AddingItems
+    status: confirmed
+    provenance:
+      source: agent
+      agent: support-explorer
+      proposal: 2026-10-04-06-05-24-support-explorer
+      evidence:
+        - e28
+        - e1
+      sources: []
+    setup:
+      - kind: tool
+        tool: vendure.create_order
+        key: id
+        args:
+          state: AddingItems
+          owner: buyer
+          tag: "{{runTag}}"
+  - id: arranging-payment
+    title: Arranging payment
+    match:
+      state: ArrangingPayment
+    status: confirmed
+    provenance:
+      source: agent
+      agent: support-explorer
+      proposal: 2026-10-04-06-05-24-support-explorer
+      evidence:
+        - e29
+      sources: []
+    setup:
+      - kind: tool
+        tool: vendure.create_order
+        key: id
+        args:
+          state: ArrangingPayment
+          owner: buyer
+          tag: "{{runTag}}"
+  - id: draft
+    title: Draft
+    match:
+      state: Draft
+    status: confirmed
+    provenance:
+      source: agent
+      agent: support-explorer
+      proposal: 2026-10-04-06-05-24-support-explorer
+      evidence:
+        - e25
+        - e1
+      sources: []
+    setup:
+      - kind: tool
+        tool: vendure.create_order
+        key: id
+        args:
+          state: Draft
+          owner: buyer
+          tag: "{{runTag}}"
+  - id: partially-shipped
+    title: Partially shipped
+    match:
+      state: PartiallyShipped
+    status: confirmed
+    provenance:
+      source: agent
+      agent: buyer-explorer
+      proposal: 2026-10-04-06-05-27-buyer-explorer
+      evidence:
+        - e24
+        - e2
+      sources: []
+    setup:
+      - kind: tool
+        tool: vendure.create_order
+        key: id
+        args:
+          state: PartiallyShipped
+          owner: buyer
+          tag: "{{runTag}}"
+  - id: partially-delivered
+    title: Partially delivered
+    match:
+      state: PartiallyDelivered
+    status: confirmed
+    provenance:
+      source: agent
+      agent: buyer-explorer
+      proposal: 2026-10-04-06-05-27-buyer-explorer
+      evidence:
+        - e25
+        - e2
+      sources: []
+    setup:
+      - kind: tool
+        tool: vendure.create_order
+        key: id
+        args:
+          state: PartiallyDelivered
+          owner: buyer
+          tag: "{{runTag}}"
+  - id: awaiting_payment
+    title: На шаге оплаты
+    match: {}
+    status: rejected
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-10-04-05-55-12-onboarding-order
+      evidence:
+        - e3
+      sources:
+        - jira
+  - id: payment_authorized
+    title: Оплата заморожена (авторизована)
+    variants:
+      - card
+    match: {}
+    status: rejected
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-10-04-05-55-12-onboarding-order
+      evidence:
+        - e1
+      sources:
+        - jira
+  - id: paid
+    title: Оплачен
+    match:
+      status: Оплачен
+    status: rejected
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-10-04-05-55-12-onboarding-order
+      evidence:
+        - e4
+      sources:
+        - qa-stand
+actions:
+  - id: settle-payment
+    title: Settle payment
+    kind: command
+    run: admin.settle_payment
+    status: confirmed
+    provenance:
+      source: agent
+      agent: manager-explorer
+      proposal: 2026-10-04-06-05-21-manager-explorer
+      evidence:
+        - e2
+        - e4
+      sources: []
+  - id: create-fulfillment
+    title: Fulfill order (create fulfillment)
+    kind: command
+    run: admin.create_fulfillment
+    status: confirmed
+    provenance:
+      source: agent
+      agent: manager-explorer
+      proposal: 2026-10-04-06-05-21-manager-explorer
+      evidence:
+        - e5
+        - e6
+        - e7
+      sources: []
+  - id: mark-shipped
+    title: Mark fulfillment as shipped
+    kind: command
+    run: admin.mark_fulfillment_shipped
+    status: confirmed
+    provenance:
+      source: agent
+      agent: manager-explorer
+      proposal: 2026-10-04-06-05-21-manager-explorer
+      evidence:
+        - e7
+        - e8
+      sources: []
+  - id: mark-delivered
+    title: Mark fulfillment as delivered
+    kind: command
+    run: admin.mark_fulfillment_delivered
+    status: confirmed
+    provenance:
+      source: agent
+      agent: manager-explorer
+      proposal: 2026-10-04-06-05-21-manager-explorer
+      evidence:
+        - e8
+        - e9
+        - e31
+      sources: []
+  - id: refund-and-cancel
+    title: Refund & cancel order
+    kind: command
+    run: admin.refund_and_cancel_order
+    status: confirmed
+    provenance:
+      source: agent
+      agent: manager-explorer
+      proposal: 2026-10-04-06-05-21-manager-explorer
+      evidence:
+        - e16
+        - e17
+        - e18
+      sources: []
+  - id: cancel-order
+    title: Cancel order or items
+    kind: command
+    run: admin.cancel_order
+    status: confirmed
+    provenance:
+      source: agent
+      agent: manager-explorer
+      proposal: 2026-10-04-06-05-21-manager-explorer
+      evidence:
+        - e3
+        - e28
+        - e29
+      sources: []
+  - id: start-modification
+    title: Modify order (transition to Modifying)
+    kind: command
+    run: admin.transition_order_to_modifying
+    status: confirmed
+    provenance:
+      source: agent
+      agent: manager-explorer
+      proposal: 2026-10-04-06-05-21-manager-explorer
+      evidence:
+        - e3
+        - e23
+        - e24
+      sources: []
+  - id: cancel-modification
+    title: Cancel modification
+    kind: command
+    run: admin.cancel_order_modification
+    status: confirmed
+    provenance:
+      source: agent
+      agent: manager-explorer
+      proposal: 2026-10-04-06-05-21-manager-explorer
+      evidence:
+        - e25
+        - e26
+      sources: []
+  - id: view-order
+    title: View order
+    kind: read
+    run: admin.view_order
+    status: confirmed
+    provenance:
+      source: agent
+      agent: support-explorer
+      proposal: 2026-10-04-06-05-24-support-explorer
+      evidence:
+        - e1
+        - e3
+        - e18
+        - e30
+      sources: []
+  - id: add-to-cart
+    title: Add product to cart
+    kind: create
+    run: shop.add-to-cart
+    status: confirmed
+    provenance:
+      source: agent
+      agent: buyer-explorer
+      proposal: 2026-10-04-06-05-27-buyer-explorer
+      evidence:
+        - e26
+      sources: []
+  - id: change-line-quantity
+    title: Change cart line quantity
+    kind: update
+    run: shop.change-line-quantity
+    status: confirmed
+    provenance:
+      source: agent
+      agent: buyer-explorer
+      proposal: 2026-10-04-06-05-27-buyer-explorer
+      evidence:
+        - e13
+      sources: []
+  - id: remove-cart-line
+    title: Remove cart line
+    kind: update
+    run: shop.remove-cart-line
+    status: confirmed
+    provenance:
+      source: agent
+      agent: buyer-explorer
+      proposal: 2026-10-04-06-05-27-buyer-explorer
+      evidence:
+        - e14
+      sources: []
+  - id: proceed-to-payment
+    title: Set shipping details and proceed to payment
+    kind: command
+    run: shop.proceed-to-payment
+    status: confirmed
+    provenance:
+      source: agent
+      agent: buyer-explorer
+      proposal: 2026-10-04-06-05-27-buyer-explorer
+      evidence:
+        - e5
+        - e8
+      sources: []
+  - id: pay-order
+    title: Pay for order (Standard Payment / Prepaid card)
+    kind: command
+    run: shop.pay-order
+    status: confirmed
+    provenance:
+      source: agent
+      agent: buyer-explorer
+      proposal: 2026-10-04-06-05-27-buyer-explorer
+      evidence:
+        - e7
+        - e8
+      sources: []
+  - id: pay
+    title: Оплатить заказ
+    kind: command
+    status: rejected
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-10-04-05-55-12-onboarding-order
+      evidence:
+        - e3
+      sources:
+        - jira
+  - id: settle
+    title: Списать оплату
+    kind: command
+    status: rejected
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-10-04-05-55-12-onboarding-order
+      evidence:
+        - e1
+        - e8
+      sources:
+        - jira
+        - qa-stand
+  - id: ship
+    title: Отгрузить (создать отправление, отметить отправленным)
+    kind: command
+    status: rejected
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-10-04-05-55-12-onboarding-order
+      evidence:
+        - e5
+      sources:
+        - jira
+  - id: deliver
+    title: Отметить доставленным
+    kind: command
+    status: rejected
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-10-04-05-55-12-onboarding-order
+      evidence:
+        - e5
+      sources:
+        - jira
+  - id: cancel
+    title: Отменить заказ
+    kind: command
+    status: rejected
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-10-04-05-55-12-onboarding-order
+      evidence:
+        - e7
+        - e8
+      sources:
+        - jira
+        - qa-stand
+  - id: view
+    title: Просмотреть заказ
+    kind: read
+    status: rejected
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-10-04-05-55-12-onboarding-order
+      evidence:
+        - e8
+        - e9
+      sources:
+        - qa-stand
+  - id: add-item
+    title: Add product to an existing cart
+    kind: update
+    run: shop.add-to-cart
+    status: confirmed
+    provenance:
+      source: human
+      evidence: []
+      sources: []
+      note: "Split from add-to-cart: the explorer used one create action for both the
+        first item and later ones"
+transitions:
+  - id: settle-authorized-payment
+    title: Settle the authorized payment
+    from: payment-authorized
+    to: payment-settled
+    action: settle-payment
+    by:
+      - manager
+    effects:
+      - description: Payment becomes Settled
+        field: paymentState
+        equals: Settled
+    status: confirmed
+    provenance:
+      source: agent
+      agent: manager-explorer
+      proposal: 2026-10-04-06-05-21-manager-explorer
+      evidence:
+        - e2
+        - e4
+      sources: []
+  - id: ship-settled-order
+    title: Mark the fulfillment shipped
+    from: payment-settled
+    to: shipped
+    action: mark-shipped
+    by:
+      - manager
+    guards:
+      - A Pending fulfillment covering all items exists
+    effects:
+      - description: Fulfillment becomes Shipped
+        field: fulfillmentStates
+        equals:
+          - Shipped
+    status: confirmed
+    provenance:
+      source: agent
+      agent: manager-explorer
+      proposal: 2026-10-04-06-05-21-manager-explorer
+      evidence:
+        - e7
+        - e8
+      sources: []
+  - id: deliver-shipped-order
+    title: Mark the fulfillment delivered
+    from: shipped
+    to: delivered
+    action: mark-delivered
+    by:
+      - manager
+    effects:
+      - description: Fulfillment becomes Delivered
+        field: fulfillmentStates
+        equals:
+          - Delivered
+    status: confirmed
+    provenance:
+      source: agent
+      agent: manager-explorer
+      proposal: 2026-10-04-06-05-21-manager-explorer
+      evidence:
+        - e8
+        - e9
+        - e31
+      sources: []
+  - id: refund-cancel-delivered-order
+    title: Refund and cancel a delivered order
+    from: delivered
+    to: cancelled
+    action: refund-and-cancel
+    by:
+      - manager
+    guards:
+      - A refund/cancellation reason is required
+      - All items must be selected for refund for the order to become Cancelled
+    effects:
+      - description: Line quantities become 0 and the order total becomes 0
+        field: totalWithTax
+        equals: 0
+      - description: A refund is created in Pending state (Settle refund button shown);
+          paymentState stays Settled
+    status: confirmed
+    provenance:
+      source: agent
+      agent: manager-explorer
+      proposal: 2026-10-04-06-05-21-manager-explorer
+      evidence:
+        - e16
+        - e17
+        - e18
+        - e19
+      sources: []
+  - id: cancel-authorized-order
+    title: Cancel an authorized (unsettled) order
+    from: payment-authorized
+    to: cancelled
+    action: cancel-order
+    by:
+      - manager
+    guards:
+      - A cancellation reason is required
+      - Cancel entire order is selected
+    effects:
+      - description: Line quantities become 0 and the order total becomes 0
+        field: totalWithTax
+        equals: 0
+    status: confirmed
+    provenance:
+      source: agent
+      agent: manager-explorer
+      proposal: 2026-10-04-06-05-21-manager-explorer
+      evidence:
+        - e28
+        - e29
+      sources: []
+  - id: start-modifying-authorized-order
+    title: Start modifying an authorized order
+    from: payment-authorized
+    to: modifying
+    action: start-modification
+    by:
+      - manager
+    status: confirmed
+    provenance:
+      source: agent
+      agent: manager-explorer
+      proposal: 2026-10-04-06-05-21-manager-explorer
+      evidence:
+        - e23
+        - e24
+        - e25
+      sources: []
+  - id: cancel-modification-to-authorized
+    title: Cancel the modification (back to Payment authorized)
+    from: modifying
+    to: payment-authorized
+    action: cancel-modification
+    by:
+      - manager
+    guards:
+      - Returns to the state the order was in before modification
+    status: confirmed
+    provenance:
+      source: agent
+      agent: manager-explorer
+      proposal: 2026-10-04-06-05-21-manager-explorer
+      evidence:
+        - e25
+        - e26
+        - e27
+      sources: []
+  - id: buyer-starts-cart
+    title: Buyer adds first item, creating the active order
+    from: "@new"
+    to: adding-items
+    action: add-to-cart
+    by:
+      - buyer
+    effects:
+      - description: Order is active and not placed
+        field: active
+        equals: true
+    status: confirmed
+    provenance:
+      source: agent
+      agent: buyer-explorer
+      proposal: 2026-10-04-06-05-27-buyer-explorer
+      evidence:
+        - e26
+        - e19
+      sources: []
+  - id: buyer-proceeds-to-payment
+    title: Buyer sets shipping address/method and proceeds to payment
+    from: adding-items
+    to: arranging-payment
+    action: proceed-to-payment
+    by:
+      - buyer
+    guards:
+      - Shipping address and shipping method must be set (otherwise 'Cannot
+        transition Order from AddingItems to ArrangingPayment')
+    status: confirmed
+    provenance:
+      source: agent
+      agent: buyer-explorer
+      proposal: 2026-10-04-06-05-27-buyer-explorer
+      evidence:
+        - e5
+        - e8
+        - e18
+      sources: []
+  - id: buyer-pays-order
+    title: Buyer pays with a storefront payment method
+    from: arranging-payment
+    to: payment-authorized
+    action: pay-order
+    by:
+      - buyer
+    effects:
+      - description: Order becomes placed
+        field: placed
+        equals: true
+      - description: Payment authorized
+        field: paymentState
+        equals: Authorized
+    status: confirmed
+    provenance:
+      source: agent
+      agent: buyer-explorer
+      proposal: 2026-10-04-06-05-27-buyer-explorer
+      evidence:
+        - e7
+        - e3
+        - e16
+      sources: []
+  - id: pay_card
+    title: Покупатель оплачивает картой — деньги замораживаются
+    from: awaiting_payment
+    to: payment_authorized
+    action: pay
+    by:
+      - buyer
+    effects:
+      - description: Деньги заморожены на карте, не списаны
+    status: rejected
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-10-04-05-55-12-onboarding-order
+      evidence:
+        - e3
+        - e1
+      sources:
+        - jira
+  - id: pay_prepaid
+    title: Покупатель оплачивает предоплаченной картой — деньги списываются сразу
+    from: awaiting_payment
+    to: paid
+    action: pay
+    by:
+      - buyer
+    effects:
+      - description: Деньги списаны сразу при оплате
+    status: rejected
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-10-04-05-55-12-onboarding-order
+      evidence:
+        - e2
+      sources:
+        - jira
+  - id: settle
+    title: Менеджер вручную списывает замороженные деньги
+    from: payment_authorized
+    to: paid
+    action: settle
+    by:
+      - manager
+    effects:
+      - description: Замороженные деньги списаны
+    status: rejected
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-10-04-05-55-12-onboarding-order
+      evidence:
+        - e1
+        - e8
+      sources:
+        - jira
+        - qa-stand
+  - id: ship
+    title: Менеджер отгружает оплаченный заказ
+    from: paid
+    to: shipped
+    action: ship
+    by:
+      - manager
+    guards:
+      - Заказ оплачен
+    status: rejected
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-10-04-05-55-12-onboarding-order
+      evidence:
+        - e4
+        - e5
+      sources:
+        - qa-stand
+        - jira
+  - id: deliver
+    title: Менеджер отмечает доставку
+    from: shipped
+    to: delivered
+    action: deliver
+    by:
+      - manager
+    status: rejected
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-10-04-05-55-12-onboarding-order
+      evidence:
+        - e5
+      sources:
+        - jira
+  - id: cancel_awaiting_payment
+    title: Менеджер отменяет заказ на шаге оплаты
+    from: awaiting_payment
+    to: cancelled
+    action: cancel
+    by:
+      - manager
+    status: rejected
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-10-04-05-55-12-onboarding-order
+      evidence:
+        - e7
+        - e6
+      sources:
+        - jira
+        - qa-stand
+  - id: cancel_authorized
+    title: Менеджер отменяет заказ с замороженной оплатой
+    from: payment_authorized
+    to: cancelled
+    action: cancel
+    by:
+      - manager
+    status: rejected
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-10-04-05-55-12-onboarding-order
+      evidence:
+        - e7
+        - e6
+      sources:
+        - jira
+        - qa-stand
+  - id: cancel_paid
+    title: Менеджер отменяет оплаченный, но не отгруженный заказ
+    from: paid
+    to: cancelled
+    action: cancel
+    by:
+      - manager
+    status: rejected
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-10-04-05-55-12-onboarding-order
+      evidence:
+        - e7
+        - e6
+      sources:
+        - jira
+        - qa-stand
+permits:
+  - id: fulfill-settled-order
+    title: Create a fulfillment for a settled order
+    action: create-fulfillment
+    by:
+      - manager
+    states:
+      - payment-settled
+    effects:
+      - description: A fulfillment is created in Pending; the order state is unchanged
+        field: fulfillmentStates
+        equals:
+          - Pending
+    status: confirmed
+    provenance:
+      source: agent
+      agent: manager-explorer
+      proposal: 2026-10-04-06-05-21-manager-explorer
+      evidence:
+        - e2
+        - e5
+        - e6
+        - e7
+      sources: []
+  - id: support-views-order
+    title: Support views order in back office
+    action: view-order
+    by:
+      - support
+    status: confirmed
+    provenance:
+      source: agent
+      agent: support-explorer
+      proposal: 2026-10-04-06-05-24-support-explorer
+      evidence:
+        - e1
+        - e3
+        - e18
+        - e30
+      sources: []
+      note: Widened to every state after the explorer reported it had not opened the
+        rest
+  - id: buyer-adds-items
+    title: Buyer adds more items to the cart
+    action: add-item
+    by:
+      - buyer
+    states:
+      - adding-items
+    status: confirmed
+    provenance:
+      source: agent
+      agent: buyer-explorer
+      proposal: 2026-10-04-06-05-27-buyer-explorer
+      evidence:
+        - e26
+      sources: []
+  - id: buyer-changes-quantity
+    title: Buyer changes a cart line quantity
+    action: change-line-quantity
+    by:
+      - buyer
+    states:
+      - adding-items
+    status: confirmed
+    provenance:
+      source: agent
+      agent: buyer-explorer
+      proposal: 2026-10-04-06-05-27-buyer-explorer
+      evidence:
+        - e13
+      sources: []
+  - id: buyer-removes-line
+    title: Buyer removes a cart line
+    action: remove-cart-line
+    by:
+      - buyer
+    states:
+      - adding-items
+    status: confirmed
+    provenance:
+      source: agent
+      agent: buyer-explorer
+      proposal: 2026-10-04-06-05-27-buyer-explorer
+      evidence:
+        - e14
+      sources: []
+  - id: buyer-views-placed-order
+    title: Buyer views their own placed order
+    action: view-order
+    by:
+      - buyer
+    states:
+      - payment-authorized
+      - payment-settled
+      - partially-shipped
+      - shipped
+      - partially-delivered
+      - delivered
+      - cancelled
+    status: confirmed
+    provenance:
+      source: agent
+      agent: buyer-explorer
+      proposal: 2026-10-04-06-05-27-buyer-explorer
+      evidence:
+        - e2
+        - e16
+        - e15
+      sources: []
+  - id: view_by_manager
+    title: Менеджер смотрит заказы
+    action: view
+    by:
+      - manager
+    status: rejected
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-10-04-05-55-12-onboarding-order
+      evidence:
+        - e8
+      sources:
+        - qa-stand
+  - id: view_by_support
+    title: Поддержка только смотрит заказы
+    action: view
+    by:
+      - support
+    status: rejected
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-10-04-05-55-12-onboarding-order
+      evidence:
+        - e9
+        - e10
+      sources:
+        - qa-stand
+        - jira
+  - id: manager-views-order
+    title: Manager views an order in the back office
+    action: view-order
+    by:
+      - manager
+    status: confirmed
+    provenance:
+      source: human
+      evidence: []
+      sources: []
+      note: Missing from every proposal; without it the deny matrix asserts the
+        manager cannot open orders
+scenarios:
+  - id: card_order_to_delivery
+    title: Оплата картой → списание → отгрузка → доставка
+    start: awaiting_payment
+    path:
+      - pay_card
+      - settle
+      - ship
+      - deliver
+    status: rejected
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-10-04-05-55-12-onboarding-order
+      evidence:
+        - e1
+        - e5
+      sources:
+        - jira
+  - id: prepaid_order_to_delivery
+    title: Предоплаченная карта → отгрузка → доставка
+    start: awaiting_payment
+    path:
+      - pay_prepaid
+      - ship
+      - deliver
+    status: rejected
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-10-04-05-55-12-onboarding-order
+      evidence:
+        - e2
+        - e5
+      sources:
+        - jira
+  - id: card_order_cancelled_before_settle
+    title: Оплата картой → отмена менеджером до списания
+    start: awaiting_payment
+    path:
+      - pay_card
+      - cancel_authorized
+    status: rejected
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-10-04-05-55-12-onboarding-order
+      evidence:
+        - e1
+        - e7
+      sources:
+        - jira
+rules:
+  - id: settle_by_manager
+    title: Списание — только менеджер вручную в админке
+    text: Замороженные по карте деньги списывает менеджер вручную в админке.
+    transition: settle
+    requires:
+      - kind: roles
+        roles:
+          - manager
+    status: rejected
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-10-04-05-55-12-onboarding-order
+      evidence:
+        - e1
+      sources:
+        - jira
+  - id: ship_only_paid
+    title: Отгружается только оплаченный заказ
+    text: Отгрузка возможна только из статуса «Оплачен»; неоплаченный заказ не
+      отгружается (SHOP-111 закрыт как Won't Do).
+    transition: ship
+    requires:
+      - kind: roles
+        roles:
+          - manager
+    status: rejected
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-10-04-05-55-12-onboarding-order
+      evidence:
+        - e4
+        - e12
+      sources:
+        - qa-stand
+        - jira
+  - id: cancel_by_manager_before_shipment
+    title: Отмена — менеджером и только до отгрузки
+    text: Менеджер может отменить заказ до отгрузки. После отгрузки только через
+      возврат.
+    transition: cancel_paid
+    requires:
+      - kind: roles
+        roles:
+          - manager
+    status: rejected
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-10-04-05-55-12-onboarding-order
+      evidence:
+        - e7
+        - e6
+      sources:
+        - jira
+        - qa-stand

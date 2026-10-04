@@ -1,0 +1,15 @@
+- generic [ref=f4e2]:
+  - generic [ref=f4e356]:
+    - generic [ref=f4e357]: Hi! Welcome back. Good to see you.
+    - generic [ref=f4e360]:
+      - paragraph [ref=f4e361]: Log in to Vendure
+      - generic [ref=f4e363]:
+        - textbox "Username" [ref=f4e364]
+        - textbox "Password" [ref=f4e365]
+        - img "Error" [ref=f4e370]
+        - generic [ref=f4e375]:
+          - checkbox "Remember me" [ref=f4e376]
+          - generic [ref=f4e377]: Remember me
+        - button "Log in" [disabled] [ref=f4e379]
+  - generic: You are not currently authorized to access "addNoteToOrder". Either you lack permissions, or your session has expired.
+  - generic: Could not connect to the Vendure server at auto:auto

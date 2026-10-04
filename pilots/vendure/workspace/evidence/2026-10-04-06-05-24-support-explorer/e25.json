@@ -1,0 +1,19 @@
+{
+  "id": "77",
+  "code": "K11FAMHN4YQTJ2B6",
+  "state": "Draft",
+  "active": false,
+  "placed": false,
+  "customer": null,
+  "paymentMethod": null,
+  "paymentState": null,
+  "fulfillmentStates": [],
+  "lines": [
+    {
+      "id": "96",
+      "variant": "Wireless Optical Mouse",
+      "quantity": 1
+    }
+  ],
+  "totalWithTax": 2279
+}

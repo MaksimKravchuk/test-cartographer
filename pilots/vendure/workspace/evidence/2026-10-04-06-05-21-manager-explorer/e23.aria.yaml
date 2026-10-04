@@ -1,0 +1,244 @@
+- generic [ref=f2e2]:
+  - generic [ref=f2e5]:
+    - generic [ref=f2e6]:
+      - link [ref=f2e8]:
+        - /url: /admin/
+      - navigation [ref=f2e12]:
+        - generic [ref=f2e13]:
+          - generic [ref=f2e16]:
+            - generic [ref=f2e17]: Sales
+            - link "Orders Orders" [ref=f2e21]:
+              - /url: /admin/orders
+              - img "Orders"
+              - text: Orders
+          - generic [ref=f2e24]:
+            - generic [ref=f2e25]: Customers
+            - link "Customers Customers" [ref=f2e29]:
+              - /url: /admin/customer/customers
+              - img "Customers"
+              - text: Customers
+          - generic [ref=f2e32]:
+            - generic [ref=f2e33]: Marketing
+            - link "Promotions Promotions" [ref=f2e37]:
+              - /url: /admin/marketing/promotions
+              - img "Promotions"
+              - text: Promotions
+      - generic [ref=f2e38]:
+        - separator [ref=f2e39]
+        - navigation [ref=f2e41]:
+          - generic [ref=f2e46]:
+            - generic [ref=f2e47]: Settings
+            - button "Expand entries" [ref=f2e48]:
+              - img "Expand entries"
+      - generic [ref=f2e49]: v3.7.3
+    - generic [ref=f2e52]:
+      - generic [ref=f2e53]:
+        - navigation [ref=f2e56]:
+          - list [ref=f2e57]:
+            - listitem "Dashboard" [ref=f2e58]:
+              - link "Dashboard" [ref=f2e59]:
+                - /url: /admin/
+            - listitem "Orders" [ref=f2e60]:
+              - link "Orders" [ref=f2e61]:
+                - /url: /admin/orders
+            - listitem "Q592AEA6FEYJT5QC" [ref=f2e62]
+        - button [ref=f2e66]
+        - button "Olga Manager" [ref=f2e71]
+      - generic [ref=f2e75]:
+        - heading "Q592AEA6FEYJT5QC" [level=1] [ref=f2e80]
+        - generic [ref=f2e83]:
+          - generic [ref=f2e88]:
+            - button "Fulfill order" [disabled] [ref=f2e89]
+            - button [ref=f2e94]
+          - generic [ref=f2e95]:
+            - generic [ref=f2e98]:
+              - table [ref=f2e105]:
+                - rowgroup [ref=f2e106]:
+                  - row [ref=f2e107]:
+                    - columnheader "Image" [ref=f2e108]
+                    - columnheader "Product name" [ref=f2e112]
+                    - columnheader "Product variant" [ref=f2e116]
+                    - columnheader "SKU" [ref=f2e120]
+                    - columnheader "Unit price" [ref=f2e124]
+                    - columnheader "Quantity" [ref=f2e128]
+                    - columnheader "Total" [ref=f2e132]
+                    - columnheader [ref=f2e136]:
+                      - button "Select table columns" [ref=f2e140]
+                - rowgroup [ref=f2e141]:
+                  - row [ref=f2e142]:
+                    - cell [ref=f2e143]
+                    - cell [ref=f2e147]:
+                      - link "Wireless Optical Mouse" [ref=f2e149]:
+                        - /url: /admin/catalog/products/3
+                    - cell [ref=f2e151]:
+                      - link "Wireless Optical Mouse" [ref=f2e153]:
+                        - /url: /admin/catalog/products/3/variants/7
+                    - cell "834444" [ref=f2e155]
+                    - cell "$22.79 $18.99" [ref=f2e157]:
+                      - generic [ref=f2e159]:
+                        - text: $22.79
+                        - generic "Net price" [ref=f2e160]: $18.99
+                    - cell "1" [ref=f2e161]
+                    - cell "$22.79 $18.99" [ref=f2e165]:
+                      - generic [ref=f2e167]:
+                        - text: $22.79
+                        - generic "Net price" [ref=f2e168]: $18.99
+                    - cell [ref=f2e169]
+                  - row [ref=f2e170]:
+                    - cell "Sub total" [ref=f2e171]
+                    - cell [ref=f2e172]
+                    - cell "$22.79 $18.99" [ref=f2e173]:
+                      - text: $22.79
+                      - generic "Net price" [ref=f2e174]: $18.99
+                    - cell [ref=f2e175]
+                  - row [ref=f2e176]:
+                    - cell "Shipping" [ref=f2e177]
+                    - cell "Standard Shipping" [ref=f2e178]
+                    - cell "$5.00 $5.00" [ref=f2e182]:
+                      - text: $5.00
+                      - generic "Net price" [ref=f2e183]: $5.00
+                    - cell [ref=f2e184]
+                  - row [ref=f2e185]:
+                    - cell "Total" [ref=f2e186]
+                    - cell [ref=f2e187]
+                    - cell "$27.79 $23.99" [ref=f2e188]:
+                      - text: $27.79
+                      - generic "Net price" [ref=f2e189]: $23.99
+                    - cell [ref=f2e190]
+              - generic [ref=f2e192]:
+                - generic [ref=f2e193]: Tax summary
+                - table [ref=f2e196]:
+                  - rowgroup [ref=f2e197]:
+                    - row [ref=f2e198]:
+                      - columnheader "Description" [ref=f2e199]
+                      - columnheader "Tax rate" [ref=f2e200]
+                      - columnheader "Tax base" [ref=f2e201]
+                      - columnheader "Tax total" [ref=f2e202]
+                  - rowgroup [ref=f2e203]:
+                    - row [ref=f2e204]:
+                      - cell "Standard Tax Europe" [ref=f2e205]
+                      - cell "20%" [ref=f2e206]
+                      - cell "$18.99" [ref=f2e207]
+                      - cell "$3.80" [ref=f2e208]
+                    - row [ref=f2e209]:
+                      - cell "shipping tax" [ref=f2e210]
+                      - cell "0%" [ref=f2e211]
+                      - cell "$5.00" [ref=f2e212]
+                      - cell "$0.00" [ref=f2e213]
+              - generic [ref=f2e215]:
+                - generic [ref=f2e216]: Order history
+                - generic [ref=f2e220]:
+                  - generic [ref=f2e222]:
+                    - generic "Collapse entries" [ref=f2e223]
+                    - generic [ref=f2e226]:
+                      - generic [ref=f2e227]:
+                        - textbox [ref=f2e228]
+                        - button "Add note" [disabled] [ref=f2e229]
+                      - generic [ref=f2e230]:
+                        - generic [ref=f2e231]:
+                          - checkbox "Note is private" [checked] [ref=f2e232]
+                          - generic [ref=f2e233]: Note is private
+                        - generic [ref=f2e234]: Visible to admins only
+                  - generic [ref=f2e236]:
+                    - generic "Expand entries" [ref=f2e237]
+                    - generic:
+                      - generic [ref=f2e238]:
+                        - generic [ref=f2e239]: 10/4/26, 6:06 AM
+                        - generic [ref=f2e240]: Guest Buyer
+                      - generic [ref=f2e241]: Order transitioned from Created to AddingItems
+                  - generic [ref=f2e243]:
+                    - generic "Expand entries" [ref=f2e244]
+                    - generic:
+                      - generic [ref=f2e245]:
+                        - generic [ref=f2e246]: 10/4/26, 6:06 AM
+                        - generic [ref=f2e247]: Guest Buyer
+                      - generic [ref=f2e248]: Order transitioned from AddingItems to ArrangingPayment
+                  - generic [ref=f2e250]:
+                    - generic "Expand entries" [ref=f2e251]
+                    - generic:
+                      - generic [ref=f2e252]:
+                        - generic [ref=f2e253]: 10/4/26, 6:06 AM
+                        - generic [ref=f2e254]: Guest Buyer
+                      - generic [ref=f2e255]: "Payment #null transitioned from Created to Authorized"
+                  - generic [ref=f2e257]:
+                    - generic "Expand entries" [ref=f2e258]
+                    - generic:
+                      - generic [ref=f2e259]:
+                        - generic [ref=f2e260]: 10/4/26, 6:06 AM
+                        - generic [ref=f2e261]: Guest Buyer
+                      - generic [ref=f2e262]: Order transitioned from ArrangingPayment to PaymentAuthorized
+                  - generic [ref=f2e264]:
+                    - generic "Collapse entries" [ref=f2e265]
+                    - generic [ref=f2e266]:
+                      - generic [ref=f2e267]: 10/4/26, 6:06 AM
+                      - generic [ref=f2e269]: Order created
+            - generic [ref=f2e272]:
+              - generic [ref=f2e274]:
+                - generic [ref=f2e275]:
+                  - generic [ref=f2e276]: State
+                  - button "Order state diagram" [ref=f2e278]
+                - generic [ref=f2e279]: Payment authorized
+              - generic [ref=f2e285]:
+                - generic [ref=f2e286]:
+                  - generic [ref=f2e287]: Customer
+                  - button "Assign order to another customer" [ref=f2e289]
+                - generic [ref=f2e290]:
+                  - link "Guest Buyer" [ref=f2e292]:
+                    - /url: /admin/customer/customers/9
+                  - generic [ref=f2e294]:
+                    - generic [ref=f2e295]: Shipping address
+                    - list [ref=f2e298]:
+                      - listitem [ref=f2e299]: Test Buyer
+                      - listitem [ref=f2e300]: 1 Test Street
+                      - listitem [ref=f2e301]: Berlin
+                      - listitem [ref=f2e302]: "10115"
+                      - listitem [ref=f2e303]: Germany
+              - generic [ref=f2e305]:
+                - generic [ref=f2e306]: Payments
+                - generic [ref=f2e310]:
+                  - generic [ref=f2e311]:
+                    - generic [ref=f2e312]: Payment $27.79
+                    - generic "State" [ref=f2e315]: Authorized
+                  - generic [ref=f2e319]:
+                    - generic [ref=f2e320]:
+                      - generic [ref=f2e321]: Payment method
+                      - generic [ref=f2e322]: standard-payment
+                    - generic [ref=f2e323]:
+                      - generic [ref=f2e324]: Amount
+                      - generic [ref=f2e325]: $27.79
+                    - generic [ref=f2e326]:
+                      - generic [ref=f2e327]: Transaction ID
+                      - generic [ref=f2e328]: puyydzg4v
+                    - generic [ref=f2e329]:
+                      - generic [ref=f2e330]: Payment metadata
+                      - generic:
+                        - generic:
+                          - list
+                  - generic [ref=f2e331]:
+                    - button "Settle payment" [ref=f2e332]
+                    - button [ref=f2e334]
+              - generic [ref=f2e338]:
+                - generic [ref=f2e339]:
+                  - generic [ref=f2e340]: "ID:"
+                  - generic [ref=f2e341]: "64"
+                - generic [ref=f2e342]:
+                  - generic [ref=f2e343]: "Created at:"
+                  - generic [ref=f2e344]: 10/4/26, 6:06 AM
+                - generic [ref=f2e345]:
+                  - generic [ref=f2e346]: "Updated at:"
+                  - generic [ref=f2e347]: 10/4/26, 6:06 AM
+  - dialog [ref=f2e350]:
+    - generic [ref=f2e351]: Beginning of Modal Content
+    - generic [ref=f2e353]:
+      - heading "Select state" [level=3] [ref=f2e356]
+      - generic [ref=f2e359]:
+        - paragraph [ref=f2e360]: Manually transition the order to another state. Note that order states are governed by rules which may prevent certain transitions.
+        - combobox [ref=f2e364]:
+          - option "Payment settled"
+          - option "Cancelled"
+          - option "Modifying"
+          - option "Arranging additional payment"
+      - generic [ref=f2e365]:
+        - button "Cancel" [ref=f2e366]
+        - button "Transition to state" [disabled] [ref=f2e367]
+    - generic [ref=f2e368]: End of Modal Content

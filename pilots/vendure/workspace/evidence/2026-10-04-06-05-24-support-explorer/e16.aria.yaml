@@ -1,0 +1,15 @@
+- generic [ref=f8e2]:
+  - generic [ref=f8e379]:
+    - generic [ref=f8e380]: Hi! Welcome back. Good to see you.
+    - generic [ref=f8e383]:
+      - paragraph [ref=f8e384]: Log in to Vendure
+      - generic [ref=f8e386]:
+        - textbox "Username" [ref=f8e387]
+        - textbox "Password" [ref=f8e388]
+        - img "Error" [ref=f8e393]
+        - generic [ref=f8e398]:
+          - checkbox "Remember me" [ref=f8e399]
+          - generic [ref=f8e400]: Remember me
+        - button "Log in" [disabled] [ref=f8e402]
+  - generic: You are not currently authorized to access "transitionOrderToState". Either you lack permissions, or your session has expired.
+  - generic: Could not connect to the Vendure server at auto:auto

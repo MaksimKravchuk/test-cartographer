@@ -1,0 +1,301 @@
+- generic [ref=f5e5]:
+  - generic [ref=f5e6]:
+    - link [ref=f5e8]:
+      - /url: /admin/
+    - navigation [ref=f5e12]:
+      - generic [ref=f5e13]:
+        - generic [ref=f5e16]:
+          - generic [ref=f5e17]: Sales
+          - link "Orders Orders" [ref=f5e21]:
+            - /url: /admin/orders
+            - img "Orders"
+            - text: Orders
+        - generic [ref=f5e24]:
+          - generic [ref=f5e25]: Customers
+          - link "Customers Customers" [ref=f5e29]:
+            - /url: /admin/customer/customers
+            - img "Customers"
+            - text: Customers
+        - generic [ref=f5e32]:
+          - generic [ref=f5e33]: Marketing
+          - link "Promotions Promotions" [ref=f5e37]:
+            - /url: /admin/marketing/promotions
+            - img "Promotions"
+            - text: Promotions
+    - generic [ref=f5e38]:
+      - separator [ref=f5e39]
+      - navigation [ref=f5e41]:
+        - generic [ref=f5e46]:
+          - generic [ref=f5e47]: Settings
+          - button "Expand entries" [ref=f5e48]:
+            - img "Expand entries"
+    - generic [ref=f5e49]: v3.7.3
+  - generic [ref=f5e52]:
+    - generic [ref=f5e53]:
+      - navigation [ref=f5e56]:
+        - list [ref=f5e57]:
+          - listitem "Dashboard" [ref=f5e58]:
+            - link "Dashboard" [ref=f5e59]:
+              - /url: /admin/
+          - listitem "Orders" [ref=f5e60]:
+            - link "Orders" [ref=f5e61]:
+              - /url: /admin/orders
+          - listitem "EXEN7E55ERBHA2AT" [ref=f5e62]
+      - button [ref=f5e66]
+      - button "Olga Manager" [ref=f5e71]
+    - generic [ref=f5e75]:
+      - heading "EXEN7E55ERBHA2AT" [level=1] [ref=f5e80]
+      - generic [ref=f5e83]:
+        - generic [ref=f5e88]:
+          - button "Fulfill order" [disabled] [ref=f5e89]
+          - button [ref=f5e94]
+        - generic [ref=f5e95]:
+          - generic [ref=f5e98]:
+            - table [ref=f5e105]:
+              - rowgroup [ref=f5e106]:
+                - row [ref=f5e107]:
+                  - columnheader "Image" [ref=f5e108]
+                  - columnheader "Product name" [ref=f5e112]
+                  - columnheader "Product variant" [ref=f5e116]
+                  - columnheader "SKU" [ref=f5e120]
+                  - columnheader "Unit price" [ref=f5e124]
+                  - columnheader "Quantity" [ref=f5e128]
+                  - columnheader "Total" [ref=f5e132]
+                  - columnheader [ref=f5e136]:
+                    - button "Select table columns" [ref=f5e140]
+              - rowgroup [ref=f5e141]:
+                - row [ref=f5e142]:
+                  - cell [ref=f5e143]
+                  - cell [ref=f5e147]:
+                    - link "Wireless Optical Mouse" [ref=f5e149]:
+                      - /url: /admin/catalog/products/3
+                  - cell [ref=f5e151]:
+                    - link "Wireless Optical Mouse" [ref=f5e153]:
+                      - /url: /admin/catalog/products/3/variants/7
+                  - cell "834444" [ref=f5e155]
+                  - cell "$22.79 $18.99" [ref=f5e157]:
+                    - generic [ref=f5e159]:
+                      - text: $22.79
+                      - generic "Net price" [ref=f5e160]: $18.99
+                  - cell "1" [ref=f5e161]:
+                    - generic [ref=f5e162]:
+                      - generic [ref=f5e163]: "1"
+                      - button [ref=f5e167]
+                  - cell "$22.79 $18.99" [ref=f5e168]:
+                    - generic [ref=f5e170]:
+                      - text: $22.79
+                      - generic "Net price" [ref=f5e171]: $18.99
+                  - cell [ref=f5e172]
+                - row [ref=f5e173]:
+                  - cell "Sub total" [ref=f5e174]
+                  - cell [ref=f5e175]
+                  - cell "$22.79 $18.99" [ref=f5e176]:
+                    - text: $22.79
+                    - generic "Net price" [ref=f5e177]: $18.99
+                  - cell [ref=f5e178]
+                - row [ref=f5e179]:
+                  - cell "Shipping" [ref=f5e180]
+                  - cell "Standard Shipping" [ref=f5e181]
+                  - cell "$5.00 $5.00" [ref=f5e185]:
+                    - text: $5.00
+                    - generic "Net price" [ref=f5e186]: $5.00
+                  - cell [ref=f5e187]
+                - row [ref=f5e188]:
+                  - cell "Total" [ref=f5e189]
+                  - cell [ref=f5e190]
+                  - cell "$27.79 $23.99" [ref=f5e191]:
+                    - text: $27.79
+                    - generic "Net price" [ref=f5e192]: $23.99
+                  - cell [ref=f5e193]
+            - generic [ref=f5e195]:
+              - generic [ref=f5e196]: Tax summary
+              - table [ref=f5e199]:
+                - rowgroup [ref=f5e200]:
+                  - row [ref=f5e201]:
+                    - columnheader "Description" [ref=f5e202]
+                    - columnheader "Tax rate" [ref=f5e203]
+                    - columnheader "Tax base" [ref=f5e204]
+                    - columnheader "Tax total" [ref=f5e205]
+                - rowgroup [ref=f5e206]:
+                  - row [ref=f5e207]:
+                    - cell "Standard Tax Europe" [ref=f5e208]
+                    - cell "20%" [ref=f5e209]
+                    - cell "$18.99" [ref=f5e210]
+                    - cell "$3.80" [ref=f5e211]
+                  - row [ref=f5e212]:
+                    - cell "shipping tax" [ref=f5e213]
+                    - cell "0%" [ref=f5e214]
+                    - cell "$5.00" [ref=f5e215]
+                    - cell "$0.00" [ref=f5e216]
+            - generic [ref=f5e218]:
+              - generic [ref=f5e219]: Order history
+              - generic [ref=f5e223]:
+                - generic [ref=f5e225]:
+                  - generic "Collapse entries" [ref=f5e226]
+                  - generic [ref=f5e229]:
+                    - generic [ref=f5e230]:
+                      - textbox [ref=f5e231]
+                      - button "Add note" [disabled] [ref=f5e232]
+                    - generic [ref=f5e233]:
+                      - generic [ref=f5e234]:
+                        - checkbox "Note is private" [checked] [ref=f5e235]
+                        - generic [ref=f5e236]: Note is private
+                      - generic [ref=f5e237]: Visible to admins only
+                - generic [ref=f5e239]:
+                  - generic "Expand entries" [ref=f5e240]
+                  - generic:
+                    - generic [ref=f5e241]:
+                      - generic [ref=f5e242]: 10/4/26, 6:07 AM
+                      - generic [ref=f5e243]: Super Admin
+                    - generic [ref=f5e244]:
+                      - text: Fulfillment created
+                      - button "Details" [ref=f5e247]
+                - generic [ref=f5e249]:
+                  - generic "Expand entries" [ref=f5e250]
+                  - generic:
+                    - generic [ref=f5e251]:
+                      - generic [ref=f5e252]: 10/4/26, 6:07 AM
+                      - generic [ref=f5e253]: Super Admin
+                    - generic [ref=f5e254]:
+                      - text: Fulfillment transitioned from Created to Pending
+                      - button "Details" [ref=f5e257]
+                - generic [ref=f5e259]:
+                  - generic "Collapse entries" [ref=f5e260]
+                  - generic [ref=f5e262]:
+                    - generic [ref=f5e263]:
+                      - generic [ref=f5e264]: 10/4/26, 6:07 AM
+                      - generic [ref=f5e265]: Super Admin
+                    - generic [ref=f5e266]:
+                      - generic [ref=f5e267]: Fulfillment shipped
+                      - text: "Tracking code: explore-2026-10-04-06-05-21-manager-explorer"
+                      - button "Details" [ref=f5e270]
+                - generic [ref=f5e272]:
+                  - generic "Expand entries" [ref=f5e273]
+                  - generic:
+                    - generic [ref=f5e274]:
+                      - generic [ref=f5e275]: 10/4/26, 6:07 AM
+                      - generic [ref=f5e276]: Super Admin
+                    - generic [ref=f5e277]: Order transitioned from PaymentSettled to Shipped
+                - generic [ref=f5e279]:
+                  - generic "Expand entries" [ref=f5e280]
+                  - generic:
+                    - generic [ref=f5e281]:
+                      - generic [ref=f5e282]: 10/4/26, 6:07 AM
+                      - generic [ref=f5e283]: Guest Buyer
+                    - generic [ref=f5e284]: Order transitioned from Created to AddingItems
+                - generic [ref=f5e286]:
+                  - generic "Expand entries" [ref=f5e287]
+                  - generic:
+                    - generic [ref=f5e288]:
+                      - generic [ref=f5e289]: 10/4/26, 6:07 AM
+                      - generic [ref=f5e290]: Guest Buyer
+                    - generic [ref=f5e291]: Order transitioned from AddingItems to ArrangingPayment
+                - generic [ref=f5e293]:
+                  - generic "Expand entries" [ref=f5e294]
+                  - generic:
+                    - generic [ref=f5e295]:
+                      - generic [ref=f5e296]: 10/4/26, 6:07 AM
+                      - generic [ref=f5e297]: Guest Buyer
+                    - generic [ref=f5e298]: "Payment #null transitioned from Created to Authorized"
+                - generic [ref=f5e300]:
+                  - generic "Expand entries" [ref=f5e301]
+                  - generic:
+                    - generic [ref=f5e302]:
+                      - generic [ref=f5e303]: 10/4/26, 6:07 AM
+                      - generic [ref=f5e304]: Guest Buyer
+                    - generic [ref=f5e305]: Order transitioned from ArrangingPayment to PaymentAuthorized
+                - generic [ref=f5e307]:
+                  - generic "Collapse entries" [ref=f5e308]
+                  - generic [ref=f5e310]:
+                    - generic [ref=f5e311]:
+                      - generic [ref=f5e312]: 10/4/26, 6:07 AM
+                      - generic [ref=f5e313]: Super Admin
+                    - generic [ref=f5e314]: Payment settled
+                - generic [ref=f5e317]:
+                  - generic "Expand entries" [ref=f5e318]
+                  - generic:
+                    - generic [ref=f5e319]:
+                      - generic [ref=f5e320]: 10/4/26, 6:07 AM
+                      - generic [ref=f5e321]: Super Admin
+                    - generic [ref=f5e322]: Order transitioned from PaymentAuthorized to PaymentSettled
+                - generic [ref=f5e324]:
+                  - generic "Collapse entries" [ref=f5e325]
+                  - generic [ref=f5e326]:
+                    - generic [ref=f5e327]: 10/4/26, 6:07 AM
+                    - generic [ref=f5e329]: Order created
+          - generic [ref=f5e332]:
+            - generic [ref=f5e334]:
+              - generic [ref=f5e335]:
+                - generic [ref=f5e336]: State
+                - button "Order state diagram" [ref=f5e338]
+              - generic [ref=f5e339]: Shipped
+            - generic [ref=f5e345]:
+              - generic [ref=f5e346]:
+                - generic [ref=f5e347]: Customer
+                - button "Assign order to another customer" [ref=f5e349]
+              - generic [ref=f5e350]:
+                - link "Guest Buyer" [ref=f5e352]:
+                  - /url: /admin/customer/customers/9
+                - generic [ref=f5e354]:
+                  - generic [ref=f5e355]: Shipping address
+                  - list [ref=f5e358]:
+                    - listitem [ref=f5e359]: Test Buyer
+                    - listitem [ref=f5e360]: 1 Test Street
+                    - listitem [ref=f5e361]: Berlin
+                    - listitem [ref=f5e362]: "10115"
+                    - listitem [ref=f5e363]: Germany
+            - generic [ref=f5e365]:
+              - generic [ref=f5e366]: Payments
+              - generic [ref=f5e370]:
+                - generic [ref=f5e371]:
+                  - generic [ref=f5e372]: Payment $27.79
+                  - generic "State" [ref=f5e375]: Settled
+                - generic [ref=f5e379]:
+                  - generic [ref=f5e380]:
+                    - generic [ref=f5e381]: Payment method
+                    - generic [ref=f5e382]: standard-payment
+                  - generic [ref=f5e383]:
+                    - generic [ref=f5e384]: Amount
+                    - generic [ref=f5e385]: $27.79
+                  - generic [ref=f5e386]:
+                    - generic [ref=f5e387]: Transaction ID
+                    - generic [ref=f5e388]: 5no6de4m9s
+                  - generic [ref=f5e389]:
+                    - generic [ref=f5e390]: Payment metadata
+                    - generic:
+                      - generic:
+                        - list
+                - button [ref=f5e393]
+            - generic [ref=f5e398]:
+              - generic [ref=f5e399]:
+                - generic [ref=f5e400]: Fulfillment
+                - generic "State" [ref=f5e403]: Shipped
+              - generic [ref=f5e407]:
+                - generic [ref=f5e408]:
+                  - generic [ref=f5e409]: Created at
+                  - generic [ref=f5e410]: Oct 4, 2026, 6:07:01 AM
+                - generic [ref=f5e411]:
+                  - generic [ref=f5e412]: Fulfillment method
+                  - generic [ref=f5e413]: Courier
+                - generic [ref=f5e414]:
+                  - generic [ref=f5e415]: Tracking code
+                  - generic [ref=f5e416]: explore-2026-10-04-06-05-21-manager-explorer
+                - generic [ref=f5e417]:
+                  - generic [ref=f5e418]: Contents
+                  - list [ref=f5e422]:
+                    - listitem "Wireless Optical Mouse" [ref=f5e423]:
+                      - generic [ref=f5e424]: "1"
+                      - text: Wireless Optical Mouse
+              - generic [ref=f5e425]:
+                - button "Mark as Delivered" [ref=f5e426]
+                - button [ref=f5e428]
+            - generic [ref=f5e432]:
+              - generic [ref=f5e433]:
+                - generic [ref=f5e434]: "ID:"
+                - generic [ref=f5e435]: "75"
+              - generic [ref=f5e436]:
+                - generic [ref=f5e437]: "Created at:"
+                - generic [ref=f5e438]: 10/4/26, 6:07 AM
+              - generic [ref=f5e439]:
+                - generic [ref=f5e440]: "Updated at:"
+                - generic [ref=f5e441]: 10/4/26, 6:07 AM

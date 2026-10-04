@@ -1,0 +1,9 @@
+- text: Hi! Welcome back. Good to see you.
+- paragraph: Log in to Vendure
+- textbox "Username"
+- textbox "Password"
+- img "Error"
+- checkbox "Remember me"
+- text: Remember me
+- button "Log in" [disabled]
+- img

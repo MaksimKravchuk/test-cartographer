@@ -1,0 +1,110 @@
+- banner:
+  - paragraph:
+    - text: "Exclusive: Get your own"
+    - link "FREE storefront starter kit":
+      - /url: https://github.com/vendure-ecommerce/storefront-remix-starter
+  - link "My Account":
+    - /url: /account
+  - heading "commmon.logoAlt" [level=1]:
+    - link "commmon.logoAlt":
+      - /url: /
+      - img "commmon.logoAlt"
+  - link "Electronics":
+    - /url: /collections/electronics
+  - link "Home & Garden":
+    - /url: /collections/home-garden
+  - link "Sports & Outdoor":
+    - /url: /collections/sports-outdoor
+  - searchbox "Search"
+  - button "Open cart tray": "1"
+- main:
+  - heading "Wireless Optical Mouse" [level=2]
+  - navigation "Breadcrumb":
+    - list:
+      - listitem:
+        - link "home":
+          - /url: /
+      - listitem:
+        - link "Electronics":
+          - /url: /collections/electronics
+      - listitem:
+        - link "Computers":
+          - /url: /collections/computers
+  - img "Wireless Optical Mouse"
+  - heading "Description" [level=3]
+  - text: The Logitech M185 Wireless Optical Mouse is a great device for any computer user, and as Logitech are the global market leaders for these devices, you are also guaranteed absolute reliability. A mouse to be reckoned with!
+  - paragraph: $22.79
+  - button "1 in cart"
+  - button "Add to favorites"
+  - text: 834444 In stock
+  - heading "Shipping & Returns" [level=3]
+  - paragraph: "Standard shipping: 3 - 5 working days. Express shipping: 1 - 3 working days."
+  - paragraph: Shipping costs depend on delivery address and will be calculated during checkout.
+  - paragraph: Returns are subject to terms. Please see the RETURNS PAGE for further information.
+  - heading "Recent reviews" [level=2]
+  - paragraph: 5 out of 5 stars
+  - heading "I love it!" [level=3]
+  - paragraph: Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+  - paragraph: Ryan F
+  - time: May 25, 2022
+  - paragraph: 5 out of 5 stars
+  - heading "Awesome product" [level=3]
+  - paragraph: Ornare quam viverra orci sagittis eu volutpat odio. Massa id neque aliquam vestibulum morbi blandit cursus risus at. Ultrices tincidunt arcu non sodales neque.
+  - paragraph: Mattis pellentesque id nibh tortor id aliquet lectus proin nibh. Pellentesque diam volutpat commodo sed egestas egestas fringilla. Sodales ut etiam sit amet nisl purus in mollis nunc. Turpis egestas integer eget aliquet nibh praesent tristique magna. Augue interdum velit euismod in pellentesque massa placerat duis ultricies. Justo laoreet sit amet cursus sit amet.
+  - paragraph: Kent D
+  - time: May 24, 2022
+  - paragraph: 5 out of 5 stars
+  - heading "Really happy with this purchase" [level=3]
+  - paragraph: Nisi est sit amet facilisis magna etiam tempor orci eu.
+  - paragraph: Elit duis tristique sollicitudin nibh sit amet commodo. Dolor sit amet consectetur adipiscing elit. Lorem dolor sed viverra ipsum nunc. Accumsan tortor posuere ac ut consequat semper. Augue mauris augue neque gravida in fermentum et sollicitudin ac.
+  - paragraph: Michael J
+  - time: May 24, 2022
+- contentinfo "Footer":
+  - heading "Footer" [level=2]
+  - heading "Shop" [level=3]
+  - list:
+    - listitem:
+      - link "Electronics":
+        - /url: /collections/electronics
+    - listitem:
+      - link "Home & Garden":
+        - /url: /collections/home-garden
+    - listitem:
+      - link "Sports & Outdoor":
+        - /url: /collections/sports-outdoor
+  - heading "Support" [level=3]
+  - list:
+    - listitem:
+      - link "Help":
+        - /url: "#"
+    - listitem:
+      - link "Track order":
+        - /url: "#"
+    - listitem:
+      - link "Shipping":
+        - /url: "#"
+    - listitem:
+      - link "Returns":
+        - /url: "#"
+  - heading "account.company" [level=3]
+  - list:
+    - listitem:
+      - link "About":
+        - /url: "#"
+    - listitem:
+      - link "Blog":
+        - /url: "#"
+    - listitem:
+      - link "Corporate responsibility":
+        - /url: "#"
+    - listitem:
+      - link "Press":
+        - /url: "#"
+  - heading "Subscribe to our newsletter" [level=3]
+  - paragraph: Be the first to know about exclusive offers & deals.
+  - text: acount.emailAddress
+  - textbox "acount.emailAddress":
+    - /placeholder: Enter your email
+  - button "Subscribe"
+  - link "github.com/vendure-ecommerce/storefront-remix-starter":
+    - /url: https://github.com/vendure-ecommerce/storefront-remix-starter

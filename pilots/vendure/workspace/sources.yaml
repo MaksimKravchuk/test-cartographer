@@ -1,0 +1,13 @@
+# What a real team usually has instead of product docs: a stale wiki page about
+# the test stand and a tracker export with terse, half-empty tickets.
+sources:
+  - id: qa-stand
+    title: Тестовый стенд магазина (wiki)
+    kind: note
+    file: qa-stand.md
+    addedAt: 2026-10-04T06:00:00.000Z
+  - id: jira
+    title: Выгрузка из Jira (SHOP)
+    kind: backlog
+    file: jira.csv
+    addedAt: 2026-10-04T06:00:00.000Z

@@ -1,0 +1,19 @@
+{
+  "id": "44",
+  "code": "1465N116F8QMJDS7",
+  "state": "PaymentSettled",
+  "active": false,
+  "placed": true,
+  "customer": "guest+explore-2026-10-04-05-55-05-support-explorer@shop.test",
+  "paymentMethod": "standard-payment",
+  "paymentState": "Settled",
+  "fulfillmentStates": [],
+  "lines": [
+    {
+      "id": "58",
+      "variant": "Wireless Optical Mouse",
+      "quantity": 1
+    }
+  ],
+  "totalWithTax": 2779
+}

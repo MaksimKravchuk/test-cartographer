@@ -1,0 +1,241 @@
+- generic [ref=f8e5]:
+  - generic [ref=f8e6]:
+    - link [ref=f8e8]:
+      - /url: /admin/
+    - navigation [ref=f8e12]:
+      - generic [ref=f8e13]:
+        - generic [ref=f8e16]:
+          - generic [ref=f8e17]: Catalog
+          - generic [ref=f8e19]:
+            - link "Products Products" [ref=f8e21]:
+              - /url: /admin/catalog/products
+              - img "Products"
+              - text: Products
+            - link "Facets Facets" [ref=f8e23]:
+              - /url: /admin/catalog/facets
+              - img "Facets"
+              - text: Facets
+            - link "Collections Collections" [ref=f8e25]:
+              - /url: /admin/catalog/collections
+              - img "Collections"
+              - text: Collections
+            - link "Assets Assets" [ref=f8e27]:
+              - /url: /admin/catalog/assets
+              - img "Assets"
+              - text: Assets
+        - generic [ref=f8e30]:
+          - generic [ref=f8e31]: Sales
+          - link "Orders Orders" [ref=f8e35]:
+            - /url: /admin/orders
+            - img "Orders"
+            - text: Orders
+        - generic [ref=f8e38]:
+          - generic [ref=f8e39]: Customers
+          - link "Customers Customers" [ref=f8e43]:
+            - /url: /admin/customer/customers
+            - img "Customers"
+            - text: Customers
+    - generic [ref=f8e44]:
+      - separator [ref=f8e45]
+      - navigation [ref=f8e47]:
+        - generic [ref=f8e52]:
+          - generic [ref=f8e53]: Settings
+          - button "Expand entries" [ref=f8e54]:
+            - img "Expand entries"
+    - generic [ref=f8e55]: v3.7.3
+  - generic [ref=f8e58]:
+    - generic [ref=f8e59]:
+      - navigation [ref=f8e62]:
+        - list [ref=f8e63]:
+          - listitem "Dashboard" [ref=f8e64]:
+            - link "Dashboard" [ref=f8e65]:
+              - /url: /admin/
+          - listitem "Orders" [ref=f8e66]:
+            - link "Orders" [ref=f8e67]:
+              - /url: /admin/orders
+          - listitem "KW6XNNA969YX8AC9" [ref=f8e68]
+      - button [ref=f8e72]
+      - button "Sveta Support" [ref=f8e77]
+    - generic [ref=f8e81]:
+      - heading "KW6XNNA969YX8AC9" [level=1] [ref=f8e86]
+      - generic [ref=f8e89]:
+        - generic [ref=f8e94]:
+          - button "Fulfill order" [disabled] [ref=f8e95]
+          - button [ref=f8e100]
+        - generic [ref=f8e101]:
+          - generic [ref=f8e104]:
+            - table [ref=f8e111]:
+              - rowgroup [ref=f8e112]:
+                - row [ref=f8e113]:
+                  - columnheader "Image" [ref=f8e114]
+                  - columnheader "Product name" [ref=f8e118]
+                  - columnheader "Product variant" [ref=f8e122]
+                  - columnheader "SKU" [ref=f8e126]
+                  - columnheader "Unit price" [ref=f8e130]
+                  - columnheader "Quantity" [ref=f8e134]
+                  - columnheader "Total" [ref=f8e138]
+                  - columnheader [ref=f8e142]:
+                    - button "Select table columns" [ref=f8e146]
+              - rowgroup [ref=f8e147]:
+                - row [ref=f8e148]:
+                  - cell [ref=f8e149]
+                  - cell [ref=f8e153]:
+                    - link "Wireless Optical Mouse" [ref=f8e155]:
+                      - /url: /admin/catalog/products/3
+                  - cell [ref=f8e157]:
+                    - link "Wireless Optical Mouse" [ref=f8e159]:
+                      - /url: /admin/catalog/products/3/variants/7
+                  - cell "834444" [ref=f8e161]
+                  - cell "$22.79 $18.99" [ref=f8e163]:
+                    - generic [ref=f8e165]:
+                      - text: $22.79
+                      - generic "Net price" [ref=f8e166]: $18.99
+                  - cell "1" [ref=f8e167]
+                  - cell "$22.79 $18.99" [ref=f8e171]:
+                    - generic [ref=f8e173]:
+                      - text: $22.79
+                      - generic "Net price" [ref=f8e174]: $18.99
+                  - cell [ref=f8e175]
+                - row [ref=f8e176]:
+                  - cell "Sub total" [ref=f8e177]
+                  - cell [ref=f8e178]
+                  - cell "$22.79 $18.99" [ref=f8e179]:
+                    - text: $22.79
+                    - generic "Net price" [ref=f8e180]: $18.99
+                  - cell [ref=f8e181]
+                - row [ref=f8e182]:
+                  - cell "Shipping" [ref=f8e183]
+                  - cell "Standard Shipping" [ref=f8e184]
+                  - cell "$5.00 $5.00" [ref=f8e188]:
+                    - text: $5.00
+                    - generic "Net price" [ref=f8e189]: $5.00
+                  - cell [ref=f8e190]
+                - row [ref=f8e191]:
+                  - cell "Total" [ref=f8e192]
+                  - cell [ref=f8e193]
+                  - cell "$27.79 $23.99" [ref=f8e194]:
+                    - text: $27.79
+                    - generic "Net price" [ref=f8e195]: $23.99
+                  - cell [ref=f8e196]
+            - generic [ref=f8e198]:
+              - generic [ref=f8e199]: Tax summary
+              - table [ref=f8e202]:
+                - rowgroup [ref=f8e203]:
+                  - row [ref=f8e204]:
+                    - columnheader "Description" [ref=f8e205]
+                    - columnheader "Tax rate" [ref=f8e206]
+                    - columnheader "Tax base" [ref=f8e207]
+                    - columnheader "Tax total" [ref=f8e208]
+                - rowgroup [ref=f8e209]:
+                  - row [ref=f8e210]:
+                    - cell "Standard Tax Europe" [ref=f8e211]
+                    - cell "20%" [ref=f8e212]
+                    - cell "$18.99" [ref=f8e213]
+                    - cell "$3.80" [ref=f8e214]
+                  - row [ref=f8e215]:
+                    - cell "shipping tax" [ref=f8e216]
+                    - cell "0%" [ref=f8e217]
+                    - cell "$5.00" [ref=f8e218]
+                    - cell "$0.00" [ref=f8e219]
+            - generic [ref=f8e221]:
+              - generic [ref=f8e222]: Order history
+              - generic [ref=f8e226]:
+                - generic [ref=f8e228]:
+                  - generic "Collapse entries" [ref=f8e229]
+                  - generic [ref=f8e232]:
+                    - generic [ref=f8e233]:
+                      - textbox [ref=f8e234]
+                      - button "Add note" [disabled] [ref=f8e235]
+                    - generic [ref=f8e236]:
+                      - generic [ref=f8e237]:
+                        - checkbox "Note is private" [checked] [ref=f8e238]
+                        - generic [ref=f8e239]: Note is private
+                      - generic [ref=f8e240]: Visible to admins only
+                - generic [ref=f8e242]:
+                  - generic "Expand entries" [ref=f8e243]
+                  - generic:
+                    - generic [ref=f8e244]:
+                      - generic [ref=f8e245]: 10/4/26, 6:05 AM
+                      - generic [ref=f8e246]: Guest Buyer
+                    - generic [ref=f8e247]: Order transitioned from Created to AddingItems
+                - generic [ref=f8e249]:
+                  - generic "Expand entries" [ref=f8e250]
+                  - generic:
+                    - generic [ref=f8e251]:
+                      - generic [ref=f8e252]: 10/4/26, 6:05 AM
+                      - generic [ref=f8e253]: Guest Buyer
+                    - generic [ref=f8e254]: Order transitioned from AddingItems to ArrangingPayment
+                - generic [ref=f8e256]:
+                  - generic "Expand entries" [ref=f8e257]
+                  - generic:
+                    - generic [ref=f8e258]:
+                      - generic [ref=f8e259]: 10/4/26, 6:05 AM
+                      - generic [ref=f8e260]: Guest Buyer
+                    - generic [ref=f8e261]: "Payment #null transitioned from Created to Authorized"
+                - generic [ref=f8e263]:
+                  - generic "Expand entries" [ref=f8e264]
+                  - generic:
+                    - generic [ref=f8e265]:
+                      - generic [ref=f8e266]: 10/4/26, 6:05 AM
+                      - generic [ref=f8e267]: Guest Buyer
+                    - generic [ref=f8e268]: Order transitioned from ArrangingPayment to PaymentAuthorized
+                - generic [ref=f8e270]:
+                  - generic "Collapse entries" [ref=f8e271]
+                  - generic [ref=f8e272]:
+                    - generic [ref=f8e273]: 10/4/26, 6:05 AM
+                    - generic [ref=f8e275]: Order created
+          - generic [ref=f8e278]:
+            - generic [ref=f8e280]:
+              - generic [ref=f8e281]:
+                - generic [ref=f8e282]: State
+                - button "Order state diagram" [ref=f8e284]
+              - generic [ref=f8e285]: Payment authorized
+            - generic [ref=f8e291]:
+              - generic [ref=f8e292]:
+                - generic [ref=f8e293]: Customer
+                - button "Assign order to another customer" [ref=f8e295]
+              - generic [ref=f8e296]:
+                - link "Guest Buyer" [ref=f8e298]:
+                  - /url: /admin/customer/customers/10
+                - generic [ref=f8e300]:
+                  - generic [ref=f8e301]: Shipping address
+                  - list [ref=f8e304]:
+                    - listitem [ref=f8e305]: Test Buyer
+                    - listitem [ref=f8e306]: 1 Test Street
+                    - listitem [ref=f8e307]: Berlin
+                    - listitem [ref=f8e308]: "10115"
+                    - listitem [ref=f8e309]: Germany
+            - generic [ref=f8e311]:
+              - generic [ref=f8e312]: Payments
+              - generic [ref=f8e316]:
+                - generic [ref=f8e317]:
+                  - generic [ref=f8e318]: Payment $27.79
+                  - generic "State" [ref=f8e321]: Authorized
+                - generic [ref=f8e325]:
+                  - generic [ref=f8e326]:
+                    - generic [ref=f8e327]: Payment method
+                    - generic [ref=f8e328]: standard-payment
+                  - generic [ref=f8e329]:
+                    - generic [ref=f8e330]: Amount
+                    - generic [ref=f8e331]: $27.79
+                  - generic [ref=f8e332]:
+                    - generic [ref=f8e333]: Transaction ID
+                    - generic [ref=f8e334]: hqkp0yvxnh
+                  - generic [ref=f8e335]:
+                    - generic [ref=f8e336]: Payment metadata
+                    - generic:
+                      - generic:
+                        - list
+                - generic [ref=f8e337]:
+                  - button "Settle payment" [ref=f8e338]
+                  - button [ref=f8e340]
+            - generic [ref=f8e344]:
+              - generic [ref=f8e345]:
+                - generic [ref=f8e346]: "ID:"
+                - generic [ref=f8e347]: "62"
+              - generic [ref=f8e348]:
+                - generic [ref=f8e349]: "Created at:"
+                - generic [ref=f8e350]: 10/4/26, 6:05 AM
+              - generic [ref=f8e351]:
+                - generic [ref=f8e352]: "Updated at:"
+                - generic [ref=f8e353]: 10/4/26, 6:05 AM

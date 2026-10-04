@@ -1,0 +1,154 @@
+- generic [ref=f3e5]:
+  - generic [ref=f3e6]:
+    - link [ref=f3e8]:
+      - /url: /admin/
+    - navigation [ref=f3e12]:
+      - generic [ref=f3e13]:
+        - generic [ref=f3e16]:
+          - generic [ref=f3e17]: Sales
+          - link "Orders Orders" [ref=f3e21]:
+            - /url: /admin/orders
+            - img "Orders"
+            - text: Orders
+        - generic [ref=f3e24]:
+          - generic [ref=f3e25]: Customers
+          - link "Customers Customers" [ref=f3e29]:
+            - /url: /admin/customer/customers
+            - img "Customers"
+            - text: Customers
+        - generic [ref=f3e32]:
+          - generic [ref=f3e33]: Marketing
+          - link "Promotions Promotions" [ref=f3e37]:
+            - /url: /admin/marketing/promotions
+            - img "Promotions"
+            - text: Promotions
+    - generic [ref=f3e38]:
+      - separator [ref=f3e39]
+      - navigation [ref=f3e41]:
+        - generic [ref=f3e46]:
+          - generic [ref=f3e47]: Settings
+          - button "Expand entries" [ref=f3e48]:
+            - img "Expand entries"
+    - generic [ref=f3e49]: v3.7.3
+  - generic [ref=f3e52]:
+    - generic [ref=f3e53]:
+      - navigation [ref=f3e56]:
+        - list [ref=f3e57]:
+          - listitem "Dashboard" [ref=f3e58]:
+            - link "Dashboard" [ref=f3e59]:
+              - /url: /admin/
+          - listitem "Orders" [ref=f3e60]:
+            - link "Orders" [ref=f3e61]:
+              - /url: /admin/orders
+          - listitem "Q592AEA6FEYJT5QC" [ref=f3e62]:
+            - link "Q592AEA6FEYJT5QC" [ref=f3e63]:
+              - /url: /admin/orders/64
+          - listitem "Modifying order" [ref=f3e64]
+      - button [ref=f3e68]
+      - button "Olga Manager" [ref=f3e73]
+    - generic [ref=f3e77]:
+      - heading "Modifying order" [level=1] [ref=f3e82]
+      - generic [ref=f3e85]:
+        - button "Cancel modification" [ref=f3e91]
+        - generic [ref=f3e92]:
+          - generic [ref=f3e95]:
+            - table [ref=f3e101]:
+              - rowgroup [ref=f3e102]:
+                - row [ref=f3e103]:
+                  - columnheader "Image" [ref=f3e104]
+                  - columnheader "Product name" [ref=f3e108]
+                  - columnheader "SKU" [ref=f3e112]
+                  - columnheader "Unit price" [ref=f3e116]
+                  - columnheader "Quantity" [ref=f3e120]
+                  - columnheader [ref=f3e124]:
+                    - button "Select table columns" [ref=f3e128]
+              - rowgroup [ref=f3e129]:
+                - row [ref=f3e130]:
+                  - cell [ref=f3e131]
+                  - cell "Wireless Optical Mouse" [ref=f3e135]
+                  - cell "834444" [ref=f3e137]
+                  - cell "$22.79 $18.99" [ref=f3e139]:
+                    - generic [ref=f3e141]:
+                      - generic [ref=f3e142]: $22.79
+                      - generic "Net price" [ref=f3e143]: $18.99
+                  - cell [ref=f3e144]:
+                    - spinbutton [ref=f3e146]: "1"
+                  - cell [ref=f3e147]
+            - generic [ref=f3e149]:
+              - generic [ref=f3e150]: Add item to order
+              - generic [ref=f3e154]:
+                - generic [ref=f3e155]:
+                  - generic [ref=f3e156]:
+                    - generic [ref=f3e157]: Search by product name or SKU
+                    - combobox [ref=f3e159]
+                  - generic [ref=f3e160]
+                - status [ref=f3e161]
+            - generic [ref=f3e163]:
+              - generic [ref=f3e164]: Shipping
+              - generic [ref=f3e167]:
+                - generic [ref=f3e168]: "Standard Shipping:"
+                - generic [ref=f3e169]: $5.00
+                - button "Set shipping method" [ref=f3e170]
+            - generic [ref=f3e172]:
+              - generic [ref=f3e173]: Add surcharge
+              - generic [ref=f3e176]:
+                - generic [ref=f3e177]:
+                  - generic [ref=f3e179]:
+                    - generic [ref=f3e180]: Description
+                    - textbox "Description" [ref=f3e182]
+                  - generic [ref=f3e184]:
+                    - generic [ref=f3e185]: SKU
+                    - textbox "SKU" [ref=f3e187]
+                  - generic [ref=f3e189]:
+                    - generic [ref=f3e190]: Price
+                    - generic [ref=f3e193]:
+                      - spinbutton [ref=f3e195]: "0.00"
+                      - generic [ref=f3e196]: $
+                  - generic [ref=f3e198]:
+                    - generic [ref=f3e199]: Includes tax at 0%
+                    - checkbox "Includes tax at 0%" [ref=f3e202]
+                  - generic [ref=f3e204]:
+                    - generic [ref=f3e205]: Tax rate
+                    - generic [ref=f3e207]:
+                      - spinbutton "Tax rate" [ref=f3e209]
+                      - generic [ref=f3e210]: "%"
+                  - generic [ref=f3e212]:
+                    - generic [ref=f3e213]: Tax description
+                    - textbox "Tax description" [ref=f3e215]
+                - button "Add surcharge" [disabled] [ref=f3e216]
+          - generic [ref=f3e218]:
+            - generic [ref=f3e220]:
+              - generic [ref=f3e221]: Summary of modifications
+              - generic [ref=f3e223]:
+                - generic [ref=f3e224]: No modifications have been made
+                - generic [ref=f3e225]:
+                  - generic [ref=f3e227]:
+                    - generic [ref=f3e228]: Note
+                    - textbox [disabled] [ref=f3e230]
+                  - generic [ref=f3e231]:
+                    - checkbox "Recalculate shipping" [checked] [disabled] [ref=f3e232]
+                    - generic [ref=f3e233]: Recalculate shipping
+                  - button "Preview changes" [disabled] [ref=f3e234]
+            - generic [ref=f3e236]:
+              - generic [ref=f3e237]: Set coupon codes
+              - generic [ref=f3e241]:
+                - generic [ref=f3e242]:
+                  - combobox [ref=f3e246]
+                  - generic [ref=f3e247]
+                - status [ref=f3e248]
+            - generic [ref=f3e250]:
+              - generic [ref=f3e251]:
+                - generic [ref=f3e252]: Shipping address
+                - button "Edit shipping address" [ref=f3e254]
+              - list [ref=f3e257]:
+                - listitem [ref=f3e258]: Test Buyer
+                - listitem [ref=f3e259]: 1 Test Street
+                - listitem [ref=f3e260]: Berlin
+                - listitem [ref=f3e261]: "10115"
+            - generic [ref=f3e263]:
+              - generic [ref=f3e264]:
+                - generic [ref=f3e265]: Billing address
+                - button "Edit billing address" [ref=f3e267]
+              - generic:
+                - generic:
+                  - list

@@ -1,0 +1,21 @@
+{
+  "id": "76",
+  "code": "B3RBR1UTUFFGEAQT",
+  "state": "Shipped",
+  "active": false,
+  "placed": true,
+  "customer": "guest+explore-2026-10-04-06-05-24-support-explorer@shop.test",
+  "paymentMethod": "standard-payment",
+  "paymentState": "Settled",
+  "fulfillmentStates": [
+    "Shipped"
+  ],
+  "lines": [
+    {
+      "id": "95",
+      "variant": "Wireless Optical Mouse",
+      "quantity": 1
+    }
+  ],
+  "totalWithTax": 2779
+}

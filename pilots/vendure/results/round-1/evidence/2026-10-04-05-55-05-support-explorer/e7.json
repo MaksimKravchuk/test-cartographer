@@ -1,0 +1,19 @@
+{
+  "id": "47",
+  "code": "ZP2S77MXKNJUGNDT",
+  "state": "PaymentAuthorized",
+  "active": false,
+  "placed": true,
+  "customer": "guest+explore-2026-10-04-05-55-05-support-explorer@shop.test",
+  "paymentMethod": "standard-payment",
+  "paymentState": "Authorized",
+  "fulfillmentStates": [],
+  "lines": [
+    {
+      "id": "61",
+      "variant": "Wireless Optical Mouse",
+      "quantity": 1
+    }
+  ],
+  "totalWithTax": 2779
+}

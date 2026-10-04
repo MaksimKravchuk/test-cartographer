@@ -1,0 +1,109 @@
+# Ground truth for scoring the pilot: how a Vendure 3.7.3 order actually behaves
+# with the stock config and the roles seeded by app/seed.ts. It lives outside the
+# workspace on purpose — no agent ever reads it.
+#
+# Derived from:
+#   - @vendure/core/dist/config/order/default-order-process.js (the FSM and its guards)
+#   - @vendure/core/dist/api/resolvers/admin/{order,draft-order}.resolver.js (@Allow)
+#   - live probes against this stand (cancel from every state, every role's API calls,
+#     the admin UI's buttons per state and role — see README "How the oracle was checked")
+#
+# State names are Vendure's own `order.state` values, the field the reader returns
+# as `state`, so a proposed state is matched to these through its `match.state`.
+
+roles:
+  superadmin: { permissions: all, note: not given to agents — the stand's owner }
+  manager:   { account: manager@shop.test, permissions: [ReadOrder, UpdateOrder, CreateOrder, DeleteOrder] }
+  support:   { account: support@shop.test, permissions: [ReadOrder] }
+  catalog:   { account: catalog@shop.test, permissions: [] , note: no ReadOrder — the order list and pages are forbidden }
+  buyer:     { account: buyer@shop.test, note: storefront, own orders only }
+  guest:     { note: storefront checkout without an account }
+
+states:
+  - AddingItems          # an active cart; not in the admin order list
+  - ArrangingPayment     # checkout reached the payment step
+  - PaymentAuthorized    # paid with standard-payment (authorize only)
+  - PaymentSettled       # paid with prepaid, or authorized then settled by staff
+  - PartiallyShipped
+  - Shipped
+  - PartiallyDelivered
+  - Delivered
+  - Cancelled
+  - Draft                # created by staff in the admin
+  - Modifying            # transient: staff edit lines of a placed order
+  - ArrangingAdditionalPayment  # transient: after a modification raised the total
+
+# For states proposed without a `match` (onboarding from documents never sees the
+# app): matched by id instead, and reported as such.
+state_aliases:
+  AddingItems: [cart, adding_items, adding-items]
+  ArrangingPayment: [awaiting_payment, awaiting-payment, arranging_payment, arranging-payment, checkout]
+  PaymentAuthorized: [payment_authorized, payment-authorized, authorized]
+  PaymentSettled: [paid, payment_settled, payment-settled, settled]
+  PartiallyShipped: [partially_shipped, partially-shipped]
+  Shipped: [shipped]
+  PartiallyDelivered: [partially_delivered, partially-delivered]
+  Delivered: [delivered]
+  Cancelled: [cancelled, canceled]
+  Draft: [draft]
+
+variants:
+  # Not a field of the order: the payment method chosen at checkout decides
+  # whether payment settles at once.
+  - { id: standard-payment, effect: "ArrangingPayment → PaymentAuthorized; staff settle later" }
+  - { id: prepaid,          effect: "ArrangingPayment → PaymentSettled directly" }
+
+# User-level transitions: what a person does through a UI and the state it leads to.
+# `ui` is how the action shows up; `api` is what enforces it.
+transitions:
+  - { id: add-to-cart,        from: "@new",              to: AddingItems,        by: [buyer, guest],  ui: storefront "Add to cart" }
+  - { id: go-to-payment,      from: AddingItems,         to: ArrangingPayment,   by: [buyer, guest],  ui: storefront checkout, shipping step }
+  - { id: back-to-cart,       from: ArrangingPayment,    to: AddingItems,        by: [buyer, guest],  ui: storefront "change" in checkout }
+  - { id: pay-authorize,      from: ArrangingPayment,    to: PaymentAuthorized,  by: [buyer, guest],  variant: standard-payment, ui: storefront "Pay with Standard Payment" }
+  - { id: pay-settle,         from: ArrangingPayment,    to: PaymentSettled,     by: [buyer, guest],  variant: prepaid, ui: storefront "Pay with Prepaid card" }
+  - { id: add-manual-payment, from: ArrangingPayment,    to: PaymentSettled,     by: [manager],       ui: admin "Add payment to order" }
+  - { id: settle-payment,     from: PaymentAuthorized,   to: PaymentSettled,     by: [manager],       ui: admin "Settle payment" }
+  - { id: ship,               from: PaymentSettled,      to: Shipped,            by: [manager],       ui: admin "Fulfill order" (all lines) then "Mark as shipped" }
+  - { id: ship-part,          from: PaymentSettled,      to: PartiallyShipped,   by: [manager],       ui: admin "Fulfill order" (some lines) then "Mark as shipped" }
+  - { id: ship-rest,          from: PartiallyShipped,    to: Shipped,            by: [manager] }
+  - { id: deliver,            from: Shipped,             to: Delivered,          by: [manager],       ui: admin "Mark as Delivered" }
+  - { id: deliver-part,       from: PartiallyShipped,    to: PartiallyDelivered, by: [manager],       ui: admin "Mark as Delivered" on the shipped fulfillment }
+  - { id: deliver-rest,       from: PartiallyDelivered,  to: Delivered,          by: [manager],       ui: admin "Fulfill order" for the rest, ship, deliver }
+  - { id: cancel,             from: [ArrangingPayment, PaymentAuthorized], to: Cancelled, by: [manager], ui: admin ⋮ "Cancel order or items" }
+  - { id: refund-and-cancel,  from: [PaymentSettled, PartiallyShipped, Shipped, PartiallyDelivered, Delivered], to: Cancelled, by: [manager], ui: admin ⋮ "Refund & cancel order" }
+  - { id: modify,             from: [PaymentAuthorized, PaymentSettled, PartiallyShipped, Shipped, PartiallyDelivered], to: Modifying, by: [manager], ui: admin ⋮ "Modify order" }
+  # Found by the round-2 manager explorer, missing from the first version of this file:
+  # leaving a modification goes back to where the order was (FSM edges out of Modifying).
+  - { id: end-modification,   from: Modifying,           to: PaymentAuthorized,  by: [manager],       ui: admin "Cancel modification" / complete it }
+  - { id: end-modification,   from: Modifying,           to: PaymentSettled,     by: [manager] }
+  - { id: end-modification,   from: Modifying,           to: PartiallyShipped,   by: [manager] }
+  - { id: end-modification,   from: Modifying,           to: Shipped,            by: [manager] }
+  - { id: end-modification,   from: Modifying,           to: PartiallyDelivered, by: [manager] }
+  - { id: create-draft,       from: "@new",              to: Draft,              by: [manager],       ui: admin "Create draft order" }
+  - { id: complete-draft,     from: Draft,               to: ArrangingPayment,   by: [manager],       ui: admin "Complete draft" }
+  - { id: manual-transition,  from: any,                 to: any FSM edge whose guard passes, by: [manager], ui: admin ⋮ "Manually transition to state..." }
+
+permits:
+  - { id: view-order,  by: [manager, support], states: all placed, ui: admin order page }
+  - { id: view-own-order, by: [buyer], states: all placed, ui: storefront account → order history }
+  - { id: add-note,    by: [manager], states: all placed, ui: admin "Add note" }
+  - { id: delete-draft, by: [manager], states: [Draft], ui: admin ⋮ "Delete draft" }
+
+# Closed-world denials a good model should end up with (the deny matrix):
+denials:
+  - support: every action above except view-order — the API answers FORBIDDEN
+  - catalog: every order action including view — order pages are forbidden
+  - buyer/guest: no cancel, settle, ship or deliver in the storefront
+
+# Things in the real app a careful explorer should report as findings:
+known_inconsistencies:
+  - id: ui-ignores-permissions
+    what: >
+      The admin UI enables order actions by state only, never by permission: support
+      (ReadOrder only) gets the same enabled "Settle payment", "Fulfill order",
+      "Cancel order or items", "Refund & cancel order", "Modify order" as manager.
+      Clicking one gets FORBIDDEN from the API and the admin signs the user out.
+  - id: settle-after-cancel
+    what: A cancelled order whose payment was only authorized still offers an enabled "Settle payment".
+  - id: cancel-delivered
+    what: Staff can cancel (refund & cancel) a Delivered order.

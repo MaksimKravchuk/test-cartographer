@@ -1,0 +1,10 @@
+{
+  "name": "@tc/vendure-pilot-mcp",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.20.0",
+    "zod": "^4.1.0"
+  }
+}

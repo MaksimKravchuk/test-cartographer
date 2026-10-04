@@ -1,0 +1,428 @@
+id: 2026-10-04-05-55-02-manager-explorer
+entity: order
+agent: manager-explorer
+role: manager
+createdAt: 2026-10-04T05:57:39.271Z
+baseRevision: 03860b80ef9f
+rationale: "I explored the Order back office (Vendure Admin v3.7.3) as manager \"Olga Manager\". I created orders in AddingItems, ArrangingPayment, PaymentAuthorized, Shipped, PartiallyShipped, Draft and Cancelled, then followed them into PaymentSettled, Delivered and PartiallyDelivered. Every order was checked with read(). I propose the 10 order states, keyed on the read() field `state`. I propose transitions only where the manager actually completed the action and read() showed the new state: Settle payment (PaymentAuthorized → PaymentSettled) and Mark as Delivered (Shipped → Delivered, PartiallyShipped → PartiallyDelivered). Settling a payment on a Cancelled order also worked and left the order Cancelled, so I propose it as a permit and raise a question. Actions I could see but not finish, because the form fields or the menu button have no accessible label (Fulfill order, Add payment, Complete draft, the order's menu button), are reported as findings, not transitions."
+evidence:
+  - id: e1
+    kind: probe
+    summary: "read 43: {}"
+    path: evidence/2026-10-04-05-55-02-manager-explorer/e1.json
+  - id: e2
+    kind: screenshot
+    summary: Order 43 in PaymentAuthorized
+    path: evidence/2026-10-04-05-55-02-manager-explorer/e2.png
+    url: http://localhost:3000/admin/orders/43
+  - id: e3
+    kind: screenshot
+    summary: Order 43 page retry
+    path: evidence/2026-10-04-05-55-02-manager-explorer/e3.png
+    url: http://localhost:3000/admin/orders/43
+  - id: e4
+    kind: screenshot
+    summary: After clicking Settle payment on order 43
+    path: evidence/2026-10-04-05-55-02-manager-explorer/e4.png
+    url: http://localhost:3000/admin/orders/43
+  - id: e5
+    kind: probe
+    summary: "read 43: {}"
+    path: evidence/2026-10-04-05-55-02-manager-explorer/e5.json
+  - id: e6
+    kind: screenshot
+    summary: Fulfill order dialog for order 43
+    path: evidence/2026-10-04-05-55-02-manager-explorer/e6.png
+    url: http://localhost:3000/admin/orders/43
+  - id: e7
+    kind: probe
+    summary: "read 43: {}"
+    path: evidence/2026-10-04-05-55-02-manager-explorer/e7.json
+  - id: e8
+    kind: screenshot
+    summary: After Create fulfillment click (no tracking filled)
+    path: evidence/2026-10-04-05-55-02-manager-explorer/e8.png
+    url: http://localhost:3000/admin/orders/43
+  - id: e9
+    kind: probe
+    summary: "read 43: {}"
+    path: evidence/2026-10-04-05-55-02-manager-explorer/e9.json
+  - id: e10
+    kind: screenshot
+    summary: After second Create fulfillment click — looking for toast/error
+    path: evidence/2026-10-04-05-55-02-manager-explorer/e10.png
+    url: http://localhost:3000/admin/orders/43
+  - id: e11
+    kind: screenshot
+    summary: After clicking first unnamed button
+    path: evidence/2026-10-04-05-55-02-manager-explorer/e11.png
+    url: http://localhost:3000/admin/orders/43
+  - id: e12
+    kind: probe
+    summary: "read 48: {}"
+    path: evidence/2026-10-04-05-55-02-manager-explorer/e12.json
+  - id: e13
+    kind: screenshot
+    summary: Order 48 in Shipped
+    path: evidence/2026-10-04-05-55-02-manager-explorer/e13.png
+    url: http://localhost:3000/admin/orders/48
+  - id: e14
+    kind: screenshot
+    summary: Order 48 in Shipped (loaded)
+    path: evidence/2026-10-04-05-55-02-manager-explorer/e14.png
+    url: http://localhost:3000/admin/orders/48
+  - id: e15
+    kind: probe
+    summary: "read 48: {}"
+    path: evidence/2026-10-04-05-55-02-manager-explorer/e15.json
+  - id: e16
+    kind: screenshot
+    summary: Order 48 after Mark as Delivered — Delivered state
+    path: evidence/2026-10-04-05-55-02-manager-explorer/e16.png
+    url: http://localhost:3000/admin/orders/48
+  - id: e17
+    kind: probe
+    summary: "read 49: {}"
+    path: evidence/2026-10-04-05-55-02-manager-explorer/e17.json
+  - id: e18
+    kind: screenshot
+    summary: Order 49 PartiallyShipped
+    path: evidence/2026-10-04-05-55-02-manager-explorer/e18.png
+    url: http://localhost:3000/admin/orders/49
+  - id: e19
+    kind: probe
+    summary: "read 49: {}"
+    path: evidence/2026-10-04-05-55-02-manager-explorer/e19.json
+  - id: e20
+    kind: probe
+    summary: "read 49: {}"
+    path: evidence/2026-10-04-05-55-02-manager-explorer/e20.json
+  - id: e21
+    kind: screenshot
+    summary: Fulfill dialog on order 49 after Create fulfillment click
+    path: evidence/2026-10-04-05-55-02-manager-explorer/e21.png
+    url: http://localhost:3000/admin/orders/49
+  - id: e22
+    kind: probe
+    summary: "read 51: {}"
+    path: evidence/2026-10-04-05-55-02-manager-explorer/e22.json
+  - id: e23
+    kind: screenshot
+    summary: Order 51 ArrangingPayment
+    path: evidence/2026-10-04-05-55-02-manager-explorer/e23.png
+    url: http://localhost:3000/admin/orders/51
+  - id: e24
+    kind: screenshot
+    summary: Add payment dialog on order 51
+    path: evidence/2026-10-04-05-55-02-manager-explorer/e24.png
+    url: http://localhost:3000/admin/orders/51
+  - id: e25
+    kind: probe
+    summary: "read 54: {}"
+    path: evidence/2026-10-04-05-55-02-manager-explorer/e25.json
+  - id: e26
+    kind: screenshot
+    summary: Draft order 54
+    path: evidence/2026-10-04-05-55-02-manager-explorer/e26.png
+    url: http://localhost:3000/admin/orders/draft/54
+  - id: e27
+    kind: screenshot
+    summary: Set customer dialog on draft 54
+    path: evidence/2026-10-04-05-55-02-manager-explorer/e27.png
+    url: http://localhost:3000/admin/orders/draft/54
+  - id: e28
+    kind: screenshot
+    summary: Shipping address dialog on draft 54
+    path: evidence/2026-10-04-05-55-02-manager-explorer/e28.png
+    url: http://localhost:3000/admin/orders/draft/54
+  - id: e29
+    kind: probe
+    summary: "read 55: {}"
+    path: evidence/2026-10-04-05-55-02-manager-explorer/e29.json
+  - id: e30
+    kind: screenshot
+    summary: Order 55 Cancelled
+    path: evidence/2026-10-04-05-55-02-manager-explorer/e30.png
+    url: http://localhost:3000/admin/orders/55
+  - id: e31
+    kind: probe
+    summary: "read 55: {}"
+    path: evidence/2026-10-04-05-55-02-manager-explorer/e31.json
+  - id: e32
+    kind: screenshot
+    summary: Cancelled order 55 after Settle payment — payment settled, order remains Cancelled
+    path: evidence/2026-10-04-05-55-02-manager-explorer/e32.png
+    url: http://localhost:3000/admin/orders/55
+  - id: e33
+    kind: probe
+    summary: "read 56: {}"
+    path: evidence/2026-10-04-05-55-02-manager-explorer/e33.json
+  - id: e34
+    kind: screenshot
+    summary: Order 56 AddingItems
+    path: evidence/2026-10-04-05-55-02-manager-explorer/e34.png
+    url: http://localhost:3000/admin/orders/56
+ops:
+  - op: add
+    kind: state
+    value:
+      id: draft
+      title: Draft
+      match:
+        state: Draft
+    evidence:
+      - e25
+      - e26
+  - op: add
+    kind: state
+    value:
+      id: adding-items
+      title: Adding items
+      match:
+        state: AddingItems
+    evidence:
+      - e33
+      - e34
+  - op: add
+    kind: state
+    value:
+      id: arranging-payment
+      title: Arranging payment
+      match:
+        state: ArrangingPayment
+    evidence:
+      - e22
+      - e23
+  - op: add
+    kind: state
+    value:
+      id: payment-authorized
+      title: Payment authorized
+      match:
+        state: PaymentAuthorized
+    evidence:
+      - e1
+      - e3
+  - op: add
+    kind: state
+    value:
+      id: payment-settled
+      title: Payment settled
+      match:
+        state: PaymentSettled
+    evidence:
+      - e5
+      - e4
+  - op: add
+    kind: state
+    value:
+      id: partially-shipped
+      title: Partially shipped
+      match:
+        state: PartiallyShipped
+    evidence:
+      - e17
+      - e18
+  - op: add
+    kind: state
+    value:
+      id: shipped
+      title: Shipped
+      match:
+        state: Shipped
+    evidence:
+      - e12
+      - e14
+  - op: add
+    kind: state
+    value:
+      id: partially-delivered
+      title: Partially delivered
+      match:
+        state: PartiallyDelivered
+    evidence:
+      - e19
+      - e21
+  - op: add
+    kind: state
+    value:
+      id: delivered
+      title: Delivered
+      match:
+        state: Delivered
+    evidence:
+      - e15
+      - e16
+  - op: add
+    kind: state
+    value:
+      id: cancelled
+      title: Cancelled
+      match:
+        state: Cancelled
+    evidence:
+      - e29
+      - e30
+  - op: add
+    kind: action
+    value:
+      id: settle-payment
+      title: Settle payment
+      kind: command
+      run: admin.settle_payment
+    evidence:
+      - e3
+      - e4
+  - op: add
+    kind: action
+    value:
+      id: mark-delivered
+      title: Mark fulfillment as delivered
+      kind: command
+      run: admin.mark_fulfillment_delivered
+    evidence:
+      - e14
+      - e16
+  - op: add
+    kind: transition
+    value:
+      id: settle-authorized-payment
+      title: Settle authorized payment
+      from: payment-authorized
+      to: payment-settled
+      action: settle-payment
+      by:
+        - manager
+      guards:
+        - Order has a payment in state Authorized (the 'Settle payment' button is shown on the payment card)
+      effects:
+        - description: Payment becomes Settled
+          field: paymentState
+          equals: Settled
+        - description: "'Fulfill order' button becomes enabled"
+    evidence:
+      - e1
+      - e3
+      - e4
+      - e5
+  - op: add
+    kind: transition
+    value:
+      id: deliver-shipped-order
+      title: Mark the shipped fulfillment as delivered
+      from: shipped
+      to: delivered
+      action: mark-delivered
+      by:
+        - manager
+      guards:
+        - A fulfillment is in state Shipped
+      effects:
+        - description: Fulfillment becomes Delivered
+          field: fulfillmentStates
+          equals:
+            - Delivered
+    evidence:
+      - e12
+      - e14
+      - e15
+      - e16
+  - op: add
+    kind: transition
+    value:
+      id: deliver-partially-shipped-order
+      title: Mark a partial fulfillment as delivered
+      from: partially-shipped
+      to: partially-delivered
+      action: mark-delivered
+      by:
+        - manager
+      guards:
+        - A fulfillment covering only part of the order lines is in state Shipped
+      effects:
+        - description: Fulfillment becomes Delivered; remaining lines stay unfulfilled
+          field: fulfillmentStates
+          equals:
+            - Delivered
+    evidence:
+      - e17
+      - e18
+      - e19
+      - e21
+  - op: add
+    kind: permit
+    value:
+      id: settle-payment-on-cancelled
+      title: Settle a leftover authorized payment on a cancelled order
+      action: settle-payment
+      by:
+        - manager
+      states:
+        - cancelled
+      effects:
+        - description: Payment becomes Settled while the order stays Cancelled with total 0
+          field: paymentState
+          equals: Settled
+    evidence:
+      - e29
+      - e30
+      - e31
+      - e32
+findings:
+  - kind: question
+    note: "The Order manager could settle a $27.79 authorized payment on a Cancelled order whose total is $0.00. The UI showed 'Settle payment', the payment became Settled and the order stayed Cancelled. This captures money for a cancelled order and looks like a bug: you would expect the payment to be cancelled or voided instead. Should settling be allowed in Cancelled?"
+    refs:
+      - settle-payment-on-cancelled
+    evidence:
+      - e29
+      - e30
+      - e31
+      - e32
+  - kind: gap
+    note: "'Fulfill order' is enabled in PaymentSettled and PartiallyDelivered (and disabled in PaymentAuthorized, Shipped, Delivered, AddingItems, ArrangingPayment and Cancelled). Its dialog's 'Create fulfillment' did nothing: the Method and Tracking code textboxes have no accessible labels and could not be filled, the order state did not change, and no error was shown. So the expected transitions PaymentSettled → Shipped/PartiallyShipped (and the fulfillment step from PartiallyDelivered) are unconfirmed. Adding labels or test ids to that dialog would make this testable."
+    refs:
+      - payment-settled
+      - partially-delivered
+    evidence:
+      - e6
+      - e7
+      - e8
+      - e9
+      - e10
+      - e20
+      - e21
+  - kind: gap
+    note: In ArrangingPayment the manager sees 'Add payment to order ($27.79)'. The dialog's Payment method combobox has no label, so 'Add payment' stayed disabled. The expected ArrangingPayment → PaymentAuthorized/PaymentSettled transition is unconfirmed.
+    refs:
+      - arranging-payment
+    evidence:
+      - e22
+      - e23
+      - e24
+  - kind: gap
+    note: Draft orders show 'Complete draft' (disabled until customer, addresses and shipping method are set) plus Set customer / Set billing address / Set shipping address / Set shipping method / Set coupon codes. The customer combobox and the address fields have no labels, so the draft could not be completed. The Draft → ArrangingPayment (complete draft) transition is unconfirmed.
+    refs:
+      - draft
+    evidence:
+      - e25
+      - e26
+      - e27
+      - e28
+  - kind: gap
+    note: Every order detail page has a button with no accessible name next to 'Fulfill order' (in Vendure this menu normally holds Cancel order / Modify order / Refund). It could not be opened, so cancellation and modification actions by the manager were not explored in any state.
+    evidence:
+      - e3
+      - e14
+      - e18
+      - e30
+      - e34
+  - kind: question
+    note: In AddingItems and Delivered the manager had no state-changing actions available apart from the unreachable menu. Notes ('Add note') and 'Assign order to another customer' exist in all states, but these were not exercised.
+    refs:
+      - adding-items
+      - delivered
+    evidence:
+      - e34
+      - e16
+status: pending
+decisions: []

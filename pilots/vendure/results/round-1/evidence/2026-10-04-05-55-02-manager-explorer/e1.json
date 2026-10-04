@@ -1,0 +1,19 @@
+{
+  "id": "43",
+  "code": "T974MLQRWPJU3PML",
+  "state": "PaymentAuthorized",
+  "active": false,
+  "placed": true,
+  "customer": "guest+explore-2026-10-04-05-55-02-manager-explorer@shop.test",
+  "paymentMethod": "standard-payment",
+  "paymentState": "Authorized",
+  "fulfillmentStates": [],
+  "lines": [
+    {
+      "id": "57",
+      "variant": "Wireless Optical Mouse",
+      "quantity": 1
+    }
+  ],
+  "totalWithTax": 2779
+}

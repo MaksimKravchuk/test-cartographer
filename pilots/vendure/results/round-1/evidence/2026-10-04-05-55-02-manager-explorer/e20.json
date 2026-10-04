@@ -1,0 +1,26 @@
+{
+  "id": "49",
+  "code": "XXT1E8WR3TCCP23A",
+  "state": "PartiallyDelivered",
+  "active": false,
+  "placed": true,
+  "customer": "guest+explore-2026-10-04-05-55-02-manager-explorer@shop.test",
+  "paymentMethod": "standard-payment",
+  "paymentState": "Settled",
+  "fulfillmentStates": [
+    "Delivered"
+  ],
+  "lines": [
+    {
+      "id": "64",
+      "variant": "Tablet 32GB",
+      "quantity": 1
+    },
+    {
+      "id": "63",
+      "variant": "Wireless Optical Mouse",
+      "quantity": 1
+    }
+  ],
+  "totalWithTax": 42259
+}

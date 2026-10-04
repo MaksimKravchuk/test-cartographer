@@ -1,0 +1,19 @@
+{
+  "id": "81",
+  "code": "V9AJM72PSJ7FLRVC",
+  "state": "ArrangingPayment",
+  "active": true,
+  "placed": false,
+  "customer": "guest+explore-2026-10-04-06-05-24-support-explorer@shop.test",
+  "paymentMethod": null,
+  "paymentState": null,
+  "fulfillmentStates": [],
+  "lines": [
+    {
+      "id": "100",
+      "variant": "Wireless Optical Mouse",
+      "quantity": 1
+    }
+  ],
+  "totalWithTax": 2779
+}

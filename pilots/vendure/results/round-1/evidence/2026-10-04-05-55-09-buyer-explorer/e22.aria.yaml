@@ -1,0 +1,6 @@
+- main:
+  - text: 400 error
+  - heading "Cannot transition Order from \"AddingItems\" to \"ArrangingPayment\"" [level=1]
+  - paragraph: Not Found
+  - link "Go back home":
+    - /url: /

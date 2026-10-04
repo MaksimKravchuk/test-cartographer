@@ -1,0 +1,259 @@
+- generic [ref=f1e5]:
+  - generic [ref=f1e6]:
+    - link [ref=f1e8]:
+      - /url: /admin/
+    - navigation [ref=f1e12]:
+      - generic [ref=f1e13]:
+        - generic [ref=f1e16]:
+          - generic [ref=f1e17]: Catalog
+          - generic [ref=f1e19]:
+            - link "Products Products" [ref=f1e21]:
+              - /url: /admin/catalog/products
+              - img "Products"
+              - text: Products
+            - link "Facets Facets" [ref=f1e23]:
+              - /url: /admin/catalog/facets
+              - img "Facets"
+              - text: Facets
+            - link "Collections Collections" [ref=f1e25]:
+              - /url: /admin/catalog/collections
+              - img "Collections"
+              - text: Collections
+            - link "Assets Assets" [ref=f1e27]:
+              - /url: /admin/catalog/assets
+              - img "Assets"
+              - text: Assets
+        - generic [ref=f1e30]:
+          - generic [ref=f1e31]: Sales
+          - link "Orders Orders" [ref=f1e35]:
+            - /url: /admin/orders
+            - img "Orders"
+            - text: Orders
+        - generic [ref=f1e38]:
+          - generic [ref=f1e39]: Customers
+          - link "Customers Customers" [ref=f1e43]:
+            - /url: /admin/customer/customers
+            - img "Customers"
+            - text: Customers
+    - generic [ref=f1e44]:
+      - separator [ref=f1e45]
+      - navigation [ref=f1e47]:
+        - generic [ref=f1e52]:
+          - generic [ref=f1e53]: Settings
+          - button "Expand entries" [ref=f1e54]:
+            - img "Expand entries"
+    - generic [ref=f1e55]: v3.7.3
+  - generic [ref=f1e58]:
+    - generic [ref=f1e59]:
+      - navigation [ref=f1e62]:
+        - list [ref=f1e63]:
+          - listitem "Dashboard" [ref=f1e64]:
+            - link "Dashboard" [ref=f1e65]:
+              - /url: /admin/
+          - listitem "Orders" [ref=f1e66]
+      - button [ref=f1e70]
+      - button "Sveta Support" [ref=f1e75]
+    - generic [ref=f1e79]:
+      - heading "Orders" [level=1] [ref=f1e84]
+      - generic [ref=f1e91]:
+        - table [ref=f1e93]:
+          - rowgroup [ref=f1e94]:
+            - row [ref=f1e95]:
+              - columnheader [ref=f1e96]:
+                - checkbox [ref=f1e98]
+              - columnheader "Code" [ref=f1e99]
+              - columnheader "Customer" [ref=f1e103]:
+                - generic [ref=f1e104]:
+                  - generic [ref=f1e105]: Customer
+                  - button [ref=f1e108]
+              - columnheader "State" [ref=f1e109]:
+                - generic [ref=f1e110]:
+                  - generic [ref=f1e111]: State
+                  - button [ref=f1e114]
+              - columnheader "Total" [ref=f1e115]:
+                - generic [ref=f1e116]:
+                  - generic [ref=f1e117]: Total
+                  - button [ref=f1e120]
+              - columnheader "Updated at" [ref=f1e121]
+              - columnheader "Placed at" [ref=f1e125]:
+                - generic [ref=f1e126]:
+                  - generic [ref=f1e127]: Placed at
+                  - button [ref=f1e130]
+              - columnheader "Shipping" [ref=f1e131]
+              - columnheader [ref=f1e135]:
+                - button "Select table columns" [ref=f1e139]
+            - row [ref=f1e140]:
+              - columnheader [ref=f1e141]:
+                - button "Search and filter this list" [ref=f1e142]
+                - generic:
+                  - textbox "Search by name / code / transaction ID" [ref=f1e144]
+                  - generic [ref=f1e145]:
+                    - button "Add filter f" [ref=f1e149]
+                    - button "Save as preset" [disabled] [ref=f1e153]
+          - rowgroup [ref=f1e157]:
+            - row [ref=f1e158]:
+              - cell [ref=f1e159]:
+                - checkbox [ref=f1e161]
+              - cell [ref=f1e162]:
+                - link "NV45TY5G3GGHPWJH" [ref=f1e164]:
+                  - /url: /admin/orders/61
+              - cell [ref=f1e166]:
+                - link "Guest Buyer" [ref=f1e169]:
+                  - /url: /admin/customer/customers/9
+              - cell "Payment authorized" [ref=f1e171]
+              - cell "$27.79" [ref=f1e177]
+              - cell "1 sec ago" [ref=f1e179]
+              - cell "10/4/26, 6:05 AM" [ref=f1e181]
+              - cell "Standard Shipping" [ref=f1e183]
+              - cell [ref=f1e185]
+            - row [ref=f1e186]:
+              - cell [ref=f1e187]:
+                - checkbox [ref=f1e189]
+              - cell [ref=f1e190]:
+                - link "X1KDJLMTSSNB98PK" [ref=f1e192]:
+                  - /url: /admin/orders/60
+              - cell [ref=f1e194]:
+                - link "Guest Buyer" [ref=f1e197]:
+                  - /url: /admin/customer/customers/8
+              - cell "Shipped" [ref=f1e199]
+              - cell "$27.79" [ref=f1e205]
+              - cell "3 mins ago" [ref=f1e207]
+              - cell "10/4/26, 6:01 AM" [ref=f1e209]
+              - cell "Standard Shipping" [ref=f1e211]
+              - cell [ref=f1e213]
+            - row [ref=f1e214]:
+              - cell [ref=f1e215]:
+                - checkbox [ref=f1e217]
+              - cell [ref=f1e218]:
+                - link "ZU52AFZ1G274JZ81" [ref=f1e220]:
+                  - /url: /admin/orders/59
+              - cell [ref=f1e222]:
+                - link "Guest Buyer" [ref=f1e225]:
+                  - /url: /admin/customer/customers/7
+              - cell "Payment settled" [ref=f1e227]
+              - cell "$27.79" [ref=f1e233]
+              - cell "4 mins ago" [ref=f1e235]
+              - cell "10/4/26, 6:00 AM" [ref=f1e237]
+              - cell "Standard Shipping" [ref=f1e239]
+              - cell [ref=f1e241]
+            - row [ref=f1e242]:
+              - cell [ref=f1e243]:
+                - checkbox [ref=f1e245]
+              - cell [ref=f1e246]:
+                - link "AD2D5H17A3HT9Z2J" [ref=f1e248]:
+                  - /url: /admin/orders/45
+              - cell [ref=f1e250]:
+                - link "Anna Buyer" [ref=f1e253]:
+                  - /url: /admin/customer/customers/1
+              - cell "Adding items" [ref=f1e255]
+              - cell "$417.59" [ref=f1e261]
+              - cell "5 mins ago" [ref=f1e263]
+              - cell [ref=f1e265]
+              - cell [ref=f1e266]
+              - cell [ref=f1e267]
+            - row [ref=f1e268]:
+              - cell [ref=f1e269]:
+                - checkbox [ref=f1e271]
+              - cell [ref=f1e272]:
+                - link "C8ZQJCGYMQB8FLGB" [ref=f1e274]:
+                  - /url: /admin/orders/58
+              - cell "Guest" [ref=f1e276]
+              - cell "Adding items" [ref=f1e280]
+              - cell "$22.79" [ref=f1e286]
+              - cell "6 mins ago" [ref=f1e288]
+              - cell [ref=f1e290]
+              - cell [ref=f1e291]
+              - cell [ref=f1e292]
+            - row [ref=f1e293]:
+              - cell [ref=f1e294]:
+                - checkbox [ref=f1e296]
+              - cell [ref=f1e297]:
+                - link "3XQ8CJQNUKE979WU" [ref=f1e299]:
+                  - /url: /admin/orders/57
+              - cell "Guest" [ref=f1e301]
+              - cell "Adding items" [ref=f1e305]
+              - cell "$22.79" [ref=f1e311]
+              - cell "7 mins ago" [ref=f1e313]
+              - cell [ref=f1e315]
+              - cell [ref=f1e316]
+              - cell [ref=f1e317]
+            - row [ref=f1e318]:
+              - cell [ref=f1e319]:
+                - checkbox [ref=f1e321]
+              - cell [ref=f1e322]:
+                - link "3WJL8Y6X8FEMBNYK" [ref=f1e324]:
+                  - /url: /admin/orders/56
+              - cell [ref=f1e326]:
+                - link "Guest Buyer" [ref=f1e329]:
+                  - /url: /admin/customer/customers/2
+              - cell "Adding items" [ref=f1e331]
+              - cell "$22.79" [ref=f1e337]
+              - cell "8 mins ago" [ref=f1e339]
+              - cell [ref=f1e341]
+              - cell [ref=f1e342]
+              - cell [ref=f1e343]
+            - row [ref=f1e344]:
+              - cell [ref=f1e345]:
+                - checkbox [ref=f1e347]
+              - cell [ref=f1e348]:
+                - link "92H6D47G4PBTLHJ3" [ref=f1e350]:
+                  - /url: /admin/orders/55
+              - cell [ref=f1e352]:
+                - link "Guest Buyer" [ref=f1e355]:
+                  - /url: /admin/customer/customers/2
+              - cell "Cancelled" [ref=f1e357]
+              - cell "$0.00" [ref=f1e363]
+              - cell "8 mins ago" [ref=f1e365]
+              - cell "10/4/26, 5:56 AM" [ref=f1e367]
+              - cell "Standard Shipping" [ref=f1e369]
+              - cell [ref=f1e371]
+            - row [ref=f1e372]:
+              - cell [ref=f1e373]:
+                - checkbox [ref=f1e375]
+              - cell [ref=f1e376]:
+                - link "3SYLLR5N32WJAHB2" [ref=f1e378]:
+                  - /url: /admin/orders/draft/54
+              - cell "Guest" [ref=f1e380]
+              - cell "Draft" [ref=f1e384]
+              - cell "$22.79" [ref=f1e390]
+              - cell "8 mins ago" [ref=f1e392]
+              - cell [ref=f1e394]
+              - cell [ref=f1e395]
+              - cell [ref=f1e396]
+            - row [ref=f1e397]:
+              - cell [ref=f1e398]:
+                - checkbox [ref=f1e400]
+              - cell [ref=f1e401]:
+                - link "769YBQQ86ZH1BDUG" [ref=f1e403]:
+                  - /url: /admin/orders/53
+              - cell [ref=f1e405]:
+                - link "Guest Buyer" [ref=f1e408]:
+                  - /url: /admin/customer/customers/4
+              - cell "Payment settled" [ref=f1e410]
+              - cell "$27.79" [ref=f1e416]
+              - cell "8 mins ago" [ref=f1e418]
+              - cell "10/4/26, 5:56 AM" [ref=f1e420]
+              - cell "Standard Shipping" [ref=f1e422]
+              - cell [ref=f1e424]
+        - generic [ref=f1e425]:
+          - button "10 per page" [ref=f1e428]
+          - generic [ref=f1e430]: 1 - 10 of 61
+          - list [ref=f1e433]:
+            - listitem [ref=f1e434]:
+              - button "«" [disabled] [ref=f1e435]
+            - listitem [ref=f1e436]:
+              - button "1" [ref=f1e437]
+            - listitem [ref=f1e438]:
+              - button "2" [ref=f1e439]
+            - listitem [ref=f1e440]:
+              - button "3" [ref=f1e441]
+            - listitem [ref=f1e442]:
+              - button "4" [ref=f1e443]
+            - listitem [ref=f1e444]:
+              - button "5" [ref=f1e445]
+            - listitem [ref=f1e446]:
+              - button "6" [ref=f1e447]
+            - listitem [ref=f1e448]:
+              - button "7" [ref=f1e449]
+            - listitem [ref=f1e450]:
+              - button "»" [ref=f1e451]

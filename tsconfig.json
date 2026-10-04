@@ -11,5 +11,5 @@
     "skipLibCheck": true,
     "types": ["node"]
   },
-  "include": ["packages/*/src", "packages/*/test", "demo/*/*.ts", "workspace/actions"]
+  "include": ["packages/*/src", "packages/*/test", "demo/*/*.ts", "workspace/actions", "pilots/*/mcp/*.ts", "pilots/*/oracle/*.ts", "pilots/*/workspace/actions"]
 }

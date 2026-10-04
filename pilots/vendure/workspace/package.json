@@ -1,0 +1,11 @@
+{
+  "name": "@tc/vendure-pilot-workspace",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@tc/engine": "workspace:*",
+    "@tc/vendure-pilot-mcp": "workspace:*",
+    "@playwright/test": "^1.56.0"
+  }
+}

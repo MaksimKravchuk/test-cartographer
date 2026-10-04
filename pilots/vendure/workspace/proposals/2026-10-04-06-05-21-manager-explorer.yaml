@@ -1,0 +1,545 @@
+id: 2026-10-04-06-05-21-manager-explorer
+entity: order
+agent: manager-explorer
+role: manager
+createdAt: 2026-10-04T06:07:41.326Z
+baseRevision: 03860b80ef9f
+rationale: 'The model had no states or transitions. As the order manager, I followed one order through the full back-office path (order 61): PaymentAuthorized → settle payment → PaymentSettled → create fulfillment (state unchanged, fulfillment Pending) → mark as shipped → Shipped → mark as delivered → Delivered → refund & cancel → Cancelled. On a second order (64), I used a manual transition to move PaymentAuthorized → Modifying, then cancel modification brought it back to PaymentAuthorized. Then "Cancel order or items" moved it to Cancelled. Cancelled offers no target states. A manual Delivered → Cancelled transition was offered in the menu but rejected by the server. States are matched on the `state` field returned by vendure.get_order.'
+evidence:
+  - id: e1
+    kind: probe
+    summary: "read 61: {}"
+    path: evidence/2026-10-04-06-05-21-manager-explorer/e1.json
+  - id: e2
+    kind: screenshot
+    summary: Order 61 in PaymentAuthorized
+    path: evidence/2026-10-04-06-05-21-manager-explorer/e2.png
+    url: http://localhost:3000/admin/orders/61
+  - id: e3
+    kind: screenshot
+    summary: Order actions menu in PaymentAuthorized
+    path: evidence/2026-10-04-06-05-21-manager-explorer/e3.png
+    url: http://localhost:3000/admin/orders/61
+  - id: e4
+    kind: probe
+    summary: "read 61: {}"
+    path: evidence/2026-10-04-06-05-21-manager-explorer/e4.json
+  - id: e5
+    kind: screenshot
+    summary: Fulfill order dialog
+    path: evidence/2026-10-04-06-05-21-manager-explorer/e5.png
+    url: http://localhost:3000/admin/orders/61
+  - id: e6
+    kind: probe
+    summary: "read 61: {}"
+    path: evidence/2026-10-04-06-05-21-manager-explorer/e6.json
+  - id: e7
+    kind: screenshot
+    summary: After creating fulfillment (Pending)
+    path: evidence/2026-10-04-06-05-21-manager-explorer/e7.png
+    url: http://localhost:3000/admin/orders/61
+  - id: e8
+    kind: probe
+    summary: "read 61: {}"
+    path: evidence/2026-10-04-06-05-21-manager-explorer/e8.json
+  - id: e9
+    kind: probe
+    summary: "read 61: {}"
+    path: evidence/2026-10-04-06-05-21-manager-explorer/e9.json
+  - id: e10
+    kind: screenshot
+    summary: "Delivered order: actions menu"
+    path: evidence/2026-10-04-06-05-21-manager-explorer/e10.png
+    url: http://localhost:3000/admin/orders/61
+  - id: e11
+    kind: screenshot
+    summary: Manual transition dialog from Delivered
+    path: evidence/2026-10-04-06-05-21-manager-explorer/e11.png
+    url: http://localhost:3000/admin/orders/61
+  - id: e12
+    kind: probe
+    summary: "read 61: {}"
+    path: evidence/2026-10-04-06-05-21-manager-explorer/e12.json
+  - id: e13
+    kind: screenshot
+    summary: Dialog after selecting Cancelled
+    path: evidence/2026-10-04-06-05-21-manager-explorer/e13.png
+    url: http://localhost:3000/admin/orders/61
+  - id: e14
+    kind: probe
+    summary: "read 61: {}"
+    path: evidence/2026-10-04-06-05-21-manager-explorer/e14.json
+  - id: e15
+    kind: screenshot
+    summary: Result of manual transition Delivered->Cancelled
+    path: evidence/2026-10-04-06-05-21-manager-explorer/e15.png
+    url: http://localhost:3000/admin/orders/61
+  - id: e16
+    kind: screenshot
+    summary: Refund & cancel dialog on Delivered order
+    path: evidence/2026-10-04-06-05-21-manager-explorer/e16.png
+    url: http://localhost:3000/admin/orders/61
+  - id: e17
+    kind: screenshot
+    summary: Reason combobox open
+    path: evidence/2026-10-04-06-05-21-manager-explorer/e17.png
+    url: http://localhost:3000/admin/orders/61
+  - id: e18
+    kind: probe
+    summary: "read 61: {}"
+    path: evidence/2026-10-04-06-05-21-manager-explorer/e18.json
+  - id: e19
+    kind: screenshot
+    summary: Cancelled order actions menu
+    path: evidence/2026-10-04-06-05-21-manager-explorer/e19.png
+    url: http://localhost:3000/admin/orders/61
+  - id: e20
+    kind: screenshot
+    summary: Manual transition options from Cancelled
+    path: evidence/2026-10-04-06-05-21-manager-explorer/e20.png
+    url: http://localhost:3000/admin/orders/61
+  - id: e21
+    kind: probe
+    summary: "read 64: {}"
+    path: evidence/2026-10-04-06-05-21-manager-explorer/e21.json
+  - id: e22
+    kind: screenshot
+    summary: Manual transition options from PaymentAuthorized
+    path: evidence/2026-10-04-06-05-21-manager-explorer/e22.png
+    url: http://localhost:3000/admin/orders/64
+  - id: e23
+    kind: screenshot
+    summary: Manual transition options from PaymentAuthorized
+    path: evidence/2026-10-04-06-05-21-manager-explorer/e23.png
+    url: http://localhost:3000/admin/orders/64
+  - id: e24
+    kind: probe
+    summary: "read 64: {}"
+    path: evidence/2026-10-04-06-05-21-manager-explorer/e24.json
+  - id: e25
+    kind: screenshot
+    summary: Order 64 in Modifying state
+    path: evidence/2026-10-04-06-05-21-manager-explorer/e25.png
+    url: http://localhost:3000/admin/orders/64/modify
+  - id: e26
+    kind: probe
+    summary: "read 64: {}"
+    path: evidence/2026-10-04-06-05-21-manager-explorer/e26.json
+  - id: e27
+    kind: screenshot
+    summary: Order 64 back in PaymentAuthorized
+    path: evidence/2026-10-04-06-05-21-manager-explorer/e27.png
+    url: http://localhost:3000/admin/orders/64
+  - id: e28
+    kind: screenshot
+    summary: Cancel order dialog in PaymentAuthorized
+    path: evidence/2026-10-04-06-05-21-manager-explorer/e28.png
+    url: http://localhost:3000/admin/orders/64
+  - id: e29
+    kind: probe
+    summary: "read 64: {}"
+    path: evidence/2026-10-04-06-05-21-manager-explorer/e29.json
+  - id: e30
+    kind: probe
+    summary: "read 75: {}"
+    path: evidence/2026-10-04-06-05-21-manager-explorer/e30.json
+  - id: e31
+    kind: screenshot
+    summary: Shipped order with actions menu
+    path: evidence/2026-10-04-06-05-21-manager-explorer/e31.png
+    url: http://localhost:3000/admin/orders/75
+ops:
+  - op: add
+    kind: state
+    value:
+      id: payment-authorized
+      title: Payment authorized
+      match:
+        state: PaymentAuthorized
+    evidence:
+      - e1
+      - e2
+      - e21
+  - op: add
+    kind: state
+    value:
+      id: payment-settled
+      title: Payment settled
+      match:
+        state: PaymentSettled
+    evidence:
+      - e4
+      - e6
+  - op: add
+    kind: state
+    value:
+      id: shipped
+      title: Shipped
+      match:
+        state: Shipped
+    evidence:
+      - e8
+      - e30
+      - e31
+  - op: add
+    kind: state
+    value:
+      id: delivered
+      title: Delivered
+      match:
+        state: Delivered
+    evidence:
+      - e9
+      - e10
+  - op: add
+    kind: state
+    value:
+      id: modifying
+      title: Modifying
+      match:
+        state: Modifying
+    evidence:
+      - e24
+      - e25
+  - op: add
+    kind: state
+    value:
+      id: cancelled
+      title: Cancelled
+      match:
+        state: Cancelled
+    evidence:
+      - e18
+      - e19
+      - e20
+      - e29
+  - op: add
+    kind: action
+    value:
+      id: settle-payment
+      title: Settle payment
+      kind: command
+      run: admin.settle_payment
+    evidence:
+      - e2
+      - e4
+  - op: add
+    kind: action
+    value:
+      id: create-fulfillment
+      title: Fulfill order (create fulfillment)
+      kind: command
+      run: admin.create_fulfillment
+    evidence:
+      - e5
+      - e6
+      - e7
+  - op: add
+    kind: action
+    value:
+      id: mark-shipped
+      title: Mark fulfillment as shipped
+      kind: command
+      run: admin.mark_fulfillment_shipped
+    evidence:
+      - e7
+      - e8
+  - op: add
+    kind: action
+    value:
+      id: mark-delivered
+      title: Mark fulfillment as delivered
+      kind: command
+      run: admin.mark_fulfillment_delivered
+    evidence:
+      - e8
+      - e9
+      - e31
+  - op: add
+    kind: action
+    value:
+      id: refund-and-cancel
+      title: Refund & cancel order
+      kind: command
+      run: admin.refund_and_cancel_order
+    evidence:
+      - e16
+      - e17
+      - e18
+  - op: add
+    kind: action
+    value:
+      id: cancel-order
+      title: Cancel order or items
+      kind: command
+      run: admin.cancel_order
+    evidence:
+      - e3
+      - e28
+      - e29
+  - op: add
+    kind: action
+    value:
+      id: start-modification
+      title: Modify order (transition to Modifying)
+      kind: command
+      run: admin.transition_order_to_modifying
+    evidence:
+      - e3
+      - e23
+      - e24
+  - op: add
+    kind: action
+    value:
+      id: cancel-modification
+      title: Cancel modification
+      kind: command
+      run: admin.cancel_order_modification
+    evidence:
+      - e25
+      - e26
+  - op: add
+    kind: transition
+    value:
+      id: settle-authorized-payment
+      title: Settle the authorized payment
+      from: payment-authorized
+      to: payment-settled
+      action: settle-payment
+      by:
+        - manager
+      effects:
+        - description: Payment becomes Settled
+          field: paymentState
+          equals: Settled
+    evidence:
+      - e2
+      - e4
+  - op: add
+    kind: permit
+    value:
+      id: fulfill-settled-order
+      title: Create a fulfillment for a settled order
+      action: create-fulfillment
+      by:
+        - manager
+      states:
+        - payment-settled
+      effects:
+        - description: A fulfillment is created in Pending; the order state is unchanged
+          field: fulfillmentStates
+          equals:
+            - Pending
+    evidence:
+      - e2
+      - e5
+      - e6
+      - e7
+  - op: add
+    kind: transition
+    value:
+      id: ship-settled-order
+      title: Mark the fulfillment shipped
+      from: payment-settled
+      to: shipped
+      action: mark-shipped
+      by:
+        - manager
+      guards:
+        - A Pending fulfillment covering all items exists
+      effects:
+        - description: Fulfillment becomes Shipped
+          field: fulfillmentStates
+          equals:
+            - Shipped
+    evidence:
+      - e7
+      - e8
+  - op: add
+    kind: transition
+    value:
+      id: deliver-shipped-order
+      title: Mark the fulfillment delivered
+      from: shipped
+      to: delivered
+      action: mark-delivered
+      by:
+        - manager
+      effects:
+        - description: Fulfillment becomes Delivered
+          field: fulfillmentStates
+          equals:
+            - Delivered
+    evidence:
+      - e8
+      - e9
+      - e31
+  - op: add
+    kind: transition
+    value:
+      id: refund-cancel-delivered-order
+      title: Refund and cancel a delivered order
+      from: delivered
+      to: cancelled
+      action: refund-and-cancel
+      by:
+        - manager
+      guards:
+        - A refund/cancellation reason is required
+        - All items must be selected for refund for the order to become Cancelled
+      effects:
+        - description: Line quantities become 0 and the order total becomes 0
+          field: totalWithTax
+          equals: 0
+        - description: A refund is created in Pending state (Settle refund button shown); paymentState stays Settled
+    evidence:
+      - e16
+      - e17
+      - e18
+      - e19
+  - op: add
+    kind: transition
+    value:
+      id: cancel-authorized-order
+      title: Cancel an authorized (unsettled) order
+      from: payment-authorized
+      to: cancelled
+      action: cancel-order
+      by:
+        - manager
+      guards:
+        - A cancellation reason is required
+        - Cancel entire order is selected
+      effects:
+        - description: Line quantities become 0 and the order total becomes 0
+          field: totalWithTax
+          equals: 0
+    evidence:
+      - e28
+      - e29
+  - op: add
+    kind: transition
+    value:
+      id: start-modifying-authorized-order
+      title: Start modifying an authorized order
+      from: payment-authorized
+      to: modifying
+      action: start-modification
+      by:
+        - manager
+    evidence:
+      - e23
+      - e24
+      - e25
+  - op: add
+    kind: transition
+    value:
+      id: cancel-modification-to-authorized
+      title: Cancel the modification (back to Payment authorized)
+      from: modifying
+      to: payment-authorized
+      action: cancel-modification
+      by:
+        - manager
+      guards:
+        - Returns to the state the order was in before modification
+    evidence:
+      - e25
+      - e26
+      - e27
+findings:
+  - kind: question
+    note: "On a Delivered order, the manual transition dialog offers only 'Cancelled', but the server rejects it: 'Cannot transition Order to the \"Cancelled\" state unless all OrderItems are cancelled'. The order stayed Delivered. The UI offers an option that is guaranteed to fail; cancelling only works through 'Refund & cancel order'. Is this rule (Cancelled requires all items cancelled) intended, and should the UI hide the option?"
+    refs:
+      - delivered
+      - cancelled
+    evidence:
+      - e11
+      - e13
+      - e14
+      - e15
+  - kind: question
+    note: After 'Cancel entire order' on a PaymentAuthorized order, the order is Cancelled but the read model still reports paymentState=Authorized. The authorization appears not to be voided or cancelled. Is that intended?
+    refs:
+      - cancel-authorized-order
+    evidence:
+      - e29
+  - kind: question
+    note: After 'Refund & cancel' on a Delivered order, the order is Cancelled, but paymentState stays Settled, the refund is Pending (with a 'Settle refund' button), and the fulfillment stays Delivered. Settling the refund was not explored and may be a separate step for the manager.
+    refs:
+      - refund-cancel-delivered-order
+    evidence:
+      - e18
+      - e19
+  - kind: gap
+    note: "Cancelled appears to be terminal: no 'Refund & cancel' or 'Cancel' entries, and the manual transition dialog lists no target states."
+    refs:
+      - cancelled
+    evidence:
+      - e19
+      - e20
+  - kind: gap
+    note: "Not explored because the run ran out of budget: the manual transitions PaymentAuthorized → 'Payment settled', → 'Arranging additional payment', and → 'Cancelled' (offered in e23); 'Modify order' from the menu, and completing a modification; cancel/refund from PaymentSettled and Shipped (Shipped shows 'Mark as Delivered', e31; its menu was not opened); Draft, AddingItems and ArrangingPayment orders; partial cancellation ('Cancel specified items'), which might lead to a partial state."
+    refs:
+      - payment-authorized
+      - payment-settled
+      - shipped
+    evidence:
+      - e3
+      - e23
+      - e28
+      - e31
+  - kind: question
+    note: "'Fulfill order' is disabled while payment is only Authorized and becomes enabled after settlement. Settled payment looks like a precondition for fulfillment."
+    refs:
+      - fulfill-settled-order
+    evidence:
+      - e2
+      - e5
+status: decided
+decisions:
+  - op: 0
+    verdict: accept
+  - op: 1
+    verdict: accept
+  - op: 2
+    verdict: accept
+  - op: 3
+    verdict: accept
+  - op: 4
+    verdict: accept
+  - op: 5
+    verdict: accept
+  - op: 6
+    verdict: accept
+  - op: 7
+    verdict: accept
+  - op: 8
+    verdict: accept
+  - op: 9
+    verdict: accept
+  - op: 10
+    verdict: accept
+  - op: 11
+    verdict: accept
+  - op: 12
+    verdict: accept
+  - op: 13
+    verdict: accept
+  - op: 14
+    verdict: accept
+  - op: 15
+    verdict: accept
+  - op: 16
+    verdict: accept
+  - op: 17
+    verdict: accept
+  - op: 18
+    verdict: accept
+  - op: 19
+    verdict: accept
+  - op: 20
+    verdict: accept
+  - op: 21
+    verdict: accept
+decidedAt: 2026-10-04T06:09:27.699Z

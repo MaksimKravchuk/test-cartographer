@@ -1,0 +1,212 @@
+
+── manager-explorer  [2026-10-04-05-55-02-manager-explorer]
+states:      10/12 by match [Draft, AddingItems, ArrangingPayment, PaymentAuthorized, PaymentSettled, PartiallyShipped, Shipped, PartiallyDelivered, Delivered, Cancelled]
+transitions: 3 proposed edges, 3 real, 0 not in the oracle
+recall:      3/27 (edge × role) for manager
+   · missed add-manual-payment: ArrangingPayment → PaymentSettled (manager)
+   · missed ship: PaymentSettled → Shipped (manager)
+   · missed ship-part: PaymentSettled → PartiallyShipped (manager)
+   · missed ship-rest: PartiallyShipped → Shipped (manager)
+   · missed deliver-rest: PartiallyDelivered → Delivered (manager)
+   · missed cancel: ArrangingPayment → Cancelled (manager)
+   · missed cancel: PaymentAuthorized → Cancelled (manager)
+   · missed refund-and-cancel: PaymentSettled → Cancelled (manager)
+   · missed refund-and-cancel: PartiallyShipped → Cancelled (manager)
+   · missed refund-and-cancel: Shipped → Cancelled (manager)
+   · missed refund-and-cancel: PartiallyDelivered → Cancelled (manager)
+   · missed refund-and-cancel: Delivered → Cancelled (manager)
+   · missed modify: PaymentAuthorized → Modifying (manager)
+   · missed modify: PaymentSettled → Modifying (manager)
+   · missed modify: PartiallyShipped → Modifying (manager)
+   · missed modify: Shipped → Modifying (manager)
+   · missed modify: PartiallyDelivered → Modifying (manager)
+   · missed end-modification: Modifying → PaymentAuthorized (manager)
+   · missed end-modification: Modifying → PaymentSettled (manager)
+   · missed end-modification: Modifying → PartiallyShipped (manager)
+   · missed end-modification: Modifying → Shipped (manager)
+   · missed end-modification: Modifying → PartiallyDelivered (manager)
+   · missed create-draft: @new → Draft (manager)
+   · missed complete-draft: Draft → ArrangingPayment (manager)
+permits:     settle-payment-on-cancelled by manager in Cancelled
+findings:    6
+   [question] The Order manager could settle a $27.79 authorized payment on a Cancelled order whose total is $0.00. The UI showed 'Settle payment', the payment became Settled and the order stayed Cancelled. This captures money for a cancelled order and l
+   [gap] 'Fulfill order' is enabled in PaymentSettled and PartiallyDelivered (and disabled in PaymentAuthorized, Shipped, Delivered, AddingItems, ArrangingPayment and Cancelled). Its dialog's 'Create fulfillment' did nothing: the Method and Tracking
+   [gap] In ArrangingPayment the manager sees 'Add payment to order ($27.79)'. The dialog's Payment method combobox has no label, so 'Add payment' stayed disabled. The expected ArrangingPayment → PaymentAuthorized/PaymentSettled transition is unconf
+   [gap] Draft orders show 'Complete draft' (disabled until customer, addresses and shipping method are set) plus Set customer / Set billing address / Set shipping address / Set shipping method / Set coupon codes. The customer combobox and the addre
+   [gap] Every order detail page has a button with no accessible name next to 'Fulfill order' (in Vendure this menu normally holds Cancel order / Modify order / Refund). It could not be opened, so cancellation and modification actions by the manager
+   [question] In AddingItems and Delivered the manager had no state-changing actions available apart from the unreachable menu. Notes ('Add note') and 'Assign order to another customer' exist in all states, but these were not exercised.
+
+── support-explorer  [2026-10-04-05-55-05-support-explorer]
+states:      2/12 by match [PaymentAuthorized, PaymentSettled]
+transitions: 0 proposed edges, 0 real, 0 not in the oracle
+recall:      0/0 (edge × role) for support
+permits:     support-views-order by support in PaymentAuthorized,PaymentSettled
+findings:    3
+   [question] In PaymentAuthorized the back office shows support an enabled 'Settle payment' button. Clicking it is rejected on the server ('You are not authorized to access "settlePayment"'), and the admin UI then logs the user out. The order stays Paym
+   [question] In PaymentSettled the 'Fulfill order' button is enabled for support and opens the fulfillment dialog. Clicking 'Create fulfillment' twice, with Method and Tracking code left empty, did nothing visible: no toast, the dialog stayed open, and 
+   [gap] In PaymentAuthorized, 'Fulfill order' is disabled for support. Support also sees 'Add note' (disabled until text is entered) and 'Assign order to another customer' in both states. I didn't exercise these: the note textbox has no label, and 
+
+── buyer-explorer  [2026-10-04-05-55-09-buyer-explorer]
+states:      9/12 by match [AddingItems, ArrangingPayment, PaymentAuthorized, PaymentSettled, PartiallyShipped, Shipped, PartiallyDelivered, Delivered, Cancelled]
+transitions: 1 proposed edges, 1 real, 0 not in the oracle
+recall:      1/5 (edge × role) for buyer
+   · missed add-to-cart: @new → AddingItems (buyer)
+   · missed back-to-cart: ArrangingPayment → AddingItems (buyer)
+   · missed pay-authorize: ArrangingPayment → PaymentAuthorized (buyer)
+   · missed pay-settle: ArrangingPayment → PaymentSettled (buyer)
+permits:     buyer-add-to-cart by buyer in AddingItems; buyer-remove-order-line by buyer in AddingItems; buyer-view-own-order by buyer in PaymentAuthorized,PaymentSettled,PartiallyShipped,Shipped,PartiallyDelivered,Delivered,Cancelled
+findings:    5
+   [question] The checkout cannot be completed in the storefront. On the Shipping step (/checkout) there is no address form, saved-address selector or shipping-method selector, only the order summary. The buyer does have a default address (Test Buyer, Be
+   [question] The 'pay-order' action is used for the AddingItems -> ArrangingPayment step because the storefront's pay buttons attempt that transition first. The step that adds the payment (ArrangingPayment -> PaymentAuthorized or PaymentSettled, which d
+   [question] After an order is placed, the buyer can only read it: purchase history with 'Detailed overview' totals, and /checkout/confirmation/<code>. The 'Actions for this order (Not implemented)' button does nothing, so the buyer cannot cancel or ret
+   [question] The order is created implicitly by the first 'Add to cart'; the active order 45 belongs to buyer@shop.test. Because there is no 'initial' state, creation is modelled as a permit in adding-items rather than a transition. A cart quantity sele
+   [question] Access control checked: when the buyer opens the confirmation page of another customer's (guest) placed order by its code, the order is not shown, only 'Please wait while we process your order...'.
+
+── onboarding  [2026-10-04-05-55-12-onboarding-order]
+states:      0/12 by match [] + 6 by name only [ArrangingPayment, PaymentAuthorized, PaymentSettled, Shipped, Delivered, Cancelled]
+transitions: 8 proposed edges, 8 real, 0 not in the oracle
+recall:      8/32 (edge × role) for buyer, manager
+   · missed add-to-cart: @new → AddingItems (buyer)
+   · missed go-to-payment: AddingItems → ArrangingPayment (buyer)
+   · missed back-to-cart: ArrangingPayment → AddingItems (buyer)
+   · missed add-manual-payment: ArrangingPayment → PaymentSettled (manager)
+   · missed ship-part: PaymentSettled → PartiallyShipped (manager)
+   · missed ship-rest: PartiallyShipped → Shipped (manager)
+   · missed deliver-part: PartiallyShipped → PartiallyDelivered (manager)
+   · missed deliver-rest: PartiallyDelivered → Delivered (manager)
+   · missed refund-and-cancel: PartiallyShipped → Cancelled (manager)
+   · missed refund-and-cancel: Shipped → Cancelled (manager)
+   · missed refund-and-cancel: PartiallyDelivered → Cancelled (manager)
+   · missed refund-and-cancel: Delivered → Cancelled (manager)
+   · missed modify: PaymentAuthorized → Modifying (manager)
+   · missed modify: PaymentSettled → Modifying (manager)
+   · missed modify: PartiallyShipped → Modifying (manager)
+   · missed modify: Shipped → Modifying (manager)
+   · missed modify: PartiallyDelivered → Modifying (manager)
+   · missed end-modification: Modifying → PaymentAuthorized (manager)
+   · missed end-modification: Modifying → PaymentSettled (manager)
+   · missed end-modification: Modifying → PartiallyShipped (manager)
+   · missed end-modification: Modifying → Shipped (manager)
+   · missed end-modification: Modifying → PartiallyDelivered (manager)
+   · missed create-draft: @new → Draft (manager)
+   · missed complete-draft: Draft → ArrangingPayment (manager)
+permits:     view_by_manager by manager; view_by_support by support
+findings:    8
+   [contradiction] Wiki: after payment the order sits in status «Оплачен». SHOP-101: for card payments money is only frozen first and the manager settles it manually. So for card orders there is an intermediate 'authorized' state before «Оплачен». Modelled pe
+   [question] Where are states awaiting_payment, payment_authorized, shipped, delivered, cancelled observable (status label in admin/storefront, or the vendure.get_order 'state' field)? Only «Оплачен» is named by a source. Also confirm the paid match fie
+   [question] 'Cancel only before shipment' — does that include orders still at the payment step and partially shipped orders (SHOP-112)? Cancellation from awaiting_payment is proposed by extension; partial shipment is not modelled. Also: on cancelling a
+   [contradiction] Support role: wiki says support changes nothing and only views orders, yet the same page says support does refunds when a customer complains. SHOP-130 says view-only. Only a view permit is proposed for support.
+   [question] Catalog manager 'doesn't go into orders' — should we add a negative check that the catalog role cannot view/modify orders? No permit given to catalog.
+   [gap] SHOP-121: buyer self-cancel isn't implemented yet ('пока нет'); no buyer cancel transition proposed.
+   [gap] SHOP-140 order drafts are Done but undescribed — no draft state or create-draft action proposed.
+   [question] Card payment on the stand is fake and accepts any data — declined/failed payment paths can't be exercised on this stand. Is there a way to simulate a declined card?
+
+── onboarding (project)  [2026-10-04-05-55-12-onboarding]
+states:      0/12 by match []
+transitions: 0 proposed edges, 0 real, 0 not in the oracle
+recall:      0/0 (edge × role) for —
+permits:     —
+findings:    7
+   [gap] SHOP-121 (buyer cancels from personal account) is To Do — no buyer cancel transition exists, so the story has empty covers. Today the buyer writes to support, but support can't change orders; presumably the manager cancels on their behalf —
+   [gap] SHOP-140 'Черновики заказов' is Done but has no description: who creates drafts (manager in admin?), how a draft becomes a real order, and what status it shows. No draft state/action proposed yet; story covers left empty.
+   [gap] SHOP-112 'Частичная отгрузка' is a Done task with no description. The model has no partially-shipped state; need to know how a partial shipment looks and whether cancel is still allowed after it.
+   [gap] SHOP-150 Returns (RMA) is in Backlog, yet SHOP-120 says that after shipping cancellation is 'only through a return'. No refund/return action is modelled; story covers empty.
+   [gap] SHOP-151 (cart sometimes disappears after login) is about the cart/session, not the order model; no cart entity exists. Not added as a story — decide whether to model a cart entity.
+   [contradiction] Wiki says support does refunds when a customer complains, but the same wiki says support changes nothing, SHOP-130 says support is view-only, and returns (SHOP-150) are still Backlog. No refund permit for support proposed.
+   [question] The stand wiki is marked 'updated long ago' — please confirm accounts, URLs and the status flow are still current (e.g. the 'Оплачен' claim conflicts with SHOP-101).
+
+── manager-explorer  [2026-10-04-06-05-21-manager-explorer]
+states:      6/12 by match [PaymentAuthorized, PaymentSettled, Shipped, Delivered, Modifying, Cancelled]
+transitions: 7 proposed edges, 7 real, 0 not in the oracle
+recall:      7/27 (edge × role) for manager
+   · missed add-manual-payment: ArrangingPayment → PaymentSettled (manager)
+   · missed ship-part: PaymentSettled → PartiallyShipped (manager)
+   · missed ship-rest: PartiallyShipped → Shipped (manager)
+   · missed deliver-part: PartiallyShipped → PartiallyDelivered (manager)
+   · missed deliver-rest: PartiallyDelivered → Delivered (manager)
+   · missed cancel: ArrangingPayment → Cancelled (manager)
+   · missed refund-and-cancel: PaymentSettled → Cancelled (manager)
+   · missed refund-and-cancel: PartiallyShipped → Cancelled (manager)
+   · missed refund-and-cancel: Shipped → Cancelled (manager)
+   · missed refund-and-cancel: PartiallyDelivered → Cancelled (manager)
+   · missed modify: PaymentSettled → Modifying (manager)
+   · missed modify: PartiallyShipped → Modifying (manager)
+   · missed modify: Shipped → Modifying (manager)
+   · missed modify: PartiallyDelivered → Modifying (manager)
+   · missed end-modification: Modifying → PaymentSettled (manager)
+   · missed end-modification: Modifying → PartiallyShipped (manager)
+   · missed end-modification: Modifying → Shipped (manager)
+   · missed end-modification: Modifying → PartiallyDelivered (manager)
+   · missed create-draft: @new → Draft (manager)
+   · missed complete-draft: Draft → ArrangingPayment (manager)
+permits:     fulfill-settled-order by manager in PaymentSettled
+findings:    6
+   [question] On a Delivered order, the manual transition dialog offers only 'Cancelled', but the server rejects it: 'Cannot transition Order to the "Cancelled" state unless all OrderItems are cancelled'. The order stayed Delivered. The UI offers an opti
+   [question] After 'Cancel entire order' on a PaymentAuthorized order, the order is Cancelled but the read model still reports paymentState=Authorized. The authorization appears not to be voided or cancelled. Is that intended?
+   [question] After 'Refund & cancel' on a Delivered order, the order is Cancelled, but paymentState stays Settled, the refund is Pending (with a 'Settle refund' button), and the fulfillment stays Delivered. Settling the refund was not explored and may b
+   [gap] Cancelled appears to be terminal: no 'Refund & cancel' or 'Cancel' entries, and the manual transition dialog lists no target states.
+   [gap] Not explored because the run ran out of budget: the manual transitions PaymentAuthorized → 'Payment settled', → 'Arranging additional payment', and → 'Cancelled' (offered in e23); 'Modify order' from the menu, and completing a modification;
+   [question] 'Fulfill order' is disabled while payment is only Authorized and becomes enabled after settlement. Settled payment looks like a precondition for fulfillment.
+
+── support-explorer  [2026-10-04-06-05-24-support-explorer]
+states:      8/12 by match [AddingItems, ArrangingPayment, PaymentAuthorized, PaymentSettled, Shipped, Delivered, Cancelled, Draft]
+transitions: 0 proposed edges, 0 real, 0 not in the oracle
+recall:      0/0 (edge × role) for support
+permits:     support-views-order by support in AddingItems,PaymentAuthorized,PaymentSettled,Shipped,Cancelled,Draft
+findings:    3
+   [question] The back office shows Support write controls on an order: Settle payment, an enabled Fulfill order (on Payment settled), Cancel order or items, Manually transition to state, Add note, Mark as Delivered, plus Modify order and Assign customer
+   [gap] I didn't open detail pages as Support for Arranging payment, Delivered, Partially shipped or Partially delivered orders, so the read permit leaves out arranging-payment and delivered. Partially shipped and Partially delivered (listed by the
+   [question] A forbidden action ends the whole Support session (it redirects to login and says the session may have expired) instead of showing an inline permission error. Is this intended?
+
+── buyer-explorer  [2026-10-04-06-05-27-buyer-explorer]
+states:      9/12 by match [AddingItems, ArrangingPayment, PaymentAuthorized, PaymentSettled, PartiallyShipped, Shipped, PartiallyDelivered, Delivered, Cancelled]
+transitions: 3 proposed edges, 3 real, 0 not in the oracle
+recall:      3/5 (edge × role) for buyer
+   · missed back-to-cart: ArrangingPayment → AddingItems (buyer)
+   · missed pay-settle: ArrangingPayment → PaymentSettled (buyer)
+permits:     buyer-adds-items by buyer in AddingItems; buyer-changes-quantity by buyer in AddingItems; buyer-removes-line by buyer in AddingItems; buyer-views-placed-order by buyer in PaymentAuthorized,PaymentSettled,PartiallyShipped,Shipped,PartiallyDelivered,Delivered,Cancelled
+findings:    7
+   [question] Checkout is blocked in the Storefront. /checkout shows the Shipping/Payment/Confirmation steps and the order summary, but no address selector, shipping-method selector or 'proceed' button, even though the buyer has a default Shipping & Bill
+   [question] The storefront has two payment methods ('Standard Payment' and 'Prepaid card'). Seeded and prepared orders with standard-payment end in PaymentAuthorized, but I couldn't confirm what Prepaid card produces (it might settle immediately, going
+   [gap] After an order is placed, the buyer has no actions on it in the Storefront. Each order in Order history has an 'Actions for this order (Not implemented)' button that does nothing; 'Track package' and 'Detailed overview' are display-only. Th
+   [question] The buyer sees only their own placed orders. Opening the confirmation page with another customer's order code just shows 'Please wait while we process your order...' and never shows the order. The view-order permit should be limited to the 
+   [question] A Cancelled order keeps paymentState 'Authorized' while its line quantities and totals drop to 0. Is the authorized payment supposed to be voided or refunded on cancellation?
+   [gap] I didn't observe who moves orders between payment-authorized, payment-settled, (partially) shipped, (partially) delivered and cancelled. The buyer has no storefront control for any of these, so they are presumably admin (manager/support) tr
+   [question] The vendure.create_order setup tool ignores a 'customer' argument and always creates orders for a generated guest customer. So prepared orders can't be used to test buyer-owned flows such as paying a prepared ArrangingPayment order.
+
+── all proposals together
+states:      11/12 by match [Draft, AddingItems, ArrangingPayment, PaymentAuthorized, PaymentSettled, PartiallyShipped, Shipped, PartiallyDelivered, Delivered, Cancelled, Modifying]
+transitions: 22 proposed edges, 22 real, 0 not in the oracle
+recall:      14/32 (edge × role) for manager, support, buyer
+   · missed back-to-cart: ArrangingPayment → AddingItems (buyer)
+   · missed add-manual-payment: ArrangingPayment → PaymentSettled (manager)
+   · missed ship-part: PaymentSettled → PartiallyShipped (manager)
+   · missed ship-rest: PartiallyShipped → Shipped (manager)
+   · missed deliver-rest: PartiallyDelivered → Delivered (manager)
+   · missed refund-and-cancel: PartiallyShipped → Cancelled (manager)
+   · missed refund-and-cancel: Shipped → Cancelled (manager)
+   · missed refund-and-cancel: PartiallyDelivered → Cancelled (manager)
+   · missed modify: PaymentSettled → Modifying (manager)
+   · missed modify: PartiallyShipped → Modifying (manager)
+   · missed modify: Shipped → Modifying (manager)
+   · missed modify: PartiallyDelivered → Modifying (manager)
+   · missed end-modification: Modifying → PaymentSettled (manager)
+   · missed end-modification: Modifying → PartiallyShipped (manager)
+   · missed end-modification: Modifying → Shipped (manager)
+   · missed end-modification: Modifying → PartiallyDelivered (manager)
+   · missed create-draft: @new → Draft (manager)
+   · missed complete-draft: Draft → ArrangingPayment (manager)
+permits:     settle-payment-on-cancelled by manager in cancelled; support-views-order by support in payment-authorized,payment-settled; buyer-add-to-cart by buyer in adding-items; buyer-remove-order-line by buyer in adding-items; buyer-view-own-order by buyer in payment-authorized,payment-settled,partially-shipped,shipped,partially-delivered,delivered,cancelled; view_by_manager by manager; view_by_support by support; fulfill-settled-order by manager in payment-settled; support-views-order by support in adding-items,payment-authorized,payment-settled,shipped,cancelled,draft; buyer-adds-items by buyer in adding-items; buyer-changes-quantity by buyer in adding-items; buyer-removes-line by buyer in adding-items; buyer-views-placed-order by buyer in payment-authorized,payment-settled,partially-shipped,shipped,partially-delivered,delivered,cancelled
+findings:    0
+
+| proposal | states (match / name) | edges: real / not real | recall (edge × role) | wrong role | findings |
+|---|---|---|---|---|---|
+| manager-explorer | 10 / 0 | 3 / 0 | 3/27 | 0 | 6 |
+| support-explorer | 2 / 0 | 0 / 0 | 0/0 | 0 | 3 |
+| buyer-explorer | 9 / 0 | 1 / 0 | 1/5 | 0 | 5 |
+| onboarding | 0 / 6 | 8 / 0 | 8/32 | 0 | 8 |
+| onboarding (project) | 0 / 0 | 0 / 0 | 0/0 | 0 | 7 |
+| manager-explorer | 6 / 0 | 7 / 0 | 7/27 | 0 | 6 |
+| support-explorer | 8 / 0 | 0 / 0 | 0/0 | 0 | 3 |
+| buyer-explorer | 9 / 0 | 3 / 0 | 3/5 | 0 | 7 |
+| all proposals together | 11 / 0 | 22 / 0 | 14/32 | 0 | 0 |

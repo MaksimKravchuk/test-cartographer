@@ -1,0 +1,139 @@
+id: 2026-10-04-05-55-05-support-explorer
+entity: order
+agent: support-explorer
+role: support
+createdAt: 2026-10-04T05:57:01.656Z
+baseRevision: 03860b80ef9f
+rationale: 'As the support role I explored two order states in the Admin UI: PaymentSettled (order 44) and PaymentAuthorized (order 47). In both states support can open the order detail page and see the lines, totals, tax summary, history, customer, shipping address and payment. In PaymentAuthorized the UI shows a "Settle payment" button to support. Clicking it gave "You are not authorized to access settlePayment" and logged the session out. After that, exploring the other states (Shipped, Delivered, Cancelled and the rest) was impossible: the login form fields have no labels or test ids I could fill. In PaymentSettled, "Fulfill order" opens a dialog, but "Create fulfillment" changed nothing (the order stayed PaymentSettled with no fulfillments). I propose the two observed states and a read permit for support. Everything else goes in as findings.'
+evidence:
+  - id: e1
+    kind: probe
+    summary: "read 44: {}"
+    path: evidence/2026-10-04-05-55-05-support-explorer/e1.json
+  - id: e2
+    kind: screenshot
+    summary: Order 44 detail in PaymentSettled as support
+    path: evidence/2026-10-04-05-55-05-support-explorer/e2.png
+    url: http://localhost:3000/admin/orders/44
+  - id: e3
+    kind: screenshot
+    summary: After clicking Fulfill order
+    path: evidence/2026-10-04-05-55-05-support-explorer/e3.png
+    url: http://localhost:3000/admin/orders/44
+  - id: e4
+    kind: probe
+    summary: "read 44: {}"
+    path: evidence/2026-10-04-05-55-05-support-explorer/e4.json
+  - id: e5
+    kind: screenshot
+    summary: After clicking Create fulfillment (no method/tracking entered)
+    path: evidence/2026-10-04-05-55-05-support-explorer/e5.png
+    url: http://localhost:3000/admin/orders/44
+  - id: e6
+    kind: screenshot
+    summary: Immediately after second Create fulfillment click — look for toast
+    path: evidence/2026-10-04-05-55-05-support-explorer/e6.png
+    url: http://localhost:3000/admin/orders/44
+  - id: e7
+    kind: probe
+    summary: "read 47: {}"
+    path: evidence/2026-10-04-05-55-05-support-explorer/e7.json
+  - id: e8
+    kind: screenshot
+    summary: Order 47 in PaymentAuthorized as support
+    path: evidence/2026-10-04-05-55-05-support-explorer/e8.png
+    url: http://localhost:3000/admin/orders/47
+  - id: e9
+    kind: probe
+    summary: "read 47: {}"
+    path: evidence/2026-10-04-05-55-05-support-explorer/e9.json
+  - id: e10
+    kind: screenshot
+    summary: After clicking Settle payment on order 47
+    path: evidence/2026-10-04-05-55-05-support-explorer/e10.png
+    url: http://localhost:3000/admin/login?redirectTo=L29yZGVycy80Nw%3D%3D
+  - id: e11
+    kind: screenshot
+    summary: Re-open order 47 after forbidden redirect
+    path: evidence/2026-10-04-05-55-05-support-explorer/e11.png
+    url: http://localhost:3000/admin/login
+  - id: e12
+    kind: screenshot
+    summary: Open root after logout
+    path: evidence/2026-10-04-05-55-05-support-explorer/e12.png
+    url: http://localhost:3000/admin/login
+ops:
+  - op: add
+    kind: state
+    value:
+      id: payment-authorized
+      title: Payment authorized
+      match:
+        state: PaymentAuthorized
+    evidence:
+      - e7
+      - e8
+  - op: add
+    kind: state
+    value:
+      id: payment-settled
+      title: Payment settled
+      match:
+        state: PaymentSettled
+    evidence:
+      - e1
+      - e2
+  - op: add
+    kind: action
+    value:
+      id: view-order
+      title: View order details
+      kind: read
+      run: admin.view_order
+    evidence:
+      - e2
+      - e8
+  - op: add
+    kind: permit
+    value:
+      id: support-views-order
+      title: Support views order details in the back office
+      action: view-order
+      by:
+        - support
+      states:
+        - payment-authorized
+        - payment-settled
+    evidence:
+      - e2
+      - e8
+findings:
+  - kind: question
+    note: In PaymentAuthorized the back office shows support an enabled 'Settle payment' button. Clicking it is rejected on the server ('You are not authorized to access "settlePayment"'), and the admin UI then logs the user out. The order stays PaymentAuthorized with payment Authorized. Support does not have the settle-payment permission, which matches the closed-world model, but the UI offers an action the role can't perform, and the error kills the session. Should the button be hidden for support?
+    refs:
+      - payment-authorized
+    evidence:
+      - e8
+      - e9
+      - e10
+      - e11
+  - kind: question
+    note: "In PaymentSettled the 'Fulfill order' button is enabled for support and opens the fulfillment dialog. Clicking 'Create fulfillment' twice, with Method and Tracking code left empty, did nothing visible: no toast, the dialog stayed open, and the order stayed PaymentSettled with fulfillmentStates []. The inputs couldn't be filled because they have no accessible labels. It's not confirmed whether support may create fulfillments (a PaymentSettled -> Shipped/PartiallyShipped transition). Someone needs to check with filled fields or with the role's permissions."
+    refs:
+      - payment-settled
+    evidence:
+      - e3
+      - e4
+      - e5
+      - e6
+  - kind: gap
+    note: "In PaymentAuthorized, 'Fulfill order' is disabled for support. Support also sees 'Add note' (disabled until text is entered) and 'Assign order to another customer' in both states. I didn't exercise these: the note textbox has no label, and the session was lost. States not explored: AddingItems, ArrangingPayment, PartiallyShipped, Shipped, PartiallyDelivered, Delivered, Cancelled, Draft. After the forbidden settlePayment call the session was logged out, and the login form inputs (Username/Password) have no label or test id the tool can fill, so I couldn't log back in."
+    refs:
+      - payment-authorized
+      - payment-settled
+    evidence:
+      - e2
+      - e8
+      - e12
+status: pending
+decisions: []

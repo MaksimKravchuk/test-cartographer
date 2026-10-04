@@ -1,0 +1,143 @@
+- link:
+  - /url: /admin/
+  - img
+- navigation:
+  - text: Sales
+  - link "Orders Orders":
+    - /url: /admin/orders
+    - img "Orders"
+    - text: Orders
+  - text: Customers
+  - link "Customers Customers":
+    - /url: /admin/customer/customers
+    - img "Customers"
+    - text: Customers
+  - text: Marketing
+  - link "Promotions Promotions":
+    - /url: /admin/marketing/promotions
+    - img "Promotions"
+    - text: Promotions
+- separator
+- navigation:
+  - text: Settings
+  - button "Expand entries":
+    - img "Expand entries"
+- text: v3.7.3
+- navigation:
+  - list:
+    - listitem "Dashboard":
+      - link "Dashboard":
+        - /url: /admin/
+      - img
+    - listitem "Orders":
+      - link "Orders":
+        - /url: /admin/orders
+      - img
+    - listitem "Draft order"
+- button:
+  - img
+- button "Olga Manager":
+  - img
+  - text: Olga Manager
+  - img
+- heading "Draft order" [level=1]
+- text: Draft
+- button "Complete draft" [disabled]:
+  - img
+  - text: Complete draft
+- button:
+  - img
+- heading "Add item to order" [level=4]
+- text: Search by product name or SKU
+- combobox
+- status
+- table:
+  - rowgroup:
+    - row "Image Product name Product variant SKU Unit price Quantity Total":
+      - columnheader "Image"
+      - columnheader "Product name"
+      - columnheader "Product variant"
+      - columnheader "SKU"
+      - columnheader "Unit price"
+      - columnheader "Quantity"
+      - columnheader "Total"
+      - columnheader:
+        - button "Select table columns":
+          - img
+  - rowgroup:
+    - row "Wireless Optical Mouse Wireless Optical Mouse 834444 $22.79 $18.99 $22.79 $18.99":
+      - cell:
+        - img
+      - cell "Wireless Optical Mouse":
+        - link "Wireless Optical Mouse":
+          - /url: /admin/catalog/products/3
+          - text: Wireless Optical Mouse
+          - img
+      - cell "Wireless Optical Mouse":
+        - link "Wireless Optical Mouse":
+          - /url: /admin/catalog/products/3/variants/7
+          - text: Wireless Optical Mouse
+          - img
+      - cell "834444"
+      - cell "$22.79 $18.99"
+      - cell:
+        - spinbutton: "1"
+        - button:
+          - img
+      - cell "$22.79 $18.99"
+      - cell
+    - row "Sub total $22.79 $18.99":
+      - cell "Sub total"
+      - cell
+      - cell "$22.79 $18.99"
+      - cell
+    - row "Shipping $0.00 $0.00":
+      - cell "Shipping"
+      - cell
+      - cell "$0.00 $0.00"
+      - cell
+    - row "Total $22.79 $18.99":
+      - cell "Total"
+      - cell
+      - cell "$22.79 $18.99"
+      - cell
+- text: Tax summary
+- table:
+  - rowgroup:
+    - row "Description Tax rate Tax base Tax total":
+      - columnheader "Description"
+      - columnheader "Tax rate"
+      - columnheader "Tax base"
+      - columnheader "Tax total"
+  - rowgroup:
+    - row "Standard Tax Europe 20% $18.99 $3.80":
+      - cell "Standard Tax Europe"
+      - cell "20%"
+      - cell "$18.99"
+      - cell "$3.80"
+- text: Customer
+- img
+- button "Set customer"
+- text: Billing address
+- img
+- list
+- button "Set billing address"
+- text: Shipping
+- img
+- list
+- button "Set shipping address"
+- button "Set shipping method"
+- button "Set coupon codes"
+- text: "ID: 54 Created at: 10/4/26, 5:56 AM Updated at: 10/4/26, 5:56 AM"
+- dialog "Set customer":
+  - text: Beginning of Modal Content
+  - heading "Set customer" [level=3]
+  - tablist:
+    - tab "Existing customer" [selected]
+    - tab "Create new customer"
+  - tabpanel "Existing customer":
+    - combobox
+    - status
+  - button "Cancel"
+  - button "Okay" [disabled]
+  - text: End of Modal Content

@@ -1,0 +1,307 @@
+id: 2026-10-04-06-05-24-support-explorer
+entity: order
+agent: support-explorer
+role: support
+createdAt: 2026-10-04T06:07:35.435Z
+baseRevision: 03860b80ef9f
+rationale: "I explored as Support in the admin back office, using orders created with vendure.create_order in every main state (and checked each one with read()). Support can open the orders list and order details. That includes lines, totals, tax, history, customer, shipping address, payments and fulfilments. Every write I tried was rejected by the server with \"not currently authorized\", and each rejection signed Support out. The order state never changed (checked with read() after each attempt). Rejected actions: settlePayment (e5), addNoteToOrder (e8), cancelOrder (e12), transitionOrderToState (e16), addFulfillmentToOrder (e23) and transitionFulfillmentToState / Mark as Delivered (e32). So for Support the only thing I'm proposing is a read permit. I'm also adding the order states (matched on the `state` field from read()) so the permit and later work can refer to them. The model is closed-world, so I'm not proposing the denied writes. The UI still shows these controls to Support, so I'm raising that as a question."
+evidence:
+  - id: e1
+    kind: screenshot
+    summary: Orders list as support
+    path: evidence/2026-10-04-06-05-24-support-explorer/e1.png
+    url: http://localhost:3000/admin/orders
+  - id: e2
+    kind: probe
+    summary: "read 62: {}"
+    path: evidence/2026-10-04-06-05-24-support-explorer/e2.json
+  - id: e3
+    kind: screenshot
+    summary: Order 62 PaymentAuthorized detail as support
+    path: evidence/2026-10-04-06-05-24-support-explorer/e3.png
+    url: http://localhost:3000/admin/orders/62
+  - id: e4
+    kind: screenshot
+    summary: Order actions menu on PaymentAuthorized
+    path: evidence/2026-10-04-06-05-24-support-explorer/e4.png
+    url: http://localhost:3000/admin/orders/62
+  - id: e5
+    kind: screenshot
+    summary: After clicking Settle payment
+    path: evidence/2026-10-04-06-05-24-support-explorer/e5.png
+    url: http://localhost:3000/admin/login?redirectTo=L29yZGVycy82Mg%3D%3D
+  - id: e6
+    kind: probe
+    summary: "read 62: {}"
+    path: evidence/2026-10-04-06-05-24-support-explorer/e6.json
+  - id: e7
+    kind: screenshot
+    summary: Order 62 reopened
+    path: evidence/2026-10-04-06-05-24-support-explorer/e7.png
+    url: http://localhost:3000/admin/orders/62
+  - id: e8
+    kind: screenshot
+    summary: After Add note
+    path: evidence/2026-10-04-06-05-24-support-explorer/e8.png
+    url: http://localhost:3000/admin/login?redirectTo=L29yZGVycy82Mg%3D%3D
+  - id: e9
+    kind: screenshot
+    summary: Order 62 after re-login
+    path: evidence/2026-10-04-06-05-24-support-explorer/e9.png
+    url: http://localhost:3000/admin/orders/62
+  - id: e10
+    kind: screenshot
+    summary: Cancel order dialog
+    path: evidence/2026-10-04-06-05-24-support-explorer/e10.png
+    url: http://localhost:3000/admin/orders/62
+  - id: e11
+    kind: probe
+    summary: "read 62: {}"
+    path: evidence/2026-10-04-06-05-24-support-explorer/e11.json
+  - id: e12
+    kind: screenshot
+    summary: After attempting Cancel selected items
+    path: evidence/2026-10-04-06-05-24-support-explorer/e12.png
+    url: http://localhost:3000/admin/login?redirectTo=L29yZGVycy82Mg%3D%3D
+  - id: e13
+    kind: screenshot
+    summary: Order 62 page
+    path: evidence/2026-10-04-06-05-24-support-explorer/e13.png
+    url: http://localhost:3000/admin/orders/62
+  - id: e14
+    kind: screenshot
+    summary: Manual transition dialog
+    path: evidence/2026-10-04-06-05-24-support-explorer/e14.png
+    url: http://localhost:3000/admin/orders/62
+  - id: e15
+    kind: probe
+    summary: "read 62: {}"
+    path: evidence/2026-10-04-06-05-24-support-explorer/e15.json
+  - id: e16
+    kind: screenshot
+    summary: After manual transition attempt
+    path: evidence/2026-10-04-06-05-24-support-explorer/e16.png
+    url: http://localhost:3000/admin/login?redirectTo=L29yZGVycy82Mg%3D%3D
+  - id: e17
+    kind: probe
+    summary: "read 66: {}"
+    path: evidence/2026-10-04-06-05-24-support-explorer/e17.json
+  - id: e18
+    kind: screenshot
+    summary: PaymentSettled order 66 as support
+    path: evidence/2026-10-04-06-05-24-support-explorer/e18.png
+    url: http://localhost:3000/admin/orders/66
+  - id: e19
+    kind: screenshot
+    summary: Fulfill order dialog
+    path: evidence/2026-10-04-06-05-24-support-explorer/e19.png
+    url: http://localhost:3000/admin/orders/66
+  - id: e20
+    kind: probe
+    summary: "read 66: {}"
+    path: evidence/2026-10-04-06-05-24-support-explorer/e20.json
+  - id: e21
+    kind: screenshot
+    summary: After Create fulfillment attempt
+    path: evidence/2026-10-04-06-05-24-support-explorer/e21.png
+    url: http://localhost:3000/admin/orders/66
+  - id: e22
+    kind: probe
+    summary: "read 66: {}"
+    path: evidence/2026-10-04-06-05-24-support-explorer/e22.json
+  - id: e23
+    kind: screenshot
+    summary: After Create fulfillment with method filled
+    path: evidence/2026-10-04-06-05-24-support-explorer/e23.png
+    url: http://localhost:3000/admin/login?redirectTo=L29yZGVycy82Ng%3D%3D
+  - id: e24
+    kind: probe
+    summary: "read 76: {}"
+    path: evidence/2026-10-04-06-05-24-support-explorer/e24.json
+  - id: e25
+    kind: probe
+    summary: "read 77: {}"
+    path: evidence/2026-10-04-06-05-24-support-explorer/e25.json
+  - id: e26
+    kind: probe
+    summary: "read 78: {}"
+    path: evidence/2026-10-04-06-05-24-support-explorer/e26.json
+  - id: e27
+    kind: probe
+    summary: "read 79: {}"
+    path: evidence/2026-10-04-06-05-24-support-explorer/e27.json
+  - id: e28
+    kind: probe
+    summary: "read 80: {}"
+    path: evidence/2026-10-04-06-05-24-support-explorer/e28.json
+  - id: e29
+    kind: probe
+    summary: "read 81: {}"
+    path: evidence/2026-10-04-06-05-24-support-explorer/e29.json
+  - id: e30
+    kind: screenshot
+    summary: Shipped order 76 as support
+    path: evidence/2026-10-04-06-05-24-support-explorer/e30.png
+    url: http://localhost:3000/admin/orders/76
+  - id: e31
+    kind: probe
+    summary: "read 76: {}"
+    path: evidence/2026-10-04-06-05-24-support-explorer/e31.json
+  - id: e32
+    kind: screenshot
+    summary: After Mark as Delivered attempt
+    path: evidence/2026-10-04-06-05-24-support-explorer/e32.png
+    url: http://localhost:3000/admin/login?redirectTo=L29yZGVycy83Ng%3D%3D
+ops:
+  - op: add
+    kind: state
+    value:
+      id: adding-items
+      title: Adding items
+      match:
+        state: AddingItems
+    evidence:
+      - e28
+      - e1
+  - op: add
+    kind: state
+    value:
+      id: arranging-payment
+      title: Arranging payment
+      match:
+        state: ArrangingPayment
+    evidence:
+      - e29
+  - op: add
+    kind: state
+    value:
+      id: payment-authorized
+      title: Payment authorized
+      match:
+        state: PaymentAuthorized
+    evidence:
+      - e2
+      - e3
+  - op: add
+    kind: state
+    value:
+      id: payment-settled
+      title: Payment settled
+      match:
+        state: PaymentSettled
+    evidence:
+      - e17
+      - e18
+  - op: add
+    kind: state
+    value:
+      id: shipped
+      title: Shipped
+      match:
+        state: Shipped
+    evidence:
+      - e24
+      - e30
+  - op: add
+    kind: state
+    value:
+      id: delivered
+      title: Delivered
+      match:
+        state: Delivered
+    evidence:
+      - e27
+  - op: add
+    kind: state
+    value:
+      id: cancelled
+      title: Cancelled
+      match:
+        state: Cancelled
+    evidence:
+      - e26
+      - e1
+  - op: add
+    kind: state
+    value:
+      id: draft
+      title: Draft
+      match:
+        state: Draft
+    evidence:
+      - e25
+      - e1
+  - op: add
+    kind: action
+    value:
+      id: view-order
+      title: View order
+      kind: read
+      run: admin.view_order
+    evidence:
+      - e1
+      - e3
+      - e18
+      - e30
+  - op: add
+    kind: permit
+    value:
+      id: support-views-order
+      title: Support views order in back office
+      action: view-order
+      by:
+        - support
+      states:
+        - adding-items
+        - payment-authorized
+        - payment-settled
+        - shipped
+        - cancelled
+        - draft
+    evidence:
+      - e1
+      - e3
+      - e18
+      - e30
+findings:
+  - kind: question
+    note: "The back office shows Support write controls on an order: Settle payment, an enabled Fulfill order (on Payment settled), Cancel order or items, Manually transition to state, Add note, Mark as Delivered, plus Modify order and Assign customer (these two I didn't try). The server rejects every write I tried with 'not currently authorized' and signs the Support user out. Should these controls be hidden or disabled for Support (a UI bug)? Or was Support meant to have some of these rights, e.g. adding notes for customer care?"
+    refs:
+      - support
+      - view-order
+    evidence:
+      - e4
+      - e5
+      - e8
+      - e12
+      - e16
+      - e19
+      - e23
+      - e32
+  - kind: gap
+    note: I didn't open detail pages as Support for Arranging payment, Delivered, Partially shipped or Partially delivered orders, so the read permit leaves out arranging-payment and delivered. Partially shipped and Partially delivered (listed by the setup tool) have no states proposed. The manual-transition dialog also lists Modifying and Arranging additional payment, which aren't modelled. Read access in these states is probably the same as elsewhere, but I haven't confirmed it.
+    refs:
+      - support-views-order
+    evidence:
+      - e14
+      - e27
+      - e29
+  - kind: question
+    note: A forbidden action ends the whole Support session (it redirects to login and says the session may have expired) instead of showing an inline permission error. Is this intended?
+    evidence:
+      - e5
+      - e8
+      - e12
+status: decided
+decisions:
+  - op: 0
+    verdict: accept
+  - op: 1
+    verdict: accept
+  - op: 7
+    verdict: accept
+  - op: 8
+    verdict: accept
+  - op: 9
+    verdict: accept
+decidedAt: 2026-10-04T06:09:27.868Z

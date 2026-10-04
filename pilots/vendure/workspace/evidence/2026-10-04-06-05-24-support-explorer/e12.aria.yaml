@@ -1,0 +1,15 @@
+- generic [ref=f6e2]:
+  - generic [ref=f6e408]:
+    - generic [ref=f6e409]: Hi! Welcome back. Good to see you.
+    - generic [ref=f6e412]:
+      - paragraph [ref=f6e413]: Log in to Vendure
+      - generic [ref=f6e415]:
+        - textbox "Username" [ref=f6e416]
+        - textbox "Password" [ref=f6e417]
+        - img "Error" [ref=f6e422]
+        - generic [ref=f6e427]:
+          - checkbox "Remember me" [ref=f6e428]
+          - generic [ref=f6e429]: Remember me
+        - button "Log in" [disabled] [ref=f6e431]
+  - generic: You are not currently authorized to access "cancelOrder". Either you lack permissions, or your session has expired.
+  - generic: Could not connect to the Vendure server at auto:auto

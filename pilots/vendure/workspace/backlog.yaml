@@ -1,0 +1,295 @@
+epics:
+  - id: orders
+    title: Заказы
+    description: Оплата, отгрузка, отмена и черновики заказов (In Progress)
+    key: SHOP-100
+    status: confirmed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-10-04-05-55-12-onboarding
+      evidence:
+        - e18
+      sources:
+        - jira
+  - id: roles_access
+    title: Роли и доступы
+    description: Роли бэк-офиса и их права (Done)
+    key: SHOP-200
+    status: confirmed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-10-04-05-55-12-onboarding
+      evidence:
+        - e19
+      sources:
+        - jira
+  - id: post_sale
+    title: Постпродажа
+    description: Возвраты и всё после отгрузки (Backlog)
+    key: SHOP-300
+    status: confirmed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-10-04-05-55-12-onboarding
+      evidence:
+        - e20
+      sources:
+        - jira
+features:
+  - id: order_payment
+    title: Оплата заказа
+    description: Покупатель оплачивает заказ (карта — заморозка, предоплаченная
+      карта — сразу списание); менеджер списывает замороженные деньги.
+    epic: orders
+    actions:
+      - order.pay-order
+      - order.settle-payment
+    status: confirmed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-10-04-05-55-12-onboarding
+      evidence:
+        - e21
+        - e22
+      sources:
+        - jira
+  - id: order_shipping
+    title: Отгрузка заказа
+    description: Менеджер создаёт отправление, отмечает отправку и доставку.
+    epic: orders
+    actions:
+      - order.create-fulfillment
+      - order.mark-shipped
+      - order.mark-delivered
+    status: confirmed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-10-04-05-55-12-onboarding
+      evidence:
+        - e23
+      sources:
+        - jira
+  - id: order_cancellation
+    title: Отмена заказа
+    description: Отмена заказа до отгрузки.
+    epic: orders
+    actions:
+      - order.cancel-order
+      - order.refund-and-cancel
+    status: confirmed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-10-04-05-55-12-onboarding
+      evidence:
+        - e24
+        - e25
+      sources:
+        - jira
+  - id: order_access
+    title: Доступ к заказам по ролям
+    description: Кто может просматривать заказы в админке.
+    epic: roles_access
+    actions:
+      - order.view-order
+    status: confirmed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-10-04-05-55-12-onboarding
+      evidence:
+        - e26
+        - e34
+      sources:
+        - jira
+        - qa-stand
+stories:
+  - id: shop_101
+    title: Оплата заказа картой
+    text: Покупатель оплачивает заказ на шаге оплаты. По карте деньги сначала
+      замораживаются, списывает менеджер вручную в админке.
+    acceptance:
+      - Покупатель оплачивает заказ картой на шаге оплаты — деньги
+        замораживаются (заказ в состоянии «оплата авторизована»)
+      - Менеджер в админке вручную списывает замороженные деньги — заказ
+        переходит в «Оплачен»
+      - Списать оплату может только менеджер заказов
+    feature: order_payment
+    epic: orders
+    key: SHOP-101
+    trackerStatus: Done
+    covers:
+      - transition:order.buyer-pays-order
+      - transition:order.settle-authorized-payment
+    status: confirmed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-10-04-05-55-12-onboarding
+      evidence:
+        - e21
+      sources:
+        - jira
+  - id: shop_102
+    title: Предоплаченная карта как способ оплаты
+    text: Деньги списываются сразу при оплате.
+    acceptance:
+      - Покупатель оплачивает заказ предоплаченной картой — деньги списываются
+        сразу, заказ сразу в «Оплачен» без ручного списания
+    feature: order_payment
+    epic: orders
+    key: SHOP-102
+    trackerStatus: Done
+    covers: []
+    status: confirmed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-10-04-05-55-12-onboarding
+      evidence:
+        - e22
+      sources:
+        - jira
+  - id: shop_110
+    title: Отгрузка заказа
+    text: Менеджер создаёт отправление, отмечает что отправлено, потом что
+      доставлено.
+    acceptance:
+      - Менеджер создаёт отправление и отмечает его отправленным — заказ в
+        «Отправлен»
+      - Менеджер отмечает доставку — заказ в «Доставлен»
+      - Отгрузить можно только оплаченный заказ
+    feature: order_shipping
+    epic: orders
+    key: SHOP-110
+    trackerStatus: Done
+    covers:
+      - permit:order.fulfill-settled-order
+      - transition:order.ship-settled-order
+      - transition:order.deliver-shipped-order
+    status: confirmed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-10-04-05-55-12-onboarding
+      evidence:
+        - e23
+      sources:
+        - jira
+  - id: shop_120
+    title: Отмена заказа менеджером
+    text: Менеджер может отменить заказ до отгрузки. После отгрузки только через
+      возврат.
+    acceptance:
+      - Менеджер отменяет заказ до отгрузки — заказ в «Отменён»
+      - После отгрузки отменить заказ нельзя (только через возврат)
+    feature: order_cancellation
+    epic: orders
+    key: SHOP-120
+    trackerStatus: Done
+    covers:
+      - transition:order.cancel-authorized-order
+      - transition:order.refund-cancel-delivered-order
+    status: confirmed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-10-04-05-55-12-onboarding
+      evidence:
+        - e24
+      sources:
+        - jira
+  - id: shop_121
+    title: Покупатель отменяет заказ из личного кабинета
+    text: Пока нет, покупатель пишет в поддержку.
+    acceptance:
+      - Покупатель может отменить свой заказ из личного кабинета (не реализовано)
+    feature: order_cancellation
+    epic: orders
+    key: SHOP-121
+    trackerStatus: To Do
+    covers: []
+    status: confirmed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-10-04-05-55-12-onboarding
+      evidence:
+        - e25
+      sources:
+        - jira
+  - id: shop_130
+    title: Роль поддержки
+    text: Только просмотр заказов и клиентов.
+    acceptance:
+      - Поддержка видит заказы в админке
+      - Поддержка не может менять заказы (оплата, отгрузка, отмена ей недоступны)
+    feature: order_access
+    epic: roles_access
+    key: SHOP-130
+    trackerStatus: Done
+    covers:
+      - permit:order.support-views-order
+    status: confirmed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-10-04-05-55-12-onboarding
+      evidence:
+        - e26
+      sources:
+        - jira
+  - id: shop_140
+    title: Черновики заказов
+    acceptance: []
+    epic: orders
+    key: SHOP-140
+    trackerStatus: Done
+    covers: []
+    status: confirmed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-10-04-05-55-12-onboarding
+      evidence:
+        - e27
+      sources:
+        - jira
+  - id: shop_112
+    title: Частичная отгрузка
+    acceptance: []
+    feature: order_shipping
+    epic: orders
+    key: SHOP-112
+    trackerStatus: Done
+    covers: []
+    status: confirmed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-10-04-05-55-12-onboarding
+      evidence:
+        - e29
+      sources:
+        - jira
+  - id: shop_150
+    title: Возвраты (RMA)
+    acceptance: []
+    epic: post_sale
+    key: SHOP-150
+    trackerStatus: Backlog
+    covers: []
+    status: confirmed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-10-04-05-55-12-onboarding
+      evidence:
+        - e28
+      sources:
+        - jira

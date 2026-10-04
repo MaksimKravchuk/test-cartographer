@@ -1,0 +1,15 @@
+- generic [ref=f10e2]:
+  - generic [ref=f10e439]:
+    - generic [ref=f10e440]: Hi! Welcome back. Good to see you.
+    - generic [ref=f10e443]:
+      - paragraph [ref=f10e444]: Log in to Vendure
+      - generic [ref=f10e446]:
+        - textbox "Username" [ref=f10e447]
+        - textbox "Password" [ref=f10e448]
+        - img "Error" [ref=f10e453]
+        - generic [ref=f10e458]:
+          - checkbox "Remember me" [ref=f10e459]
+          - generic [ref=f10e460]: Remember me
+        - button "Log in" [disabled] [ref=f10e462]
+  - generic: You are not currently authorized to access "addFulfillmentToOrder". Either you lack permissions, or your session has expired.
+  - generic: Could not connect to the Vendure server at auto:auto
