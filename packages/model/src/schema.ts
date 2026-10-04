@@ -475,7 +475,9 @@ export const ElementOpKind = z.enum(['variant', 'state', 'action', 'transition',
 // Project-level op kinds patch the project or the backlog — a proposal with no
 // `entity` (see Proposal below) is a project-level proposal.
 export const ProjectOpKind = z.enum(['role', 'interface', 'entity', 'epic', 'feature', 'story']);
-const Kind = z.union([ElementOpKind, ProjectOpKind]);
+// One flat enum rather than a union of the two: an agent sees a single list of
+// kinds in the tool's JSON Schema, and a wrong kind gets "expected one of …".
+const Kind = z.enum([...ElementOpKind.options, ...ProjectOpKind.options]);
 
 export const Op = z.discriminatedUnion('op', [
   z.object({ op: z.literal('add'), kind: Kind, value: z.record(z.string(), z.unknown()), evidence: z.array(z.string()).default([]) }),

@@ -5,7 +5,7 @@
 // uploaded, and every operation must cite an exact quote from it.
 import { z } from 'zod';
 import { checkRoles, Finding, Op, Proposal, redactFields, resolveRuntime, type AgentSpec, type Evidence, type Workspace } from '@tc/model';
-import { runAgent, type Tool } from './runtime.ts';
+import { listOf, runAgent, type Tool } from './runtime.ts';
 
 export type OnboardOptions = {
   onLog?: (line: string) => void;
@@ -21,6 +21,9 @@ const DEFAULT_AGENT: Pick<AgentSpec, 'id' | 'title' | 'kind' | 'goal' | 'script'
   kind: 'onboard',
   goal: 'Read the uploaded knowledge sources and propose the first SOAR map and backlog.',
 };
+
+// One group of a propose() call: the project's, or one entity's.
+const ProposalGroup = z.object({ ops: listOf(Op).default([]), findings: listOf(Finding).default([]) });
 
 const collapse = (s: string) => s.trim().replace(/\s+/g, ' ');
 const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -185,12 +188,8 @@ export async function onboard(ws: Workspace, agentId: string | undefined, opts: 
       description: 'Finish onboarding: submit one project-level proposal and/or one per entity. Call exactly once.',
       input: z.object({
         rationale: z.string(),
-        project: z
-          .object({ ops: z.array(z.record(z.string(), z.unknown())).default([]), findings: z.array(z.record(z.string(), z.unknown())).default([]) })
-          .optional(),
-        entities: z
-          .record(z.string(), z.object({ ops: z.array(z.record(z.string(), z.unknown())).default([]), findings: z.array(z.record(z.string(), z.unknown())).default([]) }))
-          .optional(),
+        project: ProposalGroup.optional(),
+        entities: z.record(z.string(), ProposalGroup).optional(),
       }),
       run: async (input: {
         rationale: string;
