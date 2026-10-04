@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import type { AgentProvider, AgentSpec, Effort, Project, RuntimeOverride } from '@tc/model';
 // schema.ts only: the package index pulls in Node-only workspace.ts (see AccessMatrix.tsx).
@@ -22,6 +22,29 @@ const efforts: Effort[] = ['low', 'medium', 'high', 'xhigh', 'max'];
 type TestRun = { jobId: string; log: string[]; done?: { ok: boolean; seconds: number }; error?: string };
 // A sign-in in progress (Cursor only): its log carries the login page URL.
 type SignIn = { jobId: string; log: string[]; error?: string };
+
+// The cards of one kind (`test` or `login`) lined up with the engine's job list:
+// a job still running gets picked up — say one started before this page was
+// opened; its earlier log lines are gone — and a card whose job ended while
+// the event stream was down lets go of it, since no event will say so now.
+// (A SignIn is a TestRun that never has `done`.)
+function lineUp(
+  cards: Partial<Record<AgentProvider, TestRun>>,
+  kind: 'test' | 'login',
+  jobs: ProjectState['jobs'],
+  ended: Set<string>,
+): Partial<Record<AgentProvider, TestRun>> {
+  const next = { ...cards };
+  for (const p of providers) {
+    const card = next[p];
+    const live = !!card && !card.done && !card.error;
+    const gone = live && jobs.some((j) => j.id === card.jobId && j.state !== 'running');
+    if (gone) next[p] = undefined;
+    const running = jobs.find((j) => j.kind === `${kind}:${p}` && j.state === 'running' && !ended.has(j.id));
+    if (running && (!live || gone)) next[p] = { jobId: running.id, log: [] };
+  }
+  return next;
+}
 
 // Drops empty keys so a runtime override that's been cleared back to nothing
 // goes back to `undefined` rather than lingering as `{}`.
@@ -74,10 +97,24 @@ export function AgentsView({ project, onSaved, onError }: Props) {
   // returns: the first log lines can arrive before that response does.
   const [tests, setTests] = useState<Partial<Record<AgentProvider, TestRun>>>({});
   const [signIns, setSignIns] = useState<Partial<Record<AgentProvider, SignIn>>>({});
+  // Jobs this page has seen end. A job list fetched around the same moment can
+  // still call one of them running; it mustn't bring its card back.
+  const ended = useRef(new Set<string>());
+  // Each time the event stream (re)opens — every later change then arrives as
+  // an event — line the cards up with the engine's jobs.
+  const syncJobs = () =>
+    api
+      .project()
+      .then(({ jobs }) => {
+        setTests((t) => lineUp(t, 'test', jobs, ended.current));
+        setSignIns((s) => lineUp(s, 'login', jobs, ended.current));
+      })
+      .catch((e) => onError((e as Error).message));
   useEffect(
     () =>
       subscribe((e) => {
         if (e.type !== 'log' && e.type !== 'job') return;
+        if (e.type === 'job' && e.state !== 'running') ended.current.add(e.job);
         const login = providers.find((p) => e.job.startsWith(`login:${p}-`));
         if (login) {
           if (e.type === 'job' && e.state === 'done') loadRuntimes();
@@ -105,32 +142,13 @@ export function AgentsView({ project, onSaved, onError }: Props) {
             [provider]: e.state === 'done' ? { ...run, done: e.result as { ok: boolean; seconds: number } } : { ...run, error: e.error ?? 'Job failed' },
           };
         });
-      }),
+      }, syncJobs),
     [],
   );
 
-  // A test or sign-in started before this page was opened (or before the user
-  // left it and came back) is still running in the engine: pick it up so its
-  // card shows it and can stop it. Its earlier log lines are gone.
-  useEffect(() => {
-    api
-      .project()
-      .then(({ jobs }) => {
-        for (const j of jobs) {
-          const m = /^(test|login):(\w+)$/.exec(j.kind);
-          const provider = providers.find((p) => p === m?.[2]);
-          if (j.state !== 'running' || !m || !provider) continue;
-          const pickedUp = { jobId: j.id, log: [] };
-          if (m[1] === 'test') setTests((t) => (t[provider] ? t : { ...t, [provider]: pickedUp }));
-          else setSignIns((s) => (s[provider] ? s : { ...s, [provider]: pickedUp }));
-        }
-      })
-      .catch((e) => onError((e as Error).message));
-  }, []);
-
   const stop = (jobId: string) => api.cancel(jobId).catch((e) => onError((e as Error).message));
 
-  const modelsFor =(provider: AgentProvider, current: string | undefined) => {
+  const modelsFor = (provider: AgentProvider, current: string | undefined) => {
     const models = runtimes?.find((r) => r.provider === provider)?.models ?? [];
     return current && !models.some((m) => m.id === current) ? [...models, { id: current, title: current }] : models;
   };

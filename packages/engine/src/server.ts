@@ -463,6 +463,10 @@ export function createApp(initial: Workspace) {
       stream.onAbort(() => {
         listeners.delete(send);
       });
+      // A first ping right away: a proxy that holds the response until its
+      // first byte (Vite's dev proxy) would otherwise delay the client's
+      // `open` — which it reads the job list on — until the next ping.
+      await stream.writeSSE({ event: 'ping', data: '' });
       while (!stream.aborted) await stream.sleep(15_000).then(() => stream.writeSSE({ event: 'ping', data: '' }));
     }),
   );
