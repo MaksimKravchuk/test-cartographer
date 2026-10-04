@@ -86,6 +86,10 @@ transitions:
 permits:
   - { id: view-order,  by: [manager, support], states: all placed, ui: admin order page }
   - { id: view-own-order, by: [buyer], states: all placed, ui: storefront account → order history }
+  # Found by the generated deny matrix, missed by every agent and by the first version of
+  # this file: Vendure's DefaultOrderByCodeAccessStrategy('2h') lets anyone who is not
+  # signed in open any order by its code for two hours after it was placed.
+  - { id: view-order-by-code, by: [guest], states: all placed, within: 2h of placement, ui: storefront /checkout/confirmation/<code> }
   - { id: add-note,    by: [manager], states: all placed, ui: admin "Add note" }
   - { id: delete-draft, by: [manager], states: [Draft], ui: admin ⋮ "Delete draft" }
 
