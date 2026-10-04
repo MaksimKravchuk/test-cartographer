@@ -272,6 +272,9 @@ importers:
 
   pilots/vendure/oracle:
     dependencies:
+      '@tc/model':
+        specifier: workspace:*
+        version: link:../../../packages/model
       yaml:
         specifier: ^2.8.0
         version: 2.9.1

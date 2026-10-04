@@ -3,6 +3,12 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "scripts": { "score": "node score.ts" },
-  "dependencies": { "yaml": "^2.8.0" }
+  "scripts": {
+    "score": "node score.ts",
+    "deny": "node deny.ts"
+  },
+  "dependencies": {
+    "yaml": "^2.8.0",
+    "@tc/model": "workspace:*"
+  }
 }
