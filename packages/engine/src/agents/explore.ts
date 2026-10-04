@@ -18,7 +18,8 @@ export type ExploreOptions = {
   signal?: AbortSignal;
 };
 
-const MAX_TEXT = 12_000;
+// A real back-office page with refs runs to 10–15k characters.
+const MAX_TEXT = 20_000;
 const clip = (s: string) => (s.length > MAX_TEXT ? s.slice(0, MAX_TEXT) + '\n…(truncated)' : s);
 
 // roleTitle is how the prose names the role; roleId is what the model's `by` references.
@@ -42,7 +43,10 @@ Rules:
 - Prepare data only via prepare(); available setup tools: ${p.prepare.join(', ') || 'none'}. Verify every instance with read().
 - You may open only pages of your own interface (open takes a path relative to baseUrl).
 ${p.contracts.length ? `- Available contracts: ${p.contracts.join(', ')}.` : ''}
-- You are already signed in as your role, if it has a sign-in. To type into a form, use fill().
+- You are already signed in as your role, if it has a sign-in. If the app signs you out, call login().
+- snapshot() marks elements with [ref=…]. Pass a ref to click(), fill() or select() to reach what has no test id
+  or accessible name — an icon-only menu button, an input whose label isn't tied to it. Refs go stale when the
+  page changes: snapshot() again before using new ones.
 - When the exploration is done, call propose() exactly once.
 ${p.data ? `
 Data a person attached to subjects (roles) and objects (entities) — logins, test values, notes. Use it where an
@@ -59,7 +63,8 @@ Element shapes for ops (op=add, value):
   actions/ library), together with the transition or permit op(s) that use it.
 - transition: { id, title, from, to, action: "<action id>", by: ["${p.roleId}"], variants?: [id], guards?: [text], effects?: [{ description, field?, equals? }] }
   \`action\` refers to an action op's id (new or existing), \`by\` lists every role that may perform it — by role id
-  (the ids model() lists under roles), never by title.
+  (the ids model() lists under roles), never by title. An action that creates the entity is a transition
+  from "@new" to the state the new instance starts in.
 - permit: { id, title, action: "<action id>", by: ["${p.roleId}"], states?: [id], variants?: [id], effects?: [...] }
   Use a permit instead of a transition for an action that leaves the state as it is (read, update, a command with no state change).
 For op=update: { kind, id, set: { fields } }. For op=remove: { kind, id }.`;
@@ -102,10 +107,13 @@ export async function explore(ws: Workspace, agentId: string, opts: ExploreOptio
   const origin = new URL(iface.baseUrl).origin;
   const base = iface.baseUrl.replace(/\/$/, '');
 
-  // The agent explores as a signed-in user when its role has a login.
-  if (role.login) {
-    const login = (await loadActions(ws))[role.login.action];
-    if (!login) throw new Error(`Login action “${role.login.action}” is not in the actions/ library`);
+  // The agent explores as a signed-in user when its role has a login. An app
+  // may sign the user out mid-run (a forbidden call, an expired session), so the
+  // agent can ask for it again with login().
+  const login = role.login ? (await loadActions(ws))[role.login.action] : undefined;
+  if (role.login && !login) throw new Error(`Login action “${role.login.action}” is not in the actions/ library`);
+  const signIn = async () => {
+    if (!role.login || !login) return;
     log(`🔑 signing in as ${role.title}`);
     await login.run({
       page, role, iface, variant: '', key: '', entity: {}, related: {}, data,
@@ -114,7 +122,23 @@ export async function explore(ws: Workspace, agentId: string, opts: ExploreOptio
         await page.goto(base + path);
       },
     });
-  }
+  };
+  await signIn();
+
+  // A ref from the latest snapshot() ([ref=…]) reaches elements a test id or a
+  // role and name can't: an icon-only menu button, an input whose label isn't
+  // tied to it. Refs go stale once the page changes; snapshot() again for new ones.
+  const target = (t: { ref?: string; testId?: string; role?: string; name?: string; label?: string; placeholder?: string }) => {
+    if (t.ref) return page.locator(`aria-ref=${t.ref}`);
+    if (t.testId) return page.getByTestId(t.testId);
+    if (t.role) return page.getByRole(t.role as Parameters<Page['getByRole']>[0], t.name ? { name: t.name } : {});
+    if (t.label) return page.getByLabel(t.label);
+    if (t.placeholder) return page.getByPlaceholder(t.placeholder);
+    return null;
+  };
+  // Single-page apps render after `load`: let the network go quiet first, but
+  // don't wait on apps that poll forever.
+  const settle = () => page.waitForLoadState('networkidle', { timeout: 3_000 }).catch(() => {});
 
   const evidence: Evidence[] = [];
   const addEvidence = (e: Omit<Evidence, 'id'>) => {
@@ -181,11 +205,13 @@ export async function explore(ws: Workspace, agentId: string, opts: ExploreOptio
     },
     {
       name: 'snapshot',
-      description: 'Snapshot of the current page: URL, accessibility tree and button test ids. Saved as evidence (screenshot + snapshot).',
+      description:
+        'Snapshot of the current page: URL, accessibility tree with element refs ([ref=…]) and button test ids. Saved as evidence (screenshot + snapshot).',
       input: z.object({ note: z.string().optional().describe('What is visible on the page') }),
       run: async ({ note }) => {
         const n = evidence.length + 1;
-        const aria = scrub(await page.locator('body').ariaSnapshot());
+        await settle();
+        const aria = scrub((await page.ariaSnapshot({ mode: 'ai' })).replaceAll(' [cursor=pointer]', ''));
         const testIds = await page.$$eval('[data-testid]', (els) => els.map((e) => `${e.getAttribute('data-testid')}: ${(e.textContent ?? '').trim().slice(0, 60)}`));
         await page.screenshot({ path: ws.path(`${evidenceDir}/e${n}.png`), fullPage: true });
         await writeFile(ws.path(`${evidenceDir}/e${n}.aria.yaml`), aria);
@@ -195,13 +221,19 @@ export async function explore(ws: Workspace, agentId: string, opts: ExploreOptio
     },
     {
       name: 'click',
-      description: 'Click an element by data-testid (preferred) or by role and name.',
-      input: z.object({ testId: z.string().optional(), role: z.enum(['button', 'link']).optional(), name: z.string().optional() }),
-      run: async ({ testId, role: r, name }) => {
-        const loc = testId ? page.getByTestId(testId) : r && name ? page.getByRole(r, { name }) : null;
-        if (!loc) throw new Error('Provide testId or role+name');
+      description: 'Click an element by its ref from the latest snapshot, by data-testid, or by ARIA role and name.',
+      input: z.object({
+        ref: z.string().optional().describe('Element ref from the latest snapshot, e.g. "f1e42"'),
+        testId: z.string().optional(),
+        role: z.string().optional().describe('ARIA role: button, link, menuitem, tab, checkbox, radio, option…'),
+        name: z.string().optional(),
+      }),
+      run: async ({ ref, testId, role: r, name }) => {
+        const loc = target({ ref, testId, role: r, name });
+        if (!loc) throw new Error('Provide ref, testId or role (+ name)');
         await loc.first().click({ timeout: 5_000 });
         await page.waitForLoadState();
+        await settle();
         if (new URL(page.url()).origin !== origin) {
           await page.goBack();
           throw new Error('Navigation outside the interface was cancelled');
@@ -212,13 +244,52 @@ export async function explore(ws: Workspace, agentId: string, opts: ExploreOptio
     {
       name: 'fill',
       description:
-        'Type into an input by data-testid (preferred) or by its label. `value` may hold {{roles.<id>.<field>}} / {{entities.<id>.<field>}} references to data from your instructions — the engine types the real value.',
-      input: z.object({ testId: z.string().optional(), label: z.string().optional(), value: z.string() }),
-      run: async ({ testId, label, value }) => {
-        const loc = testId ? page.getByTestId(testId) : label ? page.getByLabel(label) : null;
-        if (!loc) throw new Error('Provide testId or label');
+        'Type into an input by its ref from the latest snapshot, data-testid, label or placeholder. `value` may hold {{roles.<id>.<field>}} / {{entities.<id>.<field>}} references to data from your instructions — the engine types the real value.',
+      input: z.object({
+        ref: z.string().optional(),
+        testId: z.string().optional(),
+        label: z.string().optional(),
+        placeholder: z.string().optional(),
+        value: z.string(),
+      }),
+      run: async ({ ref, testId, label, placeholder, value }) => {
+        const loc = target({ ref, testId, label, placeholder });
+        if (!loc) throw new Error('Provide ref, testId, label or placeholder');
         await loc.first().fill(template(value, data), { timeout: 5_000 });
-        return `filled ${testId ?? label}`;
+        return `filled ${ref ?? testId ?? label ?? placeholder}`;
+      },
+    },
+    {
+      name: 'select',
+      description:
+        'Pick an option of a native <select> by its ref, data-testid or label. For a custom dropdown, click() it open and click() the option instead.',
+      input: z.object({ ref: z.string().optional(), testId: z.string().optional(), label: z.string().optional(), option: z.string().describe('Option label or value') }),
+      run: async ({ ref, testId, label, option }) => {
+        const loc = target({ ref, testId, label });
+        if (!loc) throw new Error('Provide ref, testId or label');
+        const picked = await loc.first().selectOption(option, { timeout: 5_000 });
+        await settle();
+        return `selected ${picked.join(', ')}`;
+      },
+    },
+    {
+      name: 'press',
+      description: 'Press a key on the focused element, e.g. "Enter" to submit or "Escape" to close a menu or dialog.',
+      input: z.object({ key: z.string() }),
+      run: async ({ key: k }) => {
+        await page.keyboard.press(k);
+        await settle();
+        return `pressed ${k}, url: ${page.url()}`;
+      },
+    },
+    {
+      name: 'login',
+      description: 'Sign in again as your role — when the app has signed you out (a forbidden action, an expired session).',
+      input: z.object({}),
+      run: async () => {
+        if (!role.login) throw new Error(`${role.title} has no sign-in: it acts as a guest`);
+        await signIn();
+        return `signed in as ${role.title}, url: ${page.url()}`;
       },
     },
     {
