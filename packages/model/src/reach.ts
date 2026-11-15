@@ -8,6 +8,8 @@ export type Step =
   // A permit: the state must stay the same after it.
   | { do: 'perform'; permit: string; title: string; action: string; role: string; run?: string; invoke?: ToolCall; state: string }
   | { do: 'expectState'; state: string; match: Record<string, unknown> }
+  // An invariant of the entity, checked right after the instance is read in a state it covers.
+  | { do: 'expectInvariant'; invariant: string; title: string; state: string; match: Record<string, unknown> }
   | { do: 'expectField'; field: string; equals: unknown; description: string }
   // A human role's action must not be available in the UI. Only checked for
   // roles/actions that have a `run` entry — see accessMatrix().

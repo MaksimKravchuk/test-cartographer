@@ -716,3 +716,23 @@ test('workspace: changing one role’s fields rewrites only them — comments in
     await rm(dir, { recursive: true, force: true });
   }
 });
+
+test('invariants: checked after every read in a state they cover; text-only and proposed ones are not', () => {
+  const e = entity({
+    invariants: [
+      { id: 'charged', title: 'Charged', text: 'A shipped or done order is charged.', states: ['shipped', 'done'], holds: { payment: 'captured' } },
+      { id: 'note', title: 'Note', text: 'Knowledge only.' },
+      { id: 'maybe', title: 'Maybe', text: 'Not decided.', holds: { x: 1 }, status: 'proposed' },
+    ],
+  });
+  const plan = buildPlan(e, withAuth);
+  const finish = plan.scenarios.find((s) => s.kind === 'transition' && s.target === 'finish' && s.variant === 'a')!;
+  const checks = finish.steps.filter((s) => s.do === 'expectInvariant');
+  // Arranged into shipped, then finished into done: checked after both reads.
+  assert.deepEqual(checks.map((s) => s.do === 'expectInvariant' && [s.invariant, s.state]), [['charged', 'shipped'], ['charged', 'done']]);
+  const pay = plan.scenarios.find((s) => s.kind === 'transition' && s.target === 'pay' && s.variant === 'a')!;
+  assert.ok(!pay.steps.some((s) => s.do === 'expectInvariant'));
+  assert.deepEqual(validateEntity(e, withAuth).filter((i) => i.path.startsWith('invariants')), []);
+  const bad = Entity.parse({ ...e, invariants: [{ id: 'x', title: 'x', text: 'x', states: ['nope'] }] });
+  assert.match(validateEntity(bad, withAuth).find((i) => i.path === 'invariants.x')!.message, /Unknown state “nope”/);
+});

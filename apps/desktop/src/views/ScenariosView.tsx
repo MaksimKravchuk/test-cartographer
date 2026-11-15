@@ -52,6 +52,7 @@ export function ScenariosView({ entity, state, project, running, onChange, onRun
           ? `${roleTitle(s.role)} (system): ${s.title} via ${s.invoke.tool}, stays in “${stateTitle(s.state)}”`
           : `${roleTitle(s.role)}: ${s.title}, stays in “${stateTitle(s.state)}”`;
       case 'expectState': return `State “${stateTitle(s.state)}” confirmed by reading`;
+      case 'expectInvariant': return `Invariant holds: ${s.title}`;
       case 'expectField': return `${s.description}: ${s.field} = ${JSON.stringify(s.equals)}`;
       case 'expectUnavailable': return `${roleTitle(s.role)} can't ${actionTitle(s.action)} in “${stateTitle(s.state)}”`;
       case 'manual': return `Manual check: ${s.description}`;

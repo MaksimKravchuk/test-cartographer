@@ -209,6 +209,13 @@ rules:
     transition: place-order
     requires:
       - kind: authenticated
+invariants:
+  - id: paid-for
+    title: Paid for once accepted
+    text: An accepted, shipped or delivered order always has its payment captured.
+    states: [accepted, shipped, delivered]
+    holds:
+      payment: captured
 scenarios:
   - id: standard-happy-path
     title: Standard order from placement to delivery

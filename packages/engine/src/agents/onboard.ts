@@ -103,7 +103,7 @@ Rules:
   finding (kind=gap) instead of inventing a ref.
 - Call propose() exactly once, with one project-level group (project: { ops, findings }) for roles, interfaces,
   new entities, epics, features and stories, and one group per entity you change (entities: { <id>: { ops,
-  findings } }) for that entity's own states/actions/transitions/permits/rules.
+  findings } }) for that entity's own states/actions/transitions/permits/rules/invariants.
 
 Element shapes (op=add, value):
 Project-level (in project.ops):
@@ -129,6 +129,9 @@ Entity-level (in entities.<id>.ops) — unchanged from an explorer's proposal:
 - rule: { id, title, text, action: "<action id>" } — knowledge in the product's words; add transition: "<transition id>"
   and requires: [{ kind: "authenticated" } | { kind: "roles", roles: [id] } | { kind: "entity-state", relation, states: [id] }]
   when the rule is a checkable condition on a transition.
+- invariant: { id, title, text, states?: [id], holds?: { <field>: <value> } } — what is always true of the object in
+  those states, whatever led there ("a shipped order is always paid for"); add holds when a reader field shows it,
+  and every test then checks it after each read.
 For op=update: { kind, id, set: { fields } }. For op=remove: { kind, id } (entities can't be removed this way).
 
 When you're done reading and quoting, call propose() exactly once.`;

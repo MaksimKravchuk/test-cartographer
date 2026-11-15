@@ -52,6 +52,7 @@ function stepTitle(s: Step): string {
     case 'transition': return `${actor(s)}: ${s.title} (${s.from} → ${s.to})`;
     case 'perform': return `${actor(s)}: ${s.title} (${s.state})`;
     case 'expectState': return `state ${s.state}`;
+    case 'expectInvariant': return `invariant ${s.title}`;
     case 'expectField': return `${s.field} = ${JSON.stringify(s.equals)}`;
     case 'expectUnavailable': return `${s.role} cannot ${s.action} in ${s.state}`;
     case 'manual': return `manual: ${s.description}`;
@@ -183,12 +184,13 @@ export async function runScenario(suite: Suite, sc: Scenario, actions: Actions, 
             break;
           }
           case 'expectState':
+          case 'expectInvariant':
           case 'expectField': {
-            const match = step.do === 'expectState' ? step.match : { [step.field]: step.equals };
+            const match = step.do === 'expectField' ? { [step.field]: step.equals } : step.match;
             await expect
               .poll(async () => mismatches(await read(inst), match), { message: stepTitle(step), timeout: 5_000 })
               .toEqual([]);
-            await info.attach(`state:${inst.entity}:${step.do === 'expectState' ? step.state : step.field}`, {
+            await info.attach(`state:${inst.entity}:${step.do === 'expectField' ? step.field : step.do === 'expectInvariant' ? step.invariant : step.state}`, {
               body: JSON.stringify(inst.snapshot, null, 2),
               contentType: 'application/json',
             });

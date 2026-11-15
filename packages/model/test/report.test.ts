@@ -125,3 +125,11 @@ test('glossary: listed in the spec; a word defined twice is an error', () => {
   const dup = Project.parse({ ...p, glossary: [...p.glossary, { term: 'Purchase', definition: 'x' }] });
   assert.match(validateProject(dup).find((i) => i.path.startsWith('glossary'))!.message, /“purchase” is in the glossary more than once/);
 });
+
+test('invariants in the spec: “Always true”, with their tests, or not checkable without field values', () => {
+  const e = Entity.parse({ ...order, invariants: [{ id: 'one', title: 'One', text: 'An order has one buyer.' }] });
+  const md = renderSpec(project, [e], [], [], [{ entity: 'order', scenarios: [] }] as never);
+  assert.match(md, /### Always true\n\n- An order has one buyer\. _\(not checkable yet: no field values\)_/);
+  const checked = Entity.parse({ ...order, invariants: [{ id: 'one', title: 'One', text: 'An order has one buyer.', holds: { buyers: 1 } }] });
+  assert.match(renderSpec(project, [checked], [], [], [{ entity: 'order', scenarios: [] }] as never), /Order: invariant “An order has one buyer\.”/);
+});
