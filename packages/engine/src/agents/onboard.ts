@@ -233,14 +233,12 @@ export async function onboard(ws: Workspace, agentId: string | undefined, opts: 
     },
     {
       name: 'files',
-      description: 'List the files of a code-folder source (skips node_modules, build output, .git and .env files), optionally under a sub-folder.',
+      description: 'List the files of a code-folder source (what git tracks, or without git everything but node_modules, build output and .git; never .env files), optionally under a sub-folder (a path, not a glob).',
       input: z.object({ source: z.string(), dir: z.string().default('') }),
       run: async ({ source, dir }) => {
         const s = sourceOf(source, ['code']);
-        const all = await listCode(codePath(ws.root, s.path!));
-        const prefix = dir.replace(/^\.?\/?/, '').replace(/\/?$/, dir ? '/' : '');
-        const list = all.filter((f) => f.startsWith(prefix));
-        return list.length > 800 ? `${list.slice(0, 800).join('\n')}\n… ${list.length - 800} more — narrow with dir` : list.join('\n') || 'no files';
+        const list = await listCode(codePath(ws.root, s.path!), undefined, dir);
+        return list.length > 800 ? `${list.slice(0, 800).join('\n')}\n… ${list.length - 800} more — narrow with dir` : list.join('\n') || `no files under “${dir}”`;
       },
     },
     {
