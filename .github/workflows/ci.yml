@@ -70,6 +70,27 @@ jobs:
       - run: pnpm --filter @tc/desktop build
       - run: pnpm exec playwright test -c tests/e2e/playwright.config.ts gui.spec.ts pipeline.spec.ts
 
+  # The macOS app: packaged, launched like a first start, and run against its bundled demo shop.
+  app-mac:
+    runs-on: macos-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # No browser installed here: the app downloads it on first launch.
+      - run: pnpm --filter @tc/desktop package:mac
+      - run: node apps/desktop/scripts/smoke.mjs "apps/desktop/release/mac-arm64/Test Cartographer.app/Contents/MacOS/Test Cartographer"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: test-cartographer-mac
+          path: apps/desktop/release/*.dmg
+          retention-days: 14
+
   # The GUI in a browser, the Electron shell, and a full test run against the demo shop.
   e2e:
     runs-on: ubuntu-latest

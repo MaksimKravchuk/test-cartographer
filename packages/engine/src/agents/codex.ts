@@ -13,7 +13,8 @@ const TOKEN_ENV = 'TC_BRIDGE_TOKEN';
 // Codex gets only what it needs to run and find its ChatGPT sign-in — not the
 // engine's environment, which may hold credentials (and an API key would
 // switch it to per-token billing).
-const PASS_ENV = ['PATH', 'HOME', 'USER', 'LOGNAME', 'SHELL', 'LANG', 'LC_ALL', 'TMPDIR', 'CODEX_HOME', 'HTTPS_PROXY', 'HTTP_PROXY', 'NO_PROXY', 'https_proxy', 'http_proxy', 'no_proxy', 'SSL_CERT_FILE', 'SSL_CERT_DIR'];
+// ELECTRON_RUN_AS_NODE: in the macOS app process.execPath is Electron, which must stay Node.
+const PASS_ENV = ['PATH', 'ELECTRON_RUN_AS_NODE', 'HOME', 'USER', 'LOGNAME', 'SHELL', 'LANG', 'LC_ALL', 'TMPDIR', 'CODEX_HOME', 'HTTPS_PROXY', 'HTTP_PROXY', 'NO_PROXY', 'https_proxy', 'http_proxy', 'no_proxy', 'SSL_CERT_FILE', 'SSL_CERT_DIR'];
 const subscriptionEnv = () => {
   const env: Record<string, string> = {};
   for (const k of PASS_ENV) if (process.env[k] !== undefined) env[k] = process.env[k]!;
