@@ -1,0 +1,20 @@
+# Demo of command tools (packages/engine/src/command-tools.ts): an Arazzo chain
+# served as one tool. To hand it to agents, add to cartographer.yaml:
+#
+#   mcp:
+#     fixtures:
+#       command: node
+#       args: [../packages/engine/src/command-tools.ts, ../demo/shop/fixtures/tools.yaml]
+#       allow: { prepare: [order_from_listing] }
+tools:
+  order_from_listing:
+    description: Publish a listing and place an order for it in the given status. Prints { orderId, listingId, total } (JSON).
+    command: node
+    args: [../../../packages/engine/src/arazzo-tool.ts, order.arazzo.yaml, orderFromListing]
+    input:
+      properties:
+        status: { type: string, description: Order status, e.g. created or paid }
+        tag: { type: string, description: Tag that isolates test data }
+        token: { type: string, description: Test API token (demo-test-token in the demo shop) }
+      required: [status, token]
+    timeout: 120
