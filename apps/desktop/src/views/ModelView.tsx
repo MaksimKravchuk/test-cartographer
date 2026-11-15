@@ -2,7 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import type { Action, Decision, Disagreement, Entity, HistoryEntry, Lint, Op, ReviewCell, ReviewMarks, Role, Rule } from '@tc/model';
 import { api, type EntityState, type ProjectState, type ProposalState } from '../api.ts';
 import { DeleteButton, Editable, HistoryList, originText } from './ModelHistory.tsx';
-import { AttributesTable, LifecycleTables, type ProposedAttribute } from './ObjectParts.tsx';
+import { AttributesTable, GoneRow, Incoming, LifecycleTables, rowKeys, useStableRows, type ProposedAttribute } from './ObjectParts.tsx';
 
 // The model as a person thinks about it: who acts (subjects), on what
 // (objects), with which actions, under which rules. What an agent found but
@@ -280,6 +280,7 @@ export function ModelView({ project, proposals, reloadToken, running, onOpenEnti
             : [],
         ),
       );
+  const pendingAttrOps = (entity: string) => adds((p, op) => p.entity === entity && op.kind === 'attribute');
   const pendingActions = (entity: string) => {
     const props = pending.filter((p) => p.entity === entity);
     return props.flatMap((proposal) =>
@@ -343,6 +344,12 @@ export function ModelView({ project, proposals, reloadToken, running, onOpenEnti
     focus && states[focus] ? focus
     : (selected?.entity ?? loaded.find((id) => pendingActions(id).length > 0) ?? [...loaded].sort((a, b) => states[b].entity.actions.length - states[a].entity.actions.length)[0] ?? null);
   const cur = current ? states[current] : undefined;
+  const proposed = current ? pendingActions(current) : [];
+  // A proposal's row takes the id it will have once accepted, so accepting it keeps its place.
+  // Only the first proposal of an id takes it; a second one for the same id keeps a row of its own.
+  const keys = rowKeys(proposed, (x) => str(x.op.value.id), (x) => `${x.proposal.id}-${x.index}`, cur?.entity.actions.map((a) => a.id) ?? []);
+  const keyOf = (x: (typeof proposed)[number]) => keys.get(x)!;
+  const actionRows = useStableRows(current ?? '', [...(cur?.entity.actions ?? []).map((a) => ({ key: a.id, title: a.title })), ...proposed.map((x) => ({ key: keyOf(x), title: str(x.op.value.title) || str(x.op.value.id) }))]);
   const pick = (entity: string, action: string) => {
     setFocus(entity);
     setSubject(null);
@@ -355,7 +362,7 @@ export function ModelView({ project, proposals, reloadToken, running, onOpenEnti
   // A tick a transition or permit sets is shown, but changes in States and scenarios.
   const actionTable = () => {
     if (!cur || !current) return null;
-    const proposed = pendingActions(current);
+    const rows = actionRows;
     return (
       <div className="act-table-wrap">
         <table className="act-table">
@@ -371,7 +378,27 @@ export function ModelView({ project, proposals, reloadToken, running, onOpenEnti
             </tr>
           </thead>
           <tbody>
-            {cur.entity.actions.map((a) => {
+            {rows.map((row) => {
+              const a = cur.entity.actions.find((y) => y.id === row.key);
+              const x = proposed.find((y) => keyOf(y) === row.key);
+              if (x) return (
+              <tr key={row.key} className="proposed" title={x.proposal.rationale}>
+                <th scope="row">
+                  <span className="chip proposed">{str(x.op.value.title) || str(x.op.value.id)}</span>
+                  <span className="muted nobody"> proposed by {x.proposal.agent}</span>
+                </th>
+                {roles.map((r) => (
+                  <td key={r.id} className="who">{x.by.includes(r.id) ? <span title={`The agent says ${r.title} performs it`}>✓</span> : null}</td>
+                ))}
+                <td className="row-x">
+                  <span className="decide">
+                    <button className="btn small" disabled={busy || x.blocked} title="Add it to the model as a requirement" onClick={() => decide(x, 'accept')}>Accept</button>
+                    <button className="btn small ghost" disabled={busy || x.blocked} title="Strike out: agents won't propose it again" onClick={() => decide(x, 'reject')}>Strike out</button>
+                  </span>
+                </td>
+              </tr>
+              );
+              if (!a) return <GoneRow key={row.key} title={row.title} cols={roles.length + 1} />;
               const conflicts = pending.some((p) => p.entity === current && p.findings.some((f) => f.kind === 'contradiction' && f.refs.some((r) => r.endsWith(`.${a.id}`))));
               const on = selected?.entity === current && selected.action === a.id;
               const n = rulesOf(cur.entity, a.id).length;
@@ -409,33 +436,6 @@ export function ModelView({ project, proposals, reloadToken, running, onOpenEnti
                 </tr>
               );
             })}
-            {proposed.length > 0 && (
-              <tr className="proposed-h">
-                <td colSpan={roles.length + 2}><div className="proposed-bar">
-                  <span className="tag proposed">proposed</span> {proposed.length} {proposed.length === 1 ? 'action an agent found' : 'actions agents found'}, not in the model until you accept {proposed.length === 1 ? 'it' : 'them'}
-                  <span className="spacer" />
-                  <button className="btn small" disabled={busy || proposed.some((x) => x.blocked)} onClick={() => decideAll(proposed, 'accept')}>Accept all</button>
-                  <button className="btn small ghost" disabled={busy || proposed.some((x) => x.blocked)} onClick={() => decideAll(proposed, 'reject')}>Strike out all</button>
-                </div></td>
-              </tr>
-            )}
-            {proposed.map((x) => (
-              <tr key={`${x.proposal.id}-${x.index}`} className="proposed" title={x.proposal.rationale}>
-                <th scope="row">
-                  <span className="chip proposed">{str(x.op.value.title) || str(x.op.value.id)}</span>
-                  <span className="muted nobody"> proposed by {x.proposal.agent}</span>
-                </th>
-                {roles.map((r) => (
-                  <td key={r.id} className="who">{x.by.includes(r.id) ? <span title={`The agent says ${r.title} performs it`}>✓</span> : null}</td>
-                ))}
-                <td className="row-x">
-                  <span className="decide">
-                    <button className="btn small" disabled={busy || x.blocked} title="Add it to the model as a requirement" onClick={() => decide(x, 'accept')}>Accept</button>
-                    <button className="btn small ghost" disabled={busy || x.blocked} title="Strike out: agents won't propose it again" onClick={() => decide(x, 'reject')}>Strike out</button>
-                  </span>
-                </td>
-              </tr>
-            ))}
           </tbody>
         </table>
         <div className="tree-add act-add">
@@ -547,7 +547,10 @@ export function ModelView({ project, proposals, reloadToken, running, onOpenEnti
             {showHistory && <HistoryList entries={history.filter((h) => h.ref === `entity:${cur.entity.id}` || h.ref.includes(`:${cur.entity.id}.`))} names={roleTitle} label={`History of ${cur.entity.title}`} />}
 
             <section className="acts" aria-label="Parameters">
-              <h2 className="sec-h">Parameters</h2>
+              <div className="sec-head">
+                <h2 className="sec-h">Parameters</h2>
+                <Incoming count={pendingAttrOps(cur.entity.id).length} busy={busy} blocked={!ids.includes(cur.entity.id)} onAll={(v) => decideAll(pendingAttrOps(cur.entity.id), v)} />
+              </div>
               <AttributesTable entity={cur.entity} roles={roles} proposed={pendingAttributes(cur.entity.id)} busy={busy} onEdit={(change) => edit(cur.entity.id, change)} />
             </section>
             <section className="acts" aria-label="Lifecycle">
@@ -555,7 +558,10 @@ export function ModelView({ project, proposals, reloadToken, running, onOpenEnti
             </section>
 
             <section className="acts" aria-label="Actions">
-              <h2 className="sec-h">Actions</h2>
+              <div className="sec-head">
+                <h2 className="sec-h">Actions</h2>
+                <Incoming count={pendingActions(cur.entity.id).length} busy={busy} blocked={pendingActions(cur.entity.id).some((x) => x.blocked)} onAll={(v) => decideAll(pendingActions(cur.entity.id), v)} />
+              </div>
               {actionTable()}
             </section>
 

@@ -1027,8 +1027,6 @@ table.grid :is(th, td):first-child { padding-left: 0; }
 .history .changes { display: grid; color: var(--fg-2); overflow-wrap: anywhere; }
 .rule-history { padding: var(--s2) var(--s4); border-top: 1px solid var(--line); font-size: 12.5px; }
 .rule-history summary { cursor: pointer; color: var(--fg-2); }
-.act-table tr.proposed-h td { background: var(--accent-weak); color: var(--fg-2); font-size: 12.5px; border-top: 1px dashed var(--accent-line); }
-.act-table .proposed-bar { display: flex; align-items: center; gap: var(--s2); flex-wrap: wrap; }
 /* ── Agent place ─────────────────────────────────────────── */
 .run-tasks { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: var(--s2); max-width: 1100px; }
 .run-task { display: flex; gap: var(--s2); align-items: flex-start; border: 1px solid var(--line); border-radius: var(--r2); background: var(--surface); padding: var(--s3); cursor: pointer; }
@@ -1071,3 +1069,6 @@ table.grid :is(th, td):first-child { padding-left: 0; }
 .lc-pill .muted { margin-left: auto; font-size: 11px; white-space: nowrap; }
 .lc-pill.observed { border-style: dotted; }
 .lc-pill.proposed { border-style: dashed; border-color: var(--accent); color: var(--accent); background: var(--accent-weak); }
+.sec-head { display: flex; align-items: center; gap: var(--s3); flex-wrap: wrap; }
+.incoming { display: inline-flex; align-items: center; gap: var(--s2); }
+.act-table tr.gone th, .act-table tr.gone td { color: var(--fg-3); }
