@@ -1,0 +1,79 @@
+/* Design tokens. Semantic layer only: components use these, never raw colors.
+   The accent means one thing: an agent proposed it and it waits for a person's
+   decision (and keyboard focus). ok / bad / warn are statuses, not decoration.
+   Dark theme redefines the same names; `data-theme` on <html> overrides the OS. */
+:root {
+  --bg: #f7f7f5;
+  --surface: #ffffff;
+  --sunken: #efefec;
+  --line: #e3e2dd;
+  --line-strong: #cfcec7;
+  --fg: #1b1b19;
+  --fg-2: #5b5a55;
+  --fg-3: #8b8a83;
+  --accent: #2950b8;
+  --accent-fg: #ffffff;
+  --accent-weak: #e7ecf8;
+  --accent-line: #9db0e3;
+  --ok: #2c7a4b;
+  --ok-weak: #e3f1e8;
+  --bad: #bc3a28;
+  --bad-weak: #f8e6e2;
+  --warn: #9a6208;
+  --warn-weak: #f6ecd9;
+  --shadow: 0 12px 32px rgba(20, 20, 18, 0.12);
+
+  --sans: 'Geist Sans', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --mono: 'Geist Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --r1: 4px;
+  --r2: 6px;
+  --r3: 10px;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --bg: #131312;
+    --surface: #1a1a19;
+    --sunken: #0f0f0e;
+    --line: #2a2a28;
+    --line-strong: #3a3a37;
+    --fg: #ecebe6;
+    --fg-2: #a6a59e;
+    --fg-3: #76756f;
+    --accent: #7d9ef2;
+    --accent-fg: #0f1530;
+    --accent-weak: #1c2645;
+    --accent-line: #3c5394;
+    --ok: #5fbe8a;
+    --ok-weak: #16291e;
+    --bad: #ee826f;
+    --bad-weak: #341a15;
+    --warn: #e0a548;
+    --warn-weak: #33260f;
+    --shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+    color-scheme: dark;
+  }
+}
+:root[data-theme='dark'] {
+  --bg: #131312;
+  --surface: #1a1a19;
+  --sunken: #0f0f0e;
+  --line: #2a2a28;
+  --line-strong: #3a3a37;
+  --fg: #ecebe6;
+  --fg-2: #a6a59e;
+  --fg-3: #76756f;
+  --accent: #7d9ef2;
+  --accent-fg: #0f1530;
+  --accent-weak: #1c2645;
+  --accent-line: #3c5394;
+  --ok: #5fbe8a;
+  --ok-weak: #16291e;
+  --bad: #ee826f;
+  --bad-weak: #341a15;
+  --warn: #e0a548;
+  --warn-weak: #33260f;
+  --shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+  color-scheme: dark;
+}

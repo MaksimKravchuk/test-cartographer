@@ -1,9 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import type { Backlog, Decision, Entity, Evidence, Op } from '@tc/model';
-// schema.ts only: the package index pulls in Node-only workspace.ts (see AccessMatrix.tsx).
-import { resolveRuntime } from '@tc/model/schema';
-import { api, runtimeTitle, fileUrl, type EntityState, type EntitySummary, type ProjectDecideResult, type ProjectState, type ProposalState, type SourceInfo } from '../api.ts';
+import { api, fileUrl, type EntityState, type EntitySummary, type ProjectDecideResult, type ProjectState, type ProposalState, type SourceInfo } from '../api.ts';
 
 type Props = {
   project: ProjectState;
@@ -13,6 +11,9 @@ type Props = {
   running: boolean;
   onDecided(s: EntityState | ProjectDecideResult): void;
   onError(m: string): void;
+  // The proposal to show; the Inbox owns the list.
+  selected: string;
+  embedded?: boolean;
 };
 
 type Verdict = Decision['verdict'];
@@ -187,25 +188,16 @@ function SourceQuote({ e, sourceTitle }: { e: Evidence; sourceTitle: string }) {
   );
 }
 
+// One agent proposal: its findings and model changes, each decided on its own.
+// A verdict applies at once (no "apply all" step), so a half-decided proposal
+// keeps what was decided and the rest stays in the Inbox.
 export function ProposalsView(props: Props) {
   const { proposals, project } = props;
-  const [current, setCurrent] = useState<string | null>(proposals.find((p) => p.status === 'pending')?.id ?? proposals[0]?.id ?? null);
-  const [verdicts, setVerdicts] = useState<Record<number, Verdict>>({});
-  const [notes, setNotes] = useState<Record<number, string>>({});
+  const current = props.selected;
   const [lightbox, setLightbox] = useState<Evidence | null>(null);
-  // Live/scripted mode per explorer agent — each may have its own effective
-  // runtime (project default or its own override), so this isn't one shared choice.
-  const [modeByAgent, setModeByAgent] = useState<Record<string, 'scripted' | 'live'>>({});
   const [busy, setBusy] = useState(false);
   const [sources, setSources] = useState<SourceInfo[]>([]);
 
-  useEffect(() => {
-    setVerdicts({});
-    setNotes({});
-  }, [current]);
-  useEffect(() => {
-    if (!proposals.some((p) => p.id === current)) setCurrent(proposals[0]?.id ?? null);
-  }, [proposals, current]);
   useEffect(() => {
     api.sources().then((r) => setSources(r.sources)).catch(() => setSources([]));
   }, []);
@@ -225,54 +217,13 @@ export function ProposalsView(props: Props) {
   }, [p?.id, p?.entity]);
 
   const agents = project.project.agents;
-  const exploreAgents = agents.filter((a) => (a.kind ?? 'explore') === 'explore');
   const sourceTitle = (id?: string) => (id ? (sources.find((s) => s.id === id)?.title ?? id) : '');
-  const modeFor = (a: (typeof exploreAgents)[number]) => modeByAgent[a.id] ?? (resolveRuntime(project.project, a) ? 'live' : 'scripted');
-
-  const startAgent = async (id: string, mode: 'live' | 'scripted') => {
-    try {
-      await api.explore(id, mode);
-    } catch (e) {
-      props.onError((e as Error).message);
-    }
-  };
-
-  const header = (
-    <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--rule)' }}>
-      <div style={{ fontWeight: 600, marginBottom: 8 }}>Explore an interface</div>
-      {exploreAgents.map((a) => {
-        const runtime = resolveRuntime(project.project, a);
-        const mode = modeFor(a);
-        return (
-          <div key={a.id} style={{ marginBottom: 10 }}>
-            <div title={a.goal} style={{ lineHeight: 1.3, marginBottom: 4 }}>{a.title}</div>
-            <div className="row" style={{ gap: 6 }}>
-              <select className="text" style={{ flex: 1, minWidth: 0 }} value={mode} onChange={(e) => setModeByAgent({ ...modeByAgent, [a.id]: e.target.value as 'live' | 'scripted' })}>
-                {runtime && (
-                  <option value="live">
-                    Live — {runtimeTitle[runtime.provider]}{runtime.model ? ` · ${runtime.model}` : ''}
-                  </option>
-                )}
-                <option value="scripted">Recorded script, no model</option>
-              </select>
-              <button className="btn small" disabled={props.running || (mode === 'scripted' && !a.script)} onClick={() => startAgent(a.id, mode)}>
-                Run
-              </button>
-            </div>
-          </div>
-        );
-      })}
-      {exploreAgents.length === 0 && <p className="muted" style={{ margin: 0 }}>Add explore agents on the Agents page. Run onboarding from its own page.</p>}
-    </div>
-  );
 
   const priorVerdict = (i: number) => p?.decisions.find((x) => x.op === i)?.verdict;
-  const decide = async () => {
-    if (!p) return;
+  const apply = async (decisions: Decision[]) => {
+    if (!p || !decisions.length) return;
     setBusy(true);
     try {
-      // Ops already decided in place (from the Model page) are left out.
-      const decisions: Decision[] = p.ops.flatMap((_, i) => (priorVerdict(i) ? [] : [{ op: i, verdict: verdicts[i], ...(notes[i] ? { note: notes[i] } : {}) }]));
       props.onDecided(await api.decide(p.id, decisions));
     } catch (e) {
       props.onError((e as Error).message);
@@ -281,33 +232,14 @@ export function ProposalsView(props: Props) {
     }
   };
 
-  const decidedCount = p ? p.ops.filter((_, i) => priorVerdict(i) || verdicts[i]).length : 0;
   const conflictOf = (i: number) => p?.conflicts.find((c) => c.op === i)?.message;
   const evidenceById = (id: string) => p?.evidence.find((e) => e.id === id);
   const missingEntity = p?.entity && !props.entities.some((e) => e.id === p.entity);
 
   return (
-    <div className="proposals">
-      <div className="list">
-        {header}
-        {proposals.length === 0 && <p className="muted" style={{ padding: 16 }}>No proposals yet. Run an agent to explore an interface, or onboard the project from knowledge sources.</p>}
-        {proposals.map((x) => (
-          <button key={x.id} aria-current={x.id === current} onClick={() => setCurrent(x.id)}>
-            <div className="who">{agents.find((a) => a.id === x.agent)?.title ?? x.agent}</div>
-            <div className="muted" style={{ fontSize: 12.5 }}>{x.entity ? (props.entities.find((e) => e.id === x.entity)?.title ?? x.entity) : 'Project-level'}</div>
-            <div className="muted" style={{ fontSize: 12.5 }}>
-              {new Date(x.createdAt).toLocaleString('en-US', { dateStyle: 'short', timeStyle: 'short' })}, changes: {x.ops.length}
-              {x.findings.length > 0 && `, findings: ${x.findings.length}`}
-            </div>
-            <div style={{ fontSize: 12.5, marginTop: 2, color: x.status === 'pending' ? 'var(--proposed)' : 'var(--ink-3)' }}>
-              {x.status === 'pending' ? 'Awaiting decision' : 'Decided'}
-            </div>
-          </button>
-        ))}
-      </div>
-
+    <div className="proposals embedded">
       <div className="detail">
-        {!p && <div className="empty">Select a proposal on the left.</div>}
+        {!p && <div className="empty">This proposal is gone.</div>}
         {p && (
           <>
             <h1 style={{ fontSize: 20, margin: 0 }}>{agents.find((a) => a.id === p.agent)?.title ?? p.agent}</h1>
@@ -316,7 +248,7 @@ export function ProposalsView(props: Props) {
               {p.entity ? <>, entity: {props.entities.find((e) => e.id === p.entity)?.title ?? p.entity}</> : <>, project-level proposal</>}
               {p.role && <>, role: {project.project.roles.find((r) => r.id === p.role)?.title ?? p.role}</>}
               , {p.entity ? 'model' : 'backlog'} at proposal time: <span className="id">{p.baseRevision}</span>
-              {p.stale && p.status === 'pending' && <span style={{ color: 'var(--observed)' }}> — the {p.entity ? 'model' : 'backlog'} has changed since</span>}
+              {p.stale && p.status === 'pending' && <span style={{ color: 'var(--warn)' }}> — the {p.entity ? 'model' : 'backlog'} has changed since</span>}
             </div>
             <p className="rationale">{p.rationale}</p>
 
@@ -340,7 +272,7 @@ export function ProposalsView(props: Props) {
               const isProject = projectKinds.has(op.kind);
               const d = isProject ? describeProject(op, { project, entities: props.entities, backlog, opsSoFar: p.ops }) : describe(op, entity ?? emptyEntity);
               const noObserve = noStatusKinds.has(op.kind);
-              const decided = priorVerdict(i) ?? (p.status === 'pending' ? verdicts[i] : undefined);
+              const decided = priorVerdict(i);
               const open = p.status === 'pending' && !priorVerdict(i);
               const conflict = open ? conflictOf(i) : undefined;
               const sourceEvidence = op.evidence.map((id) => evidenceById(id)).filter((e): e is Evidence => !!e && e.kind === 'source');
@@ -354,21 +286,21 @@ export function ProposalsView(props: Props) {
                   <div className="decide">
                     {open ? (
                       <>
-                        <button className={`btn small accept ${verdicts[i] === 'accept' ? 'on' : ''}`} aria-pressed={verdicts[i] === 'accept'} disabled={!!conflict} onClick={() => setVerdicts({ ...verdicts, [i]: 'accept' })}>
+                        <button className="btn small" disabled={busy || !!conflict} onClick={() => apply([{ op: i, verdict: 'accept' }])}>
                           {noObserve ? 'Apply' : 'Requirement'}
                         </button>
                         {!noObserve && (
-                          <button className={`btn small observe ${verdicts[i] === 'observe' ? 'on' : ''}`} aria-pressed={verdicts[i] === 'observe'} disabled={!!conflict} onClick={() => setVerdicts({ ...verdicts, [i]: 'observe' })}>
-                            Observation
+                          <button className="btn small" disabled={busy || !!conflict} onClick={() => apply([{ op: i, verdict: 'observe' }])}>
+                            Observed
                           </button>
                         )}
                         {!noObserve && (
-                          <button className={`btn small ${verdicts[i] === 'plan' ? 'on' : ''}`} title="Required, but not built yet: no tests until it is" aria-pressed={verdicts[i] === 'plan'} disabled={!!conflict} onClick={() => setVerdicts({ ...verdicts, [i]: 'plan' })}>
+                          <button className="btn small" title="Required, but not built yet: no tests until it is" disabled={busy || !!conflict} onClick={() => apply([{ op: i, verdict: 'plan' }])}>
                             Planned
                           </button>
                         )}
-                        <button className={`btn small reject ${verdicts[i] === 'reject' ? 'on' : ''}`} aria-pressed={verdicts[i] === 'reject'} onClick={() => setVerdicts({ ...verdicts, [i]: 'reject' })}>
-                          Reject
+                        <button className="btn small ghost" disabled={busy} onClick={() => apply([{ op: i, verdict: 'reject' }])}>
+                          Strike out
                         </button>
                       </>
                     ) : (
@@ -388,38 +320,20 @@ export function ProposalsView(props: Props) {
                       {otherEvidence.map((e) => <EvidenceThumb key={e.id} e={e} onOpen={() => setLightbox(e)} />)}
                     </div>
                   )}
-                  {open && verdicts[i] && verdicts[i] !== 'accept' && (
-                    <input
-                      className="text"
-                      style={{ gridColumn: '1 / -1' }}
-                      placeholder="Why? The note is saved to the element's provenance"
-                      value={notes[i] ?? ''}
-                      onChange={(e) => setNotes({ ...notes, [i]: e.target.value })}
-                    />
-                  )}
                 </div>
               );
             })}
 
-            {p.status === 'pending' && (
+            {p.status === 'pending' && p.ops.some((_, i) => !priorVerdict(i)) && (
               <div className="decide-bar">
-                <button className="btn primary" disabled={busy || decidedCount < p.ops.length || props.dirty} onClick={decide}>
-                  Apply decisions
-                </button>
-                <span className="muted">
-                  {props.dirty
-                    ? 'Save or discard your model edits first.'
-                    : decidedCount < p.ops.length
-                      ? `${decidedCount} of ${p.ops.length} decided. Decide on every change.`
-                      : 'Requirements go into the test plan; observations only into the model.'}
-                </span>
-                <span className="spacer" />
                 <button
-                  className="btn small"
-                  onClick={() => setVerdicts(Object.fromEntries(p.ops.map((_, i) => [i, conflictOf(i) ? 'reject' : 'accept'])))}
+                  className="btn"
+                  disabled={busy || props.dirty}
+                  onClick={() => apply(p.ops.flatMap((_, i) => (priorVerdict(i) ? [] : [{ op: i, verdict: conflictOf(i) ? 'reject' : 'accept' } as Decision])))}
                 >
-                  Accept all
+                  Accept the rest
                 </button>
+                <span className="muted">{props.dirty ? 'Save or discard your model edits first.' : 'Each change applies as soon as you decide it. Conflicting changes are struck out.'}</span>
               </div>
             )}
           </>
@@ -432,7 +346,7 @@ export function ProposalsView(props: Props) {
             {lightbox.path?.endsWith('.png') ? (
               <img src={fileUrl(lightbox.path)} alt={lightbox.summary} />
             ) : lightbox.path ? (
-              <iframe title={lightbox.id} src={fileUrl(lightbox.path)} style={{ width: 640, height: 420, border: 0, background: 'var(--sheet)' }} />
+              <iframe title={lightbox.id} src={fileUrl(lightbox.path)} style={{ width: 640, height: 420, border: 0, background: 'var(--surface)' }} />
             ) : (
               <div style={{ padding: 16 }}>{lightbox.url}</div>
             )}

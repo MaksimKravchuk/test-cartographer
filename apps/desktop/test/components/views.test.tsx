@@ -53,7 +53,7 @@ describe('OverviewView', () => {
   it('sends an empty project to onboarding', async () => {
     const onOpenOnboarding = vi.fn();
     render(<OverviewView project={project} entities={[]} onOpen={noop} onOpenOnboarding={onOpenOnboarding} onOpenObjects={noop} />);
-    await userEvent.click(screen.getByRole('button', { name: 'Go to Onboarding' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Go to Sources' }));
     expect(onOpenOnboarding).toHaveBeenCalled();
   });
 });

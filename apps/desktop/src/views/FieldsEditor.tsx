@@ -100,7 +100,7 @@ export function FieldsEditor({ owner, ownerId, fields, file, onSave }: Props) {
         Add field
       </button>
       {invalid && (
-        <p style={{ color: 'var(--fail)', fontSize: 12.5, margin: '8px 0 0' }}>
+        <p style={{ color: 'var(--bad)', fontSize: 12.5, margin: '8px 0 0' }}>
           A key is lowercase Latin letters, digits, “-” and “_”, starts with a letter, and is used once.
         </p>
       )}

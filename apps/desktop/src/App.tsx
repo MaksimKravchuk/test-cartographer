@@ -5,7 +5,7 @@ import { api, ApiError, subscribe, type EntityState, type EntitySummary, type Jo
 import type { Selection } from './graph.ts';
 import { MapView } from './views/MapView.tsx';
 import { Inspector } from './views/Inspector.tsx';
-import { ProposalsView } from './views/ProposalsView.tsx';
+import { InboxView } from './views/InboxView.tsx';
 import { CoverageView } from './views/CoverageView.tsx';
 import { ExportView } from './views/ExportView.tsx';
 import { OverviewView } from './views/OverviewView.tsx';
@@ -20,6 +20,10 @@ import { AgentsView } from './views/AgentsView.tsx';
 import { SettingsView } from './views/SettingsView.tsx';
 import { ProjectSwitcher } from './views/ProjectSwitcher.tsx';
 import { ProjectsView } from './views/ProjectsView.tsx';
+import { AgentStatus, AskAgent } from './views/Shell.tsx';
+
+// Electron draws the macOS traffic lights over the top-left corner of the window.
+const isElectron = typeof navigator !== 'undefined' && navigator.userAgent.includes('Electron');
 
 type EntityTab = 'map' | 'scenarios' | 'coverage';
 type Route =
@@ -39,6 +43,28 @@ type Route =
 
 const tabTitles: Record<EntityTab, string> = { map: 'Map', scenarios: 'Scenarios', coverage: 'Coverage' };
 
+// Five places along the loop (sources → model ⇄ inbox → spec → tests) plus
+// settings. Each place may hold a few views, switched in its own sub-bar.
+type Place = 'sources' | 'model' | 'inbox' | 'spec' | 'tests' | 'settings';
+type Page = Route['page'];
+const placeOf: Record<Page, Place> = {
+  onboarding: 'sources',
+  model: 'model', objects: 'model', entity: 'model',
+  proposals: 'inbox', report: 'inbox',
+  spec: 'spec',
+  overview: 'tests', backlog: 'tests', export: 'tests',
+  settings: 'settings', agents: 'settings', projects: 'settings',
+};
+const views: Record<Place, { page: Exclude<Page, 'entity'>; title: string }[]> = {
+  sources: [{ page: 'onboarding', title: 'Sources' }],
+  model: [{ page: 'model', title: 'Model' }, { page: 'objects', title: 'Map' }],
+  inbox: [{ page: 'proposals', title: 'Queue' }, { page: 'report', title: 'By source' }],
+  spec: [{ page: 'spec', title: 'Specification' }],
+  tests: [{ page: 'overview', title: 'Overview' }, { page: 'backlog', title: 'Backlog' }, { page: 'export', title: 'Export' }],
+  settings: [{ page: 'settings', title: 'Project' }, { page: 'agents', title: 'Agents' }, { page: 'projects', title: 'Projects' }],
+};
+const placeTitles: Record<Exclude<Place, 'settings'>, string> = { sources: 'Sources', model: 'Model', inbox: 'Inbox', spec: 'Spec', tests: 'Tests' };
+
 export function App() {
   const [project, setProject] = useState<ProjectState | null>(null);
   const [entities, setEntities] = useState<EntitySummary[]>([]);
@@ -50,7 +76,9 @@ export function App() {
   const [variant, setVariant] = useState<string | null>(null);
   const [log, setLog] = useState<string[]>([]);
   const [job, setJob] = useState<Job | null>(null);
-  const [logOpen, setLogOpen] = useState(false);
+  const [startedAt, setStartedAt] = useState<number | null>(null);
+  // Open questions and contradictions agents left: counted into the Inbox badge.
+  const [openFindings, setOpenFindings] = useState(0);
   // Bumped on every disk change and job completion so views that fetch their
   // own data (Onboarding, Backlog) know to refetch without polling.
   const [reloadToken, setReloadToken] = useState(0);
@@ -87,7 +115,9 @@ export function App() {
       setFatal(null);
     } catch (e) {
       setFatal((e as Error).message);
+      return;
     }
+    api.report().then((r) => setOpenFindings(r.disagreements.filter((d) => !d.resolution).length)).catch(() => {});
   }, [loadEntity]);
 
   useEffect(() => {
@@ -114,7 +144,7 @@ export function App() {
           setJob({ id: e.job, kind: e.kind, state: e.state, error: e.error });
           if (e.state === 'running') {
             setLog([]);
-            setLogOpen(true);
+            setStartedAt(Date.now());
           }
           if (e.state === 'done') {
             notify(
@@ -177,6 +207,16 @@ export function App() {
 
   const pending = useMemo(() => proposals.filter((p) => p.status === 'pending'), [proposals]);
 
+  const research = async (mode: 'onboard' | 'review') => {
+    if (!project) return;
+    try {
+      const live = !!resolveRuntime(project.project, project.project.agents.find((a) => a.kind === 'onboard'));
+      await api.runOnboarding(live ? 'live' : 'scripted', mode);
+    } catch (e) {
+      notify((e as Error).message, true);
+    }
+  };
+
   if (fatal)
     return (
       <div className="page">
@@ -191,18 +231,27 @@ export function App() {
   const entityReady = route.page === 'entity' && state && draft && state.entity.id === route.id;
   const showSide = route.page === 'entity' && route.tab === 'map' && !!entityReady;
   const summary = (id: string) => entities.find((e) => e.id === id);
+  const place = placeOf[route.page];
+  const inbox = pending.length + openFindings;
 
   return (
-    <div className={`app ${showSide ? '' : 'no-side'}`}>
+    <div className={`app ${showSide ? '' : 'no-side'} ${isElectron ? 'electron' : ''}`}>
       <header className="top">
-        <div className="brand">Test Cartographer</div>
-        {route.page === 'entity' && (
-          <div className="crumbs">
-            <button className="btn link" onClick={() => go({ page: 'objects' })}>Objects</button>
-            <span className="muted">/</span>
-            <strong>{summary(route.id)?.title ?? route.id}</strong>
-          </div>
-        )}
+        <ProjectSwitcher
+          name={project.project.name}
+          root={project.root}
+          disabled={dirty || running}
+          onManage={() => go({ page: 'projects' })}
+          onError={(m) => notify(m, true)}
+        />
+        <nav className="places" aria-label="Sections">
+          {(Object.keys(placeTitles) as (keyof typeof placeTitles)[]).map((p) => (
+            <button key={p} aria-current={place === p ? 'page' : undefined} onClick={() => go({ page: views[p][0].page })}>
+              {placeTitles[p]}
+              {p === 'inbox' && inbox > 0 && <span className="count">{inbox}</span>}
+            </button>
+          ))}
+        </nav>
         <div className="spacer" />
         {dirty && (
           <>
@@ -211,43 +260,34 @@ export function App() {
             <button className="btn primary" onClick={save}>Save model</button>
           </>
         )}
-        <button className="btn" onClick={() => run(route.page === 'entity' ? { entity: route.id } : {})} disabled={running}>
-          {running && job?.kind === 'run' ? 'Running…' : route.page === 'entity' ? 'Run entity tests' : 'Run all tests'}
-        </button>
+        <AgentStatus project={project} job={job} startedAt={startedAt} log={log} onStop={() => job && void api.cancel(job.id)} />
+        {!dirty && <AskAgent project={project} running={running} onResearch={research} onError={(m) => notify(m, true)} />}
+        <button className="btn ghost icon" aria-label="Settings" aria-current={place === 'settings' ? 'page' : undefined} title="Settings" onClick={() => go({ page: 'settings' })}>⚙</button>
       </header>
 
-      <nav className="nav" aria-label="Sections">
-        <ProjectSwitcher
-          name={project.project.name}
-          root={project.root}
-          disabled={dirty || running}
-          onManage={() => go({ page: 'projects' })}
-          onError={(m) => notify(m, true)}
-        />
-        <div className="nav-scroll">
-        <button aria-current={route.page === 'onboarding' ? 'page' : undefined} onClick={() => go({ page: 'onboarding' })}>Sources</button>
-        <button aria-current={route.page === 'model' ? 'page' : undefined} onClick={() => go({ page: 'model' })}>
-          Model {pending.length > 0 && <span className="count">{pending.length}</span>}
-        </button>
-        <button aria-current={route.page === 'report' ? 'page' : undefined} onClick={() => go({ page: 'report' })}>Disagreements</button>
-        <button aria-current={route.page === 'spec' ? 'page' : undefined} onClick={() => go({ page: 'spec' })}>Specification</button>
-        <h4>Tests</h4>
-        <button aria-current={route.page === 'overview' ? 'page' : undefined} onClick={() => go({ page: 'overview' })}>Overview</button>
-        <button aria-current={route.page === 'objects' || route.page === 'entity' ? 'page' : undefined} onClick={() => go({ page: 'objects' })}>
-          Objects <span className="muted">{entities.length}</span>
-        </button>
-
-        <h4>Project</h4>
-        <button aria-current={route.page === 'proposals' ? 'page' : undefined} onClick={() => go({ page: 'proposals' })}>
-          Proposals {pending.length > 0 && <span className="count">{pending.length}</span>}
-        </button>
-        <button aria-current={route.page === 'backlog' ? 'page' : undefined} onClick={() => go({ page: 'backlog' })}>Backlog</button>
-        <button aria-current={route.page === 'export' ? 'page' : undefined} onClick={() => go({ page: 'export' })}>Export</button>
-        <button aria-current={route.page === 'agents' ? 'page' : undefined} onClick={() => go({ page: 'agents' })}>Agents</button>
-        <button aria-current={route.page === 'settings' ? 'page' : undefined} onClick={() => go({ page: 'settings' })}>Settings</button>
-        </div>
-      </nav>
-
+      {views[place].length > 1 && (
+        <nav className="views" aria-label="Views">
+          {views[place].map((v) => (
+            <button key={v.page} aria-current={route.page === v.page || (v.page === 'objects' && route.page === 'entity') ? 'page' : undefined} onClick={() => go({ page: v.page })}>
+              {v.title}
+              {v.page === 'proposals' && inbox > 0 && <span className="count">{inbox}</span>}
+              {v.page === 'objects' && <span className="muted"> {entities.length}</span>}
+            </button>
+          ))}
+          {route.page === 'entity' && (
+            <span className="crumbs">
+              <span className="muted">/</span>
+              <strong>{summary(route.id)?.title ?? route.id}</strong>
+            </span>
+          )}
+          <span className="spacer" />
+          {(place === 'tests' || route.page === 'entity') && (
+            <button className="btn small" onClick={() => run(route.page === 'entity' ? { entity: route.id } : {})} disabled={running}>
+              {running && job?.kind === 'run' ? 'Running…' : route.page === 'entity' ? 'Run entity tests' : 'Run all tests'}
+            </button>
+          )}
+        </nav>
+      )}
       <main className="main">
         {route.page === 'overview' && (
           <OverviewView
@@ -281,31 +321,16 @@ export function App() {
             proposals={proposals}
             reloadToken={reloadToken}
             running={running}
-            onResearch={async (mode) => {
-              try {
-                const live = !!resolveRuntime(project.project, project.project.agents.find((a) => a.kind === 'onboard'));
-                await api.runOnboarding(live ? 'live' : 'scripted', mode);
-              } catch (e) {
-                notify((e as Error).message, true);
-              }
-            }}
             onOpenEntity={(id) => go({ page: 'entity', id, tab: 'map' })}
             onChanged={() => void reloadAll()}
             onError={(m) => notify(m, true)}
           />
         )}
-        {route.page === 'report' && <ReportView proposals={proposals} reloadToken={reloadToken} onChanged={() => void reloadAll()} onError={(m) => notify(m, true)} />}
+        {route.page === 'report' && <ReportView proposals={proposals} reloadToken={reloadToken} onError={(m) => notify(m, true)} />}
         {route.page === 'spec' && <SpecView reloadToken={reloadToken} onError={(m) => notify(m, true)} />}
 
         {route.page === 'onboarding' && (
-          <OnboardingView
-            project={project}
-            job={job}
-            running={running}
-            reloadToken={reloadToken}
-            onOpenProposals={() => go({ page: 'proposals' })}
-            onError={(m) => notify(m, true)}
-          />
+          <OnboardingView project={project} reloadToken={reloadToken} onError={(m) => notify(m, true)} />
         )}
 
         {route.page === 'backlog' && (
@@ -359,8 +384,10 @@ export function App() {
         )}
 
         {route.page === 'proposals' && (
-          <ProposalsView
+          <InboxView
             project={project}
+            reloadToken={reloadToken}
+            onChanged={() => void reloadAll()}
             proposals={proposals}
             entities={entities}
             dirty={dirty}
@@ -426,35 +453,7 @@ export function App() {
         </aside>
       )}
 
-      <section className="log">
-        <header onClick={() => setLogOpen(!logOpen)}>
-          <strong>Log</strong>
-          {job && (
-            <span className="state">
-              {job.kind === 'run' ? 'test run' : job.kind.startsWith('onboard') ? 'onboarding' : job.kind.replace('explore:', 'exploration: ')} —{' '}
-              {job.state === 'running' ? 'running' : job.state === 'done' ? 'done' : 'failed'}
-            </span>
-          )}
-          <span className="spacer" />
-          {running && (
-            <button className="btn small" onClick={(e) => { e.stopPropagation(); void api.cancel(job!.id); }}>
-              Stop
-            </button>
-          )}
-          <span className="muted">{logOpen ? 'Collapse' : 'Expand'}</span>
-        </header>
-        {logOpen && <LogLines lines={log} />}
-      </section>
-
       {toast && <div className={`toast ${toast.error ? 'error' : ''}`} role="status">{toast.text}</div>}
     </div>
   );
-}
-
-function LogLines({ lines }: { lines: string[] }) {
-  const ref = useRef<HTMLPreElement>(null);
-  useEffect(() => {
-    ref.current?.scrollTo(0, ref.current.scrollHeight);
-  }, [lines]);
-  return <pre ref={ref}>{lines.length ? lines.join('\n') : 'Output from test runs and agents appears here.'}</pre>;
 }

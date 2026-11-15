@@ -17,7 +17,8 @@ const browser = await chromium.launch();
 // Scripted agents: the recording must not depend on anyone's sign-in.
 const setup = await browser.newPage();
 await setup.goto(url);
-await setup.getByRole('navigation', { name: 'Sections' }).getByRole('button', { name: /^Agents/ }).click();
+await setup.getByRole('button', { name: 'Settings' }).click();
+await setup.getByRole('navigation', { name: 'Views' }).getByRole('button', { name: /^Agents/ }).click();
 await setup.getByLabel('Provider').first().selectOption('');
 await setup.getByRole('button', { name: 'Save settings' }).click();
 await setup.waitForTimeout(500);
@@ -48,12 +49,8 @@ async function click(target: Locator) {
   await target.click();
 }
 const nav = (name: string) => page.getByRole('navigation', { name: 'Sections' }).getByRole('button', { name: new RegExp(`^${name}`) });
-const collapseLog = async () => {
-  const c = page.getByText('Collapse', { exact: true });
-  if (await c.isVisible()) await c.click();
-};
 async function scroll(y: number) {
-  await page.locator('.page').evaluate((e, y) => e.scrollTo({ top: y, behavior: 'smooth' }), y);
+  await page.locator('.spec-page').evaluate((e, y) => e.scrollTo({ top: y, behavior: 'smooth' }), y);
   await hold(0.8);
 }
 
@@ -66,38 +63,37 @@ await hold(2.5);
 await caption('2 · Model: ask your agent to review it against the sources');
 await click(nav('Model'));
 await hold(1.5);
-await click(page.getByRole('button', { name: 'Review the model' }));
-await page.getByText('onboarding — done').waitFor({ timeout: 60_000 });
-await collapseLog();
+await click(page.getByRole('button', { name: 'Ask agent' }));
+await click(page.getByRole('menuitem', { name: /Review the model/ }));
+await page.getByText('review — done').waitFor({ timeout: 60_000 });
 await caption('Findings land on the model, with a dashed border');
 await hold(2);
-await click(page.getByRole('button', { name: /^Cancel/ }).first());
-await caption('Each rule comes with quotes: ✓ true · ≈ observed · ⏳ planned · ✕ strike out');
-// The agent's rule on Cancel, quoted from the product overview: the last ✓ on the page.
-const accept = page.getByRole('button', { name: '✓' }).last();
+await click(page.getByRole('region', { name: 'Actions' }).getByRole('button', { name: /^Cancel/ }).first());
+await caption('Each rule comes with quotes: Requirement · Observed · Planned · Strike out');
+// The agent's rule on Cancel, quoted from the product overview.
+const accept = page.getByRole('region', { name: 'Rules' }).getByRole('button', { name: 'Requirement' }).first();
 await accept.scrollIntoViewIfNeeded();
 await hold(3);
 await click(accept);
 await hold(2);
 
-await caption('3 · Disagreements: requirements say one thing, the code another');
-await click(nav('Disagreements'));
+await caption('3 · Inbox: requirements say one thing, the code another');
+await click(nav('Inbox'));
 await hold(3.5);
 await click(page.getByRole('button', { name: 'Bug in the product' }).first());
 await hold(1.5);
 
-await caption('4 · Specification: the confirmed model, with sources for every rule');
-await click(nav('Specification'));
+await caption('4 · Spec: the confirmed model, with the tests behind every rule');
+await click(nav('Spec'));
 await hold(2);
 await scroll(700);
 await hold(1.5);
 
 await caption('5 · Tests: Playwright, generated from the same model');
+await click(nav('Tests'));
 await click(page.getByRole('button', { name: 'Run all tests' }));
 await hold(2);
 await page.getByRole('button', { name: 'Run all tests' }).waitFor({ timeout: 600_000 });
-await collapseLog();
-await click(nav('Overview'));
 await caption('Every failure is a disagreement to settle — and the loop goes on');
 await hold(4);
 

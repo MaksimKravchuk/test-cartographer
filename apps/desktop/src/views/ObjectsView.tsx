@@ -91,7 +91,7 @@ function ObjectCard({ data }: NodeProps<Node<CardData>>) {
         )}
         <div className="object-footer">
           <div className="bar"><i style={{ width: `${pct}%` }} /></div>
-          <span>{t.passed}/{t.scenarios}{t.failed > 0 && <b style={{ color: 'var(--fail)' }}>, {t.failed} failed</b>}</span>
+          <span>{t.passed}/{t.scenarios}{t.failed > 0 && <b style={{ color: 'var(--bad)' }}>, {t.failed} failed</b>}</span>
         </div>
         {(e.pendingProposals > 0 || e.errors > 0) && (
           <div className="object-flags">
@@ -111,7 +111,7 @@ function ReferenceEdge(props: EdgeProps<Edge<RefEdgeData>>) {
   const [path, lx, ly] = getBezierPath({ ...props, curvature: 0.3 + d.offset * 0.25 });
   return (
     <>
-      <BaseEdge path={path} markerEnd={props.markerEnd} style={{ stroke: 'var(--ink-2)', strokeWidth: 1.5 }} />
+      <BaseEdge path={path} markerEnd={props.markerEnd} style={{ stroke: 'var(--fg-2)', strokeWidth: 1.5 }} />
       <EdgeLabelRenderer>
         <div className="edge-label nodrag nopan" style={{ transform: `translate(-50%, -50%) translate(${lx}px, ${ly + d.offset * 26}px)` }}>
           {d.label}
@@ -130,8 +130,8 @@ function Legend() {
     <div className="objects-legend" aria-label="Legend">
       <span className="legend-item">
         <svg width="26" height="16" viewBox="0 0 26 16">
-          <rect x="1" y="1" width="24" height="14" rx="3" fill="none" stroke="var(--ink-3)" />
-          <rect x="6" y="5" width="12" height="7" rx="2" fill="var(--sheet)" stroke="var(--ink)" />
+          <rect x="1" y="1" width="24" height="14" rx="3" fill="none" stroke="var(--fg-3)" />
+          <rect x="6" y="5" width="12" height="7" rx="2" fill="var(--surface)" stroke="var(--fg)" />
         </svg>
         Card inside a card — part of it
       </span>
@@ -139,10 +139,10 @@ function Legend() {
         <svg width="26" height="10" viewBox="0 0 26 10">
           <defs>
             <marker id="obj-arrow" viewBox="0 0 8 8" refX="6" refY="4" markerWidth="6" markerHeight="6" orient="auto">
-              <path d="M0,0 L8,4 L0,8 z" fill="var(--ink-2)" />
+              <path d="M0,0 L8,4 L0,8 z" fill="var(--fg-2)" />
             </marker>
           </defs>
-          <line x1="1" y1="5" x2="20" y2="5" stroke="var(--ink-2)" strokeWidth="1.5" markerEnd="url(#obj-arrow)" />
+          <line x1="1" y1="5" x2="20" y2="5" stroke="var(--fg-2)" strokeWidth="1.5" markerEnd="url(#obj-arrow)" />
         </svg>
         Arrow — refers to
       </span>
@@ -272,7 +272,7 @@ function Objects({ project, entities, onOpen, onCreated, onDeleted, onChanged, o
             source: e.id,
             target: r.entity,
             type: 'reference',
-            markerEnd: { type: MarkerType.ArrowClosed, width: 14, height: 14, color: 'var(--ink-2)' },
+            markerEnd: { type: MarkerType.ArrowClosed, width: 14, height: 14, color: 'var(--fg-2)' },
             data: { label: refLabel(r), offset },
           } satisfies Edge<RefEdgeData>;
         }),
@@ -564,7 +564,7 @@ function DetailPanel({
           {t.failed > 0 && <>, {t.failed} failed</>}
           {t.blocked > 0 && <>, {t.blocked} blocked</>}
         </p>
-        {entity.errors > 0 && <p style={{ margin: '4px 0 0', color: 'var(--fail)' }}>{plural(entity.errors, 'model error')}</p>}
+        {entity.errors > 0 && <p style={{ margin: '4px 0 0', color: 'var(--bad)' }}>{plural(entity.errors, 'model error')}</p>}
       </section>
 
       <div className="row" style={{ marginTop: 16, flexWrap: 'wrap', gap: 8 }}>
