@@ -2,7 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import type { Action, Decision, Disagreement, Entity, HistoryEntry, Lint, Op, ReviewCell, ReviewMarks, Role, Rule } from '@tc/model';
 import { api, type EntityState, type ProjectState, type ProposalState } from '../api.ts';
 import { DeleteButton, Editable, HistoryList, originText } from './ModelHistory.tsx';
-import { AttributesTable, GoneRow, Incoming, LifecycleTables, useStableRows, type ProposedAttribute } from './ObjectParts.tsx';
+import { AttributesTable, GoneRow, Incoming, LifecycleTables, rowKeys, useStableRows, type ProposedAttribute } from './ObjectParts.tsx';
 
 // The model as a person thinks about it: who acts (subjects), on what
 // (objects), with which actions, under which rules. What an agent found but
@@ -346,7 +346,9 @@ export function ModelView({ project, proposals, reloadToken, running, onOpenEnti
   const cur = current ? states[current] : undefined;
   const proposed = current ? pendingActions(current) : [];
   // A proposal's row takes the id it will have once accepted, so accepting it keeps its place.
-  const keyOf = (x: Pending) => (str(x.op.value.id) && !cur?.entity.actions.some((a) => a.id === x.op.value.id) ? str(x.op.value.id) : `${x.proposal.id}-${x.index}`);
+  // Only the first proposal of an id takes it; a second one for the same id keeps a row of its own.
+  const keys = rowKeys(proposed, (x) => str(x.op.value.id), (x) => `${x.proposal.id}-${x.index}`, cur?.entity.actions.map((a) => a.id) ?? []);
+  const keyOf = (x: (typeof proposed)[number]) => keys.get(x)!;
   const actionRows = useStableRows(current ?? '', [...(cur?.entity.actions ?? []).map((a) => ({ key: a.id, title: a.title })), ...proposed.map((x) => ({ key: keyOf(x), title: str(x.op.value.title) || str(x.op.value.id) }))]);
   const pick = (entity: string, action: string) => {
     setFocus(entity);

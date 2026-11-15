@@ -24,6 +24,17 @@ export function useStableRows(scope: string, rows: { key: string; title: string 
   return order.map((key) => ({ key, title: titles.get(key)!, gone: !live.has(key) }));
 }
 
+// Row keys for proposals: the id an item will have once accepted, unless the model or an earlier
+// proposal already holds that id — then the proposal's own key, so every proposal keeps its row.
+export function rowKeys<T>(items: T[], id: (x: T) => string, own: (x: T) => string, taken: string[]): Map<T, string> {
+  const used = new Set(taken);
+  return new Map(items.map((x) => {
+    const k = id(x) && !used.has(id(x)) ? id(x) : own(x);
+    used.add(k);
+    return [x, k];
+  }));
+}
+
 // The "N new incoming · Accept all · Strike out all" line beside a section heading.
 export function Incoming({ count, busy, blocked, onAll }: { count: number; busy: boolean; blocked: boolean; onAll(v: 'accept' | 'reject'): void }) {
   if (!count) return null;
@@ -91,7 +102,8 @@ export function AttributesTable(props: {
   };
   const live = entity.attributes.filter((a) => a.status !== 'rejected');
   // A proposal's row takes the id it will have once accepted, so accepting it keeps its place.
-  const keyOf = (x: ProposedAttribute) => (str(x.value.id) && !live.some((a) => a.id === x.value.id) ? str(x.value.id) : x.key);
+  const keys = rowKeys(props.proposed, (x) => str(x.value.id), (x) => x.key, live.map((a) => a.id));
+  const keyOf = (x: ProposedAttribute) => keys.get(x)!;
   const rows = useStableRows(entity.id, [...live.map((a) => ({ key: a.id, title: a.title })), ...props.proposed.map((x) => ({ key: keyOf(x), title: str(x.value.title) || str(x.value.id) }))]);
 
   return (
