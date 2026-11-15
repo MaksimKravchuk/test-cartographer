@@ -633,7 +633,8 @@ export const Resolution = z.object({
   finding: z.number().int().nonnegative(),
   // contradiction / gap: bug, outdated, fine. question: yes, no, answered (the
   // answer is in note). source: fixed (read it again next run), excluded (left out on purpose).
-  verdict: z.enum(['bug', 'outdated', 'fine', 'yes', 'no', 'answered', 'fixed', 'excluded']),
+  // any kind: clarified — a person asked for more context and an agent replaced it with new findings (note says which).
+  verdict: z.enum(['bug', 'outdated', 'fine', 'yes', 'no', 'answered', 'fixed', 'excluded', 'clarified']),
   note: z.string().optional(),
   at: z.string(),
 });

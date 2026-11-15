@@ -155,8 +155,8 @@ export const api = {
   backlog: () => call<BacklogState>('/api/backlog'),
   saveBacklog: (backlog: Backlog, revision: string) =>
     call<{ revision: string }>('/api/backlog', { method: 'PUT', body: JSON.stringify({ backlog, revision }) }),
-  runOnboarding: (provider: 'live' | 'scripted', mode: 'onboard' | 'review' = 'onboard', runtime?: RuntimeOverride) =>
-    call<{ job: string }>('/api/onboarding/run', { method: 'POST', body: JSON.stringify({ provider, mode, runtime }) }),
+  runOnboarding: (provider: 'live' | 'scripted', mode: 'onboard' | 'review' | 'clarify' = 'onboard', runtime?: RuntimeOverride, target?: { proposal: string; index: number }) =>
+    call<{ job: string }>('/api/onboarding/run', { method: 'POST', body: JSON.stringify({ provider, mode, runtime, target }) }),
   runtimes: () => call<RuntimeStatus[]>('/api/runtimes'),
   // A short end-to-end run; the job's result is { ok: boolean; seconds: number }.
   testRuntime: (provider: AgentProvider, model?: string) =>

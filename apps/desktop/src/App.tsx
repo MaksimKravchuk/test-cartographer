@@ -237,11 +237,11 @@ export function App() {
 
   const pending = useMemo(() => proposals.filter((p) => p.status === 'pending'), [proposals]);
 
-  const research = async (mode: 'onboard' | 'review') => {
+  const research = async (mode: 'onboard' | 'review' | 'clarify', target?: { proposal: string; index: number }) => {
     if (!project) return;
     try {
       const live = !!resolveRuntime(project.project, project.project.agents.find((a) => a.kind === 'onboard'));
-      await api.runOnboarding(live ? 'live' : 'scripted', mode);
+      await api.runOnboarding(live ? 'live' : 'scripted', mode, undefined, target);
     } catch (e) {
       notify((e as Error).message, true);
     }
@@ -436,6 +436,8 @@ export function App() {
             entities={entities}
             dirty={dirty}
             running={running}
+            clarifying={running && job?.kind === 'onboard:clarify'}
+            onClarify={(target) => void research('clarify', target)}
             onDecided={async (s: EntityState | ProjectDecideResult) => {
               if ('entity' in s) {
                 // Entity-level proposal: the engine returns the updated entity state directly.

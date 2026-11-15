@@ -502,9 +502,14 @@ export function createApp(initial: Workspace) {
 
   // The configured onboarding agent (or the built-in default, if none is set up yet).
   app.post('/api/onboarding/run', async (c) => {
-    const { provider, mode, runtime } = RunBody.extend({ mode: z.enum(['onboard', 'review']).default('onboard') }).parse(await c.req.json().catch(() => ({})));
-    const job = startJob(mode === 'review' ? 'onboard:review' : 'onboard', async (log, signal) => {
-      const proposals = await onboard(ws, undefined, { onLog: log, provider, runtime, signal, mode });
+    const { provider, mode, runtime, target } = RunBody.extend({
+      mode: z.enum(['onboard', 'review', 'clarify']).default('onboard'),
+      // clarify: the finding a person wants more context on.
+      target: z.object({ proposal: z.string(), index: z.number().int().nonnegative() }).optional(),
+    }).parse(await c.req.json().catch(() => ({})));
+    if (mode === 'clarify' && !target) throw new HttpError(400, 'clarify needs a target finding');
+    const job = startJob(mode === 'onboard' ? 'onboard' : `onboard:${mode}`, async (log, signal) => {
+      const proposals = await onboard(ws, undefined, { onLog: log, provider, runtime, signal, mode, target });
       return { proposals: proposals.map((p) => p.id), ops: proposals.reduce((n, p) => n + p.ops.length, 0), findings: proposals.reduce((n, p) => n + p.findings.length, 0) };
     });
     return c.json({ job });

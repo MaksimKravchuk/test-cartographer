@@ -18,7 +18,10 @@ export type OnboardOptions = {
   signal?: AbortSignal;
   // onboard — propose a model from scratch (or add to a thin one);
   // review  — check every element of the existing model against the sources.
-  mode?: 'onboard' | 'review';
+  // clarify — a person can't answer one finding: dig into it and replace it with answerable, single-topic ones.
+  mode?: 'onboard' | 'review' | 'clarify';
+  // clarify: the finding to dig into.
+  target?: { proposal: string; index: number };
 };
 
 // Used when cartographer.yaml has no `kind: onboard` entry — a project can
@@ -49,7 +52,7 @@ function findLines(source: string, quote: string): { from: number; to: number } 
   return { from: source.slice(0, m.index).split('\n').length, to: source.slice(0, m.index + m[0].length).split('\n').length };
 }
 
-const MODE_GOAL = {
+const MODE_GOAL: Record<'onboard' | 'review' | 'clarify', string> = {
   onboard: 'read everything known about the product — docs, tracker exports, contracts, notes, the code, systems behind MCP — and propose the SOAR model plus the backlog.',
   review: `review the model a person already has against everything known about the product. For every subject, object,
 action and rule in model({ entity }), look for confirmation or contradiction in the sources; propose what the model is missing.
@@ -60,9 +63,18 @@ A rule found only in the code is behavior, not a requirement: propose it and say
 Cover every element, so the review fills a table of element × source: where a source says the same as the model,
 add a finding (kind=confirmation) with that element in refs and the quote as evidence; where you looked and found
 nothing, add a finding (kind=gap) with the source ids you searched in \`searched\` and the files or queries in its note.`,
+  clarify: `give a person enough context to answer one finding they couldn't answer as written (it is quoted in the
+first message). Investigate it: read the sources it touches and find where it shows for a user — the screen, the API route
+and the response field, the CLI command — and quote what you find. Then replace it with findings a person can answer
+on the spot, each in plain words and self-contained: what you found and where (with quotes as evidence), what is still
+unknown, and the question. Each finding asks ONE thing: split a finding that bundles unrelated asks. Give likely answers
+in \`options\` when yes/no doesn't fit. When the sources settle a part on their own, say so in a finding
+(kind=confirmation, with the quote) instead of asking. Keep the original finding's kind for contradictions and gaps,
+and its refs. Propose model changes only when the investigation shows them. Hand everything in with one propose(),
+in the original's group (project, or the same entity).`,
 };
 
-const system = (p: { sourceList: string; contracts: string[]; mode: 'onboard' | 'review'; usePriority: boolean }) => `You are working for Test Cartographer: ${MODE_GOAL[p.mode]}
+const system = (p: { sourceList: string; contracts: string[]; mode: 'onboard' | 'review' | 'clarify'; usePriority: boolean }) => `You are working for Test Cartographer: ${MODE_GOAL[p.mode]}
 
 The model is Subject / Object / Action / Rule (SOAR): roles (human or system), entities with variants, states,
 actions, transitions (who may move the entity from state to state) and permits (who may act without changing
@@ -98,6 +110,9 @@ Rules:
   to line-wrap the way the source does, but the words and punctuation must match) and put the evidence id it
   returns in that op's own \`evidence\` array. quote() fails if the text isn't actually in the source — never
   paraphrase, and never cite an evidence id in a group other than the one the quote was taken for.
+- One finding asks one thing: two unrelated questions are two findings, so each can be answered on its own. Write a
+  question so a person can answer it without opening the code: say what you found, where it shows (screen, API field,
+  command), and what exactly is unknown.
 - Never invent a requirement. If no source says it, it isn't one: don't propose it as a rule, add a finding
   (kind=question) saying what you looked for and where.
 - When a search finds nothing, say where you searched (which sources, files or queries) in the finding's note, so
@@ -257,7 +272,7 @@ export async function onboard(ws: Workspace, agentId: string | undefined, opts: 
 
   // Writes one proposal per group straight away, so the Inbox shows it while
   // the agent works on. `batch` numbers a record() call; propose() has none.
-  const tag = mode === 'review' ? 'review' : spec.id;
+  const tag = mode === 'onboard' ? spec.id : mode;
   const save = async ({ rationale, project: group, entities }: Checked, batch?: number): Promise<Proposal[]> => {
     const base = `${timestamp}-${tag}${batch ? `-${batch}` : ''}`;
     const createdAt = new Date().toISOString();
@@ -366,7 +381,7 @@ export async function onboard(ws: Workspace, agentId: string | undefined, opts: 
           answers: proposals.flatMap((p) =>
             p.resolutions.flatMap((r) => {
               const f = p.findings[r.finding];
-              return f && f.kind !== 'contradiction' ? [{ kind: f.kind, refs: f.refs, note: f.note, answer: r.verdict, ...(r.note ? { text: r.note } : {}) }] : [];
+              return f && f.kind !== 'contradiction' && r.verdict !== 'clarified' ? [{ kind: f.kind, refs: f.refs, note: f.note, answer: r.verdict, ...(r.note ? { text: r.note } : {}) }] : [];
             }),
           ),
         });
@@ -420,6 +435,24 @@ export async function onboard(ws: Workspace, agentId: string | undefined, opts: 
     },
   ];
 
+  // clarify: the finding a person couldn't answer, with its quotes, is the agent's whole brief.
+  let brief = '';
+  const target = mode === 'clarify' ? opts.target : undefined;
+  if (mode === 'clarify') {
+    if (!target) throw new Error('clarify needs the finding to dig into');
+    const original = await ws.proposal(target.proposal);
+    const f = original.findings[target.index];
+    if (!f) throw new Error(`No finding #${target.index} in proposal “${target.proposal}”`);
+    const quotes = f.evidence.flatMap((id) => original.evidence.filter((e) => e.id === id)).map((e) => `- ${e.source ?? 'app'}${e.path ? ` (${e.path})` : ''}: “${e.summary}”`);
+    brief = [
+      `A person can't answer this ${f.kind} as written and asked for more context.`,
+      `Group: ${original.entity ? `entities.${original.entity}` : 'project'}. Refs: ${f.refs.join(', ') || 'none'}.`,
+      `Finding: ${f.note}`,
+      quotes.length ? `Its evidence:\n${quotes.join('\n')}` : 'It has no evidence.',
+      'Call model() and sources(), investigate, then propose() the findings that replace it.',
+    ].filter(Boolean).join('\n');
+  }
+
   try {
     await runAgent({
       runtime,
@@ -429,10 +462,10 @@ export async function onboard(ws: Workspace, agentId: string | undefined, opts: 
         mode,
         usePriority: registry.usePriority,
       }),
-      prompt: mode === 'review' ? 'Start the review: call model() and sources(), then check each element.' : `Start onboarding. Goal: ${spec.goal}`,
+      prompt: mode === 'review' ? 'Start the review: call model() and sources(), then check each element.' : mode === 'clarify' ? brief : `Start onboarding. Goal: ${spec.goal}`,
       tools,
       deliver: 'propose',
-      script: mode === 'review' ? ws.path('agents/review.yaml') : spec.script ? ws.path(spec.script) : undefined,
+      script: mode !== 'onboard' ? ws.path(`agents/${mode}.yaml`) : spec.script ? ws.path(spec.script) : undefined,
       isDone: () => done,
       onLog: log,
       signal: opts.signal,
@@ -441,6 +474,15 @@ export async function onboard(ws: Workspace, agentId: string | undefined, opts: 
     await mcp.close();
   }
   if (!done) throw new Error('The agent finished without an accepted proposal (propose was never called or was rejected)');
+
+  // The original leaves the queue once something replaces it; with nothing new it stays open.
+  const replacements = saved.reduce((n, p) => n + p.findings.length + p.ops.length, 0);
+  if (target && replacements) {
+    const original = await ws.proposal(target.proposal);
+    const note = `More context: ${saved.map((p) => p.id).join(', ')}`;
+    const rest = original.resolutions.filter((r) => r.finding !== target.index);
+    await ws.saveProposal({ ...original, resolutions: [...rest, { finding: target.index, verdict: 'clarified', note, at: new Date().toISOString() }] });
+  }
 
   return saved;
 }

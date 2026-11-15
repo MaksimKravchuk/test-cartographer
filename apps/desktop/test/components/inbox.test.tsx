@@ -29,8 +29,8 @@ describe('InboxView', () => {
     lint: [], sources: [], usePriority: false,
   } as never);
   const props = {
-    project: { project: { agents: [] } } as never, proposals: [], entities: [], dirty: false, running: false, reloadToken: 0,
-    onDecided: vi.fn(), onChanged: vi.fn(), onError: vi.fn(),
+    project: { project: { agents: [] } } as never, proposals: [], entities: [], dirty: false, running: false, clarifying: false, reloadToken: 0,
+    onDecided: vi.fn(), onChanged: vi.fn(), onError: vi.fn(), onClarify: vi.fn(),
   };
 
   it('a source problem is fixed or left out, not a product bug', async () => {
@@ -60,5 +60,15 @@ describe('InboxView', () => {
     expect(screen.queryByRole('button', { name: /^Yes/ })).toBeNull();
     await userEvent.click(screen.getByRole('button', { name: /Any member/ }));
     expect(api.resolve).toHaveBeenCalledWith('p1', 4, 'answered', 'Any member');
+  });
+
+  it('Need more context asks an agent to dig into the finding, and says so while it works', async () => {
+    const { rerender } = render(<InboxView {...props} />);
+    await userEvent.click(await screen.findByRole('button', { name: /Who can delete a tag/ }));
+    await userEvent.click(screen.getByRole('button', { name: /Need more context/ }));
+    expect(props.onClarify).toHaveBeenCalledWith({ proposal: 'p1', index: 2 });
+    rerender(<InboxView {...props} running clarifying />);
+    expect(screen.getByRole('status')).toHaveTextContent(/looking into this/);
+    expect(screen.getByRole('button', { name: /Need more context/ })).toBeDisabled();
   });
 });

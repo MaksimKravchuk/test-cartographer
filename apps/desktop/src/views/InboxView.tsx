@@ -7,7 +7,9 @@ import { ProposalsView } from './ProposalsView.tsx';
 // sources, agents' questions, gaps, problems reading a source, and proposed
 // model changes. Pick an item on the left, decide on the right; a decision
 // applies at once and the next item opens. J / K move through the list, and
-// each kind of finding has its own answers and keys.
+// each kind of finding has its own answers and keys. When an item can't be
+// answered as written, M asks an agent for more context: it digs into the
+// sources and replaces the item with answerable, single-topic ones.
 
 type Props = {
   project: ProjectState;
@@ -15,6 +17,9 @@ type Props = {
   entities: EntitySummary[];
   dirty: boolean;
   running: boolean;
+  // An agent is digging into a finding right now.
+  clarifying: boolean;
+  onClarify(target: { proposal: string; index: number }): void;
   reloadToken: number;
   onDecided(s: EntityState | ProjectDecideResult): void;
   onChanged(): void;
@@ -47,7 +52,7 @@ const answersFor = (d: Disagreement): Answer[] => {
 };
 const verdictTitle: Record<Resolution['verdict'], string> = {
   bug: 'Bug in the product', outdated: 'Requirements are outdated', fine: 'Not a problem',
-  yes: 'Yes', no: 'No', answered: 'Answered', fixed: 'Fixed', excluded: 'Left out on purpose',
+  yes: 'Yes', no: 'No', answered: 'Answered', fixed: 'Fixed', excluded: 'Left out on purpose', clarified: 'Replaced with more context',
 };
 const findingKind = (d: Disagreement): FindingKind =>
   d.finding.kind === 'contradiction' || d.finding.kind === 'gap' || d.finding.kind === 'source' ? d.finding.kind : 'question';
@@ -69,6 +74,8 @@ export function InboxView(props: Props) {
   const [current, setCurrent] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [answer, setAnswer] = useState('');
+  // The finding an agent was last asked to clarify, to say so on it while it works.
+  const [asked, setAsked] = useState<string | null>(null);
 
   const load = () => api.report().then(setReport).catch((e) => props.onError((e as Error).message));
   useEffect(() => { void load(); }, [props.reloadToken, proposals]);
@@ -106,6 +113,12 @@ export function InboxView(props: Props) {
     setCurrent(visible[Math.min(visible.length - 1, Math.max(0, at + step))].key);
   };
 
+  const clarify = (it: Item) => {
+    if (!it.d || props.running) return;
+    setAsked(it.key);
+    props.onClarify({ proposal: it.d.proposal, index: it.d.index });
+  };
+
   const resolve = async (d: Disagreement, verdict: Resolution['verdict'] | null, note?: string) => {
     setBusy(true);
     try {
@@ -130,6 +143,7 @@ export function InboxView(props: Props) {
       const k = e.key.toLowerCase();
       if (k === 'j') move(1);
       else if (k === 'k') move(-1);
+      else if (k === 'm' && item?.d && !item.d.resolution) clarify(item);
       else if (item?.d && !item.d.resolution && !busy) {
         const v = answersFor(item.d).find((x) => x.key === k);
         if (v) void resolve(item.d, v.v, v.note);
@@ -199,6 +213,9 @@ export function InboxView(props: Props) {
             {item.d.finding.synonym && !item.d.resolution && (
               <p className="muted">Yes adds “{item.d.finding.synonym.synonym}” to the glossary as another name for “{item.d.finding.synonym.term}”.</p>
             )}
+            {props.clarifying && asked === item.key && !item.d.resolution && (
+              <p className="muted" role="status">An agent is looking into this. Its questions show up in the queue, and this one closes when they do.</p>
+            )}
             {item.kind === 'source' && !item.d.resolution && (
               <p className="muted">This is about what the agent could read, not about the product. Check the source on the Sources page, then mark it fixed so the next run reads it again.</p>
             )}
@@ -242,6 +259,11 @@ export function InboxView(props: Props) {
                     </form>
                   )}
                 </>
+              )}
+              {!item.d.resolution && (
+                <button className="btn" disabled={busy || props.running} title="An agent digs into the sources and rewrites this so you can answer it" onClick={() => clarify(item)}>
+                  Need more context <span className="kbd">M</span>
+                </button>
               )}
               <span className="spacer" />
               <span className="muted hint">
