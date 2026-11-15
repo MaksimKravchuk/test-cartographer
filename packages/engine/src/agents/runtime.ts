@@ -18,7 +18,7 @@ import { cursorStatus, runCursor } from './cursor.ts';
 
 export { cursorLogin } from './cursor.ts';
 
-const runtimes: Record<AgentProvider, { title: string; run(h: Harness): Promise<void>; status(): Promise<RuntimeStatus> }> = {
+const runtimes: Record<AgentProvider, { title: string; run(h: Harness): Promise<void>; status(baseUrl?: string): Promise<RuntimeStatus> }> = {
   claude: { title: 'Claude Code', run: runClaude, status: claudeStatus },
   codex: { title: 'Codex', run: runCodex, status: codexStatus },
   copilot: { title: 'GitHub Copilot', run: runCopilot, status: copilotStatus },
@@ -155,8 +155,9 @@ export async function runAgent(run: AgentRun): Promise<void> {
 
 export const runtimeTitle = (p: AgentProvider) => runtimes[p].title;
 
-export async function runtimeStatus(): Promise<RuntimeStatus[]> {
-  return Promise.all(Object.values(runtimes).map((r) => r.status()));
+// endpoint: the project's runtime.baseUrl, which Codex uses instead of a sign-in.
+export async function runtimeStatus(endpoint?: string): Promise<RuntimeStatus[]> {
+  return Promise.all(Object.values(runtimes).map((r) => r.status(endpoint)));
 }
 
 // End-to-end check of a runtime: sign-in, the bridge and tool calls. The agent
@@ -166,6 +167,7 @@ export async function testRuntime(
   model: string | undefined,
   onLog: (line: string) => void,
   signal?: AbortSignal,
+  baseUrl?: string,
 ): Promise<{ ok: boolean; seconds: number }> {
   const t0 = Date.now();
   let word: string | undefined;
@@ -182,7 +184,7 @@ export async function testRuntime(
     },
   ];
   await runAgent({
-    runtime: { provider, model, effort: 'low', maxSteps: 6 },
+    runtime: { provider, model, effort: 'low', maxSteps: 6, baseUrl: provider === 'codex' ? baseUrl : undefined },
     system: 'You are checking that tools work. Use only the provided tools: call ping, then call finish with the secret word ping returned, then stop.',
     prompt: 'Run the check.',
     tools,

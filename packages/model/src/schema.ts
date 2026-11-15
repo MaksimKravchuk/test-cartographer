@@ -105,6 +105,10 @@ export const Runtime = z.object({
   effort: Effort.optional(),
   // Tool calls per run.
   maxSteps: z.number().int().positive().default(60),
+  // Codex only: an OpenAI-compatible endpoint (Responses API) serving any
+  // model, such as an open-weight one in Ollama, LM Studio or vLLM, in place
+  // of a ChatGPT subscription.
+  baseUrl: z.string().url().optional(),
 });
 export type Runtime = z.infer<typeof Runtime>;
 
@@ -178,6 +182,7 @@ export function resolveRuntime(project: Pick<Project, 'runtime'>, agent?: Pick<A
     model: o.model ?? (provider === base?.provider ? base.model : undefined),
     effort: o.effort ?? base?.effort,
     maxSteps: o.maxSteps ?? base?.maxSteps ?? 60,
+    baseUrl: provider === base?.provider ? base.baseUrl : undefined,
   };
 }
 

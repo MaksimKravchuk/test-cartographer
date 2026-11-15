@@ -478,12 +478,13 @@ export function createApp(initial: Workspace) {
   });
 
   // Claude Code and Codex as signed in on this machine — no prompt is sent.
-  app.get('/api/runtimes', async (c) => c.json(await runtimeStatus()));
+  const endpoint = async () => (await ws.project().catch(() => undefined))?.runtime?.baseUrl;
+  app.get('/api/runtimes', async (c) => c.json(await runtimeStatus(await endpoint())));
 
   app.post('/api/runtimes/:provider/test', async (c) => {
     const provider = AgentProvider.parse(c.req.param('provider'));
     const { model } = z.object({ model: z.string().optional() }).parse(await c.req.json().catch(() => ({})));
-    const job = startJob(`test:${provider}`, (log, signal) => testRuntime(provider, model, log, signal));
+    const job = startJob(`test:${provider}`, async (log, signal) => testRuntime(provider, model, log, signal, await endpoint()));
     return c.json({ job });
   });
 

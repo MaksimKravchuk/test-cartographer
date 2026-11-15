@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { allFindings, checkRoles, disagreements, Entity, lintModel, Project, Proposal, renderSpec, reviewMatrix, validateEntity, validateProject } from '@tc/model';
+import { allFindings, checkRoles, disagreements, Entity, lintModel, Project, Proposal, renderSpec, resolveRuntime, reviewMatrix, validateEntity, validateProject } from '@tc/model';
 
 const project = Project.parse({
   name: 'Shop',
@@ -132,4 +132,13 @@ test('invariants in the spec: “Always true”, with their tests, or not checka
   assert.match(md, /### Always true\n\n- An order has one buyer\. _\(not checkable yet: no field values\)_/);
   const checked = Entity.parse({ ...order, invariants: [{ id: 'one', title: 'One', text: 'An order has one buyer.', holds: { buyers: 1 } }] });
   assert.match(renderSpec(project, [checked], [], [], [{ entity: 'order', scenarios: [] }] as never), /Order: invariant “An order has one buyer\.”/);
+});
+
+test('runtime.baseUrl: carried to agents on the same provider; only Codex uses it', () => {
+  const p = Project.parse({ ...project, runtime: { provider: 'codex', baseUrl: 'http://localhost:11434/v1' } });
+  assert.equal(resolveRuntime(p)?.baseUrl, 'http://localhost:11434/v1');
+  assert.equal(resolveRuntime(p, { runtime: { provider: 'claude' } })?.baseUrl, undefined);
+  assert.deepEqual(validateProject(p), []);
+  const claude = Project.parse({ ...project, runtime: { provider: 'claude', baseUrl: 'http://localhost:11434/v1' } });
+  assert.match(validateProject(claude)[0].message, /Only the Codex runtime/);
 });
