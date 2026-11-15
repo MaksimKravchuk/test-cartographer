@@ -34,6 +34,10 @@ Engine CLI — `pnpm tc <command>`:
 
 ## The knowledge loop
 
+![The knowledge loop on the demo shop: sources, a review by an agent, disagreements, the specification and the tests](docs/media/loop.gif)
+
+New here? The [quickstart](docs/quickstart.md) walks this loop on the bundled demo shop in about 5 minutes, with or without an agent.
+
 The app is built around one loop. A person and agents keep adding to the same model of the product until it describes the system well enough to test it:
 
 1. **Sources** — list everything known about the product: uploaded docs and tracker exports, code folders, systems behind MCP (Confluence, Jira). Give each a priority (requirements outrank code by default) and press **Check access**.
@@ -208,13 +212,13 @@ Done:
 - coverage and Markdown export;
 - knowledge sources and an onboarding agent that reads them and proposes the first model and backlog, every operation backed by an exact quote;
 - the backlog — epics, features, stories — as a view over the model: features slice it by action, stories cite the elements they cover, coverage rolls up per epic/feature/story, and unmapped stories are called out;
-- scenarios tagged and annotated by epic/feature/story for Allure TestOps.
+- scenarios tagged and annotated by epic/feature/story for Allure TestOps;
+- a [quickstart](docs/quickstart.md) that walks the whole loop on the demo shop.
 
 Next, in this order (each step is its own pull request):
 1. Running on Linux and Windows through the CLI and web GUI; packaging as a `.app` on macOS.
-2. A quickstart on the demo shop.
-3. A public case: an undocumented app → specification → tests and the disagreements found.
-4. Later: a recorded HAR session as a source, noticing when sources change, cleaning up test data by `runTag`, agent-authored changes to the action library reviewed by a person, pushing runs to Allure TestOps (scenario IDs and epic/feature/story labels are already on every compiled test).
+2. A public case: an undocumented app → specification → tests and the disagreements found.
+3. Later: a recorded HAR session as a source, noticing when sources change, cleaning up test data by `runTag`, agent-authored changes to the action library reviewed by a person, pushing runs to Allure TestOps (scenario IDs and epic/feature/story labels are already on every compiled test).
 
 ## License
 
