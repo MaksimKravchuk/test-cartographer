@@ -23,15 +23,26 @@ How to run the demo shop, the engine and the GUI is in the [README](README.md#qu
 Run these before you push. CI runs the same ones on every pull request:
 
 ```bash
-pnpm test         # unit tests (node --test)
-pnpm typecheck    # tsc, no emit
-pnpm tc validate  # the example workspace is consistent
+pnpm typecheck         # tsc, no emit (packages and the GUI)
+pnpm tc validate       # the example workspace is consistent
+pnpm test              # unit + component + integration, below
 ```
+
+The tests come in four levels:
+
+| Level | Command | Where | What |
+| --- | --- | --- | --- |
+| Unit | `pnpm test:unit` | `packages/*/test/*.test.ts` | the model and engine logic, no I/O (node --test) |
+| Component | `pnpm test:component` | `apps/desktop/test/` | GUI logic and React views in jsdom (Vitest + Testing Library) |
+| Integration | `pnpm test:integration` | `packages/*/test/integration/` | the engine API, the CLI, MCP tools and scripted agents over a copy of `workspace/`, against the demo shop |
+| End to end | `pnpm test:e2e` | `tests/e2e/` | the built GUI in Chromium, the Electron window, and a full `Run all tests` against the demo shop (Playwright) |
+
+Integration and e2e tests start the demo shop on port 4400 unless one is already running, and never touch `workspace/` itself: they work on a throwaway copy (`.tc-test-*`, removed afterwards). The full run expects exactly the demo shop's deliberate bugs to fail (`tests/e2e/pipeline.spec.ts`); if you change the demo shop or the model, update that list. On Linux, the Electron test needs a display: `xvfb-run -a pnpm test:e2e`. Agents never call a model in tests: they replay their `script:` (provider `scripted`), and a fake MCP client stands in for Claude Code / Codex at the tool bridge.
 
 ## Pull requests
 
 - Keep a pull request to one change, and describe what it does and why.
-- Add or update a test in `packages/*/test/` when you change logic in `packages/model` or `packages/engine`.
+- Add or update a test at the right level (see the table above) when you change logic.
 - If you change how something works for users, update the README in the same pull request.
 - Don't commit real credentials. Workspace values that are secrets should be `{{env.NAME}}` references.
 
