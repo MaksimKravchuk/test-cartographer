@@ -80,12 +80,12 @@ function checkProjectOp(state: ProjectState, op: Op): string | null {
   return list.some((x) => x.id === op.id) ? null : `“${op.id}” is not in the model`;
 }
 
-// The roles an op names as performers: a transition's or permit's `by`, a
-// rule's `roles` condition.
+// The roles an op names as performers: an action's, transition's or permit's
+// `by`, a rule's `roles` condition.
 function namedRoles(op: Op): unknown[] {
   if (op.op === 'remove') return [];
   const fields = op.op === 'add' ? op.value : op.set;
-  if (op.kind === 'transition' || op.kind === 'permit') return Array.isArray(fields.by) ? fields.by : [];
+  if (op.kind === 'transition' || op.kind === 'permit' || op.kind === 'action') return Array.isArray(fields.by) ? fields.by : [];
   if (op.kind === 'rule' && Array.isArray(fields.requires))
     return fields.requires.flatMap((c) => (c?.kind === 'roles' && Array.isArray(c.roles) ? c.roles : []));
   return [];

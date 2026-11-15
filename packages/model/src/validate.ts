@@ -94,6 +94,7 @@ export function validateEntity(entity: Entity, project: Project, actions?: Set<s
 
   for (const a of entity.actions) {
     const p = `actions.${a.id}`;
+    for (const roleId of a.by ?? []) if (!roles.has(roleId)) err(p, `Unknown role “${roleId}”`);
     if (!a.run && !a.invoke) warn(p, `Action “${a.title}” can't be performed in a test: give it a run entry, an invoke tool, or both`);
     if (a.invoke && !toolAllowed(project, a.invoke.tool, 'trigger'))
       err(p, `Trigger tool “${a.invoke.tool}” is not allowed (mcp.*.allow.trigger)`);

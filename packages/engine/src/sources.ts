@@ -1,5 +1,5 @@
-import { readdir, stat } from 'node:fs/promises';
-import { isAbsolute, join, resolve } from 'node:path';
+import { readdir, realpath, stat } from 'node:fs/promises';
+import { isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { homedir } from 'node:os';
 import { isFileSource, type Project, type Source, type Workspace } from '@tc/model';
 import { McpPool } from './mcp.ts';
@@ -13,6 +13,18 @@ const MAX_FILES = 20_000;
 export function codePath(root: string, path: string): string {
   const p = path.startsWith('~/') ? join(homedir(), path.slice(2)) : path;
   return isAbsolute(p) ? p : resolve(root, p);
+}
+
+// A file an agent asked for inside a code folder, by real path on both sides:
+// a symlink inside the folder must not lead out of it, or to a .env file.
+export async function insideCode(root: string, path: string): Promise<{ abs: string; rel: string }> {
+  const realRoot = await realpath(root);
+  const abs = await realpath(resolve(realRoot, path)).catch(() => {
+    throw new Error(`No file “${path}”`);
+  });
+  const rel = relative(realRoot, abs);
+  if (!rel || rel.startsWith('..') || isAbsolute(rel) || rel.split(sep).some((part) => part.startsWith('.env'))) throw new Error(`“${path}” is outside the code folder`);
+  return { abs, rel };
 }
 
 // Files an agent may read from a code folder: not in SKIP folders, not .env*

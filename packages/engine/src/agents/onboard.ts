@@ -6,10 +6,9 @@
 import { z } from 'zod';
 import { checkRoles, Finding, isFileSource, Op, Proposal, redactFields, resolveRuntime, type AgentSpec, type Evidence, type Workspace } from '@tc/model';
 import { readFile, stat } from 'node:fs/promises';
-import { relative, resolve, sep } from 'node:path';
 import { listOf, runAgent, type Tool } from './runtime.ts';
 import { McpPool } from '../mcp.ts';
-import { codePath, listCode } from '../sources.ts';
+import { codePath, insideCode, listCode } from '../sources.ts';
 
 export type OnboardOptions = {
   onLog?: (line: string) => void;
@@ -162,9 +161,9 @@ export async function onboard(ws: Workspace, agentId: string | undefined, opts: 
   const codeText = async (id: string, path: string) => {
     const s = sourceOf(id, ['code']);
     const root = codePath(ws.root, s.path!);
-    const abs = resolve(root, path);
-    const rel = relative(root, abs);
-    if (rel.startsWith('..') || rel.split(sep).some((part) => part.startsWith('.env'))) throw new Error(`“${path}” is outside source “${id}”`);
+    const { abs, rel } = await insideCode(root, path).catch((e: Error) => {
+      throw new Error(`${e.message} (source “${id}”)`);
+    });
     const key = `${id}:${rel}`;
     let t = textCache.get(key);
     if (t === undefined) {

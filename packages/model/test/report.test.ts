@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { Entity, lintModel, Project, renderSpec, validateEntity } from '@tc/model';
+import { checkRoles, Entity, lintModel, Project, renderSpec, validateEntity } from '@tc/model';
 
 const project = Project.parse({
   name: 'Shop',
@@ -40,4 +40,10 @@ test('lintModel: an action nobody performs, an action with nothing known, vague 
   assert.ok(msgs.some((m) => m.startsWith('action:order.refund: Nothing is known')));
   assert.ok(msgs.some((m) => m.startsWith('rule:order.r: “usually”')));
   assert.ok(!msgs.some((m) => m.startsWith('action:order.cancel')));
+});
+
+test('action.by: an unknown role is caught by validation and by checkRoles', () => {
+  const e = Entity.parse({ ...order, actions: [{ id: 'cancel', title: 'Cancel', by: ['Buyer'], run: 'order.cancel' }] });
+  assert.ok(validateEntity(e, project).some((i) => i.path === 'actions.cancel' && /Unknown role “Buyer”/.test(i.message)));
+  assert.match(checkRoles({ op: 'add', kind: 'action', value: { id: 'x', title: 'x', by: ['Buyer'] }, evidence: [] }, project.roles) ?? '', /Buyer/);
 });
