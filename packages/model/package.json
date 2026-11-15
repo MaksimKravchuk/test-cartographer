@@ -7,6 +7,6 @@
   "exports": { ".": "./src/index.ts", "./schema": "./src/schema.ts" },
   "dependencies": {
     "yaml": "^2.8.0",
-    "zod": "^4.1.0"
+    "zod": "^4.6.6"
   }
 }
