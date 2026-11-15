@@ -115,6 +115,7 @@ export function lintModel(entities: Entity[]): Lint[] {
     for (const r of e.rules.filter(isActive)) {
       const m = VAGUE.exec(r.text);
       if (m) out.push({ entity: e.id, ref: `rule:${e.id}.${r.id}`, message: `“${m[0]}” can't be tested: say exactly when it holds — “${r.text}”` });
+      if (!r.provenance?.sources.length) out.push({ entity: e.id, ref: `rule:${e.id}.${r.id}`, message: `No source backs “${r.title}”: find it in the requirements or the code, or it stays one person's word` });
     }
     for (const s of e.states.filter(isActive)) {
       const into = s.initial || s.setup.length > 0 || transitions.some((t) => t.to === s.id);
