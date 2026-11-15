@@ -98,3 +98,18 @@ test('clarify (scripted): replaces a finding a person could not answer with sing
     await rm(dir, { recursive: true, force: true });
   }
 });
+
+test('a transition that names an action the entity lacks is refused, unless the same call adds the action', async () => {
+  const dir = join(repo, `.tc-test-${process.pid}-action`);
+  const script = (ops: string) => `steps:\n  - call: propose\n    input: { rationale: r, entities: { order: { ops: [${ops}] } } }\n`;
+  const transition = '{ op: add, kind: transition, value: { id: t1, title: T, from: paid, to: cancelled, action: nope, by: [seller] } }';
+  try {
+    await cp(join(repo, 'workspace'), dir, { recursive: true, filter: (src) => !src.includes('node_modules') });
+    await writeFile(join(dir, 'agents/onboarding.yaml'), script(transition));
+    await assert.rejects(onboard(new Workspace(dir), undefined, { provider: 'scripted' }), /transition “t1” names action “nope”, which “order” doesn't have/);
+    await writeFile(join(dir, 'agents/onboarding.yaml'), script(`{ op: add, kind: action, value: { id: nope, title: Nope } }, ${transition}`));
+    assert.equal((await onboard(new Workspace(dir), undefined, { provider: 'scripted' }))[0].ops.length, 2);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});

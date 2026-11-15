@@ -173,7 +173,7 @@ export async function onboard(ws: Workspace, agentId: string | undefined, opts: 
 
   type Group = { ops: Op[]; findings: Finding[] };
   type Checked = { rationale: string; project?: Group; entities: [string, Group][] };
-  const check = ({ rationale, project: projectIn, entities: entitiesIn }: GroupsIn): Checked => {
+  const check = async ({ rationale, project: projectIn, entities: entitiesIn }: GroupsIn): Promise<Checked> => {
     const known = new Set(evidence.map((e) => e.id));
     if (!projectIn && !entitiesIn) throw new Error('needs at least a project or an entities group');
     const parsedProject = projectIn && parseGroup('project', projectIn.ops, projectIn.findings, known);
@@ -197,6 +197,19 @@ export async function onboard(ws: Workspace, agentId: string | undefined, opts: 
     const entityIds = new Set([...existing, ...added]);
     const strays = parsedEntities.map(([id]) => id).filter((id) => !entityIds.has(id));
     if (strays.length) throw new Error(`No entity ${strays.map((id) => `“${id}”`).join(', ')}: there are ${[...entityIds].join(', ') || 'none'}. Add a new one with an entity op in project.ops, or use an existing id.`);
+    // A transition, permit or rule names an action of its entity: one that exists, or one added in this run.
+    const catalog = await ws.catalog();
+    const badActions = parsedEntities.flatMap(([id, group]) => {
+      const actions = new Set([
+        ...(catalog[id]?.actions ?? []).map((a) => a.id),
+        ...[...saved.filter((p) => p.entity === id).flatMap((p) => p.ops), ...group.ops].flatMap((op) => (op.kind === 'action' && op.op === 'add' ? [String(op.value.id)] : [])),
+      ]);
+      return group.ops.flatMap((op, i) => {
+        const action = op.op === 'add' && ['transition', 'permit', 'rule'].includes(op.kind) ? op.value.action : undefined;
+        return typeof action === 'string' && !actions.has(action) ? [`entity “${id}” op #${i}: ${op.kind} “${String((op as { value: Record<string, unknown> }).value.id)}” names action “${action}”, which “${id}” doesn't have — add it with kind=action in the same call`] : [];
+      });
+    });
+    if (badActions.length) throw new Error(badActions.join('\n'));
     return { rationale, project: parsedProject, entities: parsedEntities };
   };
 
@@ -355,7 +368,7 @@ export async function onboard(ws: Workspace, agentId: string | undefined, opts: 
         'Call it each time you finish an entity or a batch of findings; never repeat what you already recorded.',
       input: Groups,
       run: async (input: GroupsIn) => {
-        return `recorded ${(await save(check(input), ++batches)).map((p) => p.id).join(', ')} — go on, and call propose() at the end`;
+        return `recorded ${(await save(await check(input), ++batches)).map((p) => p.id).join(', ')} — go on, and call propose() at the end`;
       },
     },
     {
@@ -367,7 +380,7 @@ export async function onboard(ws: Workspace, agentId: string | undefined, opts: 
         const empty = !input.project && !input.entities;
         // The closing rationale says what the run covered; with everything recorded already it is saved nowhere else.
         log(`💬 ${input.rationale}`);
-        if (!(empty && batches)) await save(check(input));
+        if (!(empty && batches)) await save(await check(input));
         done = true;
         return 'proposal(s) recorded';
       },

@@ -15,11 +15,15 @@ A plan made up front is what lets the final report say, truthfully, what is cove
 1. **Take the scope as given.** The scope is the task plus what `model()` returns. Do not narrow it on your
    own: if the budget cannot cover everything, that is reported at the end (step 6), not decided silently.
 2. **Map before digging.** Get the cheapest overview of everything in scope first — the list of sources and
-   their sizes, the top of a file tree, the app's navigation. Read nothing in depth yet.
+   their sizes, the top of a file tree, the app's navigation. Read nothing in depth yet. In a code folder the
+   map comes from the code's own structure — domain modules, the route table, migrations, scheduled jobs —
+   not only from what the docs describe: every domain area there is a question on the list.
 3. **Write the questions.** Turn the scope into a short list of questions, each with the evidence that would
    answer it. Include every open question `model()` returns from earlier runs.
 4. **Split the budget.** Give each question a rough share of the tool calls and keep the last fifth for
-   handing in. A question that eats twice its share gets closed as "partly" and you move on.
+   handing in. A question that eats twice its share gets closed as "partly" and you move on. Spend the budget:
+   hand in early only when every question on the list is answered — with budget left and questions open,
+   take the next one instead of writing it into `Not reached`.
 5. **Work one question at a time**, from where it starts (a page of the requirements, an entry point in the
    code, a screen) to its result. When a question or an entity is done, hand it in with `record()` before
    starting the next: finished work is then safe if the run is cut short.

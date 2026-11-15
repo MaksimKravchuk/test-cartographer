@@ -37,6 +37,9 @@ ground for calling something a requirement, and the weakest for claiming the pro
 - **One thing, two names.** Different documents often name the same thing differently ("request", "ticket").
   Use the term from `model().glossary`. If two names look like one thing and the glossary is silent, ask
   (a question with `synonym`) instead of creating two entities.
+- **A design document's own status is not the product's.** An ADR or spec marked "proposed" or "draft" says
+  how sure its authors were, not whether the behavior exists. When a code source is available, check the
+  behavior there before calling it planned or missing.
 - **A sentence that reads two ways** is a question for the person, not a guess.
 - **Silence is not a requirement.** If no source says it, it is not one — however sensible it seems.
 - **A story that fits no element yet** keeps its `covers` empty or partial, with a finding (kind=gap) saying

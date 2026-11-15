@@ -21,8 +21,9 @@ it, and say so in a finding (kind=gap) that names where you looked for a require
    frameworks are in [references/entry-points.md](references/entry-points.md).
 3. **Find the entities.** Data models, migrations and API schemas give entities and their parameters. Keep a
    parameter only if someone changes it or a rule refers to it — not every column.
-4. **Trace each action** from its entry point to the data it changes, with `read()` around the hits. Note who
-   may call it, what is checked first, and what changes.
+4. **Trace each action** — entity by entity, every entity on the map, not only the first few — from its
+   entry point to the data it changes, with `read()` around the hits. Note who may call it, what is checked
+   first, and what changes.
 5. **Consolidate**, then quote. One action is often checked in three places (a handler checks the state, a
    model checks expiry, a service checks stock): that is one rule with three conditions, not three rules.
 
@@ -53,8 +54,10 @@ is not. One payment provider is implementation; three the user chooses between a
 
 ## Leave out, or report instead
 
-- **Plumbing:** tokens, sessions, caches, retries, logging, dependency wiring, how an external service is called.
-  "Notify the buyer" is the behavior; the HTTP call that sends the email is not.
+- **Plumbing:** token formats, caches, retries, logging, dependency wiring, how an external service is called.
+  "Notify the buyer" is the behavior; the HTTP call that sends the email is not. What a user can see of
+  access is behavior, not plumbing: signing in and out, a session that expires or is revoked everywhere, an
+  invite needed to sign up, a code that must be entered within 10 minutes.
 - **Dead code.** Before proposing behavior from a function, `search()` for what calls it. Unreachable code
   stays out of the model; mention it in a finding only if it looks like an unfinished feature.
 - **Bugs and loose ends** — an empty catch, a TODO that states a business rule, commented-out logic, a
