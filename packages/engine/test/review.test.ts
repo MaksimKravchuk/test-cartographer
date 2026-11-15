@@ -43,3 +43,17 @@ test('model() lists entities; model({ entity }) gives one, and an unknown id say
     await rm(dir, { recursive: true, force: true });
   }
 });
+
+test('onboarding refuses changes to an entity that is neither in the model nor added', async () => {
+  const dir = join(repo, `.tc-test-${process.pid}-stray`);
+  try {
+    await cp(join(repo, 'workspace'), dir, { recursive: true, filter: (src) => !src.includes('node_modules') });
+    await writeFile(
+      join(dir, 'agents/onboarding.yaml'),
+      'steps:\n  - call: propose\n    input: { rationale: r, entities: { ghost: { ops: [], findings: [] } } }\n',
+    );
+    await assert.rejects(onboard(new Workspace(dir), undefined, { provider: 'scripted' }), /No entity “ghost”: there are .*order/);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});

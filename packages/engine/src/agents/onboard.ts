@@ -93,6 +93,12 @@ Rules:
   paraphrase, and never cite an evidence id in a group other than the one the quote was taken for.
 - Never invent a requirement. If no source says it, it isn't one: don't propose it as a rule, add a finding
   (kind=question) saying what you looked for and where.
+- A question (kind=question) asks a person for a decision only they can make. Ask one thing per finding, so one
+  reply answers it — split a combined one. Make it readable without this run: put the element in refs, say in a
+  sentence what is known (with evidence) and what exactly is missing, and offer the likely answers when you see
+  them ("A or B?"). Something you tried but couldn't check isn't a question: report it as a gap and say what you tried.
+- Don't narrow the scope on your own. If the budget won't cover everything, finish what you started and list what
+  you didn't reach in one finding (kind=gap) whose note starts with "Not reached:".
 - When a search finds nothing, say where you searched (which sources, files or queries) in the finding's note, so
   "not found" can be told apart from "not looked for".
 - model() lists openQuestions that earlier runs left. Try to answer each one from the sources. End the rationale
@@ -165,6 +171,7 @@ export async function onboard(ws: Workspace, agentId: string | undefined, opts: 
   const sources = registry.sources.filter((s) => s.enabled);
   const mcp = new McpPool(project, ws.root);
   const { backlog: baseBacklog, revision: backlogRevision } = await ws.backlog();
+  const existing = await ws.entityIds();
 
   const sourceOf = (id: string, kinds?: string[]) => {
     const s = sources.find((x) => x.id === id);
@@ -244,6 +251,11 @@ export async function onboard(ws: Workspace, agentId: string | undefined, opts: 
       }),
     );
     if (badRoles.length) throw new Error(badRoles.join('\n'));
+    // An entity group must change an entity that exists or that an entity op adds (now or earlier in this run).
+    const added = [...saved.filter((p) => !p.entity).flatMap((p) => p.ops), ...(parsedProject?.ops ?? [])].flatMap((op) => (op.kind === 'entity' && op.op === 'add' ? [String(op.value.id)] : []));
+    const entityIds = new Set([...existing, ...added]);
+    const strays = parsedEntities.map(([id]) => id).filter((id) => !entityIds.has(id));
+    if (strays.length) throw new Error(`No entity ${strays.map((id) => `“${id}”`).join(', ')}: there are ${[...entityIds].join(', ') || 'none'}. Add a new one with an entity op in project.ops, or use an existing id.`);
     return { rationale, project: parsedProject, entities: parsedEntities };
   };
 

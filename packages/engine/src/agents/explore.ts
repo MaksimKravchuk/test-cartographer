@@ -45,6 +45,12 @@ Rules:
   Never invent a requirement — what you saw is behavior, and a person decides whether it's intended.
 - A transition is confirmed only when a read() after the action shows its effect. If you can't read the entity
   back, still propose it, and say in a finding (kind=question) why the effect couldn't be checked.
+- A question (kind=question) asks a person for a decision only they can make. Ask one thing per finding, so one
+  reply answers it — split a combined one. Make it readable without this run: put the element in refs, say in a
+  sentence what is known (with evidence) and what exactly is missing, and offer the likely answers when you see
+  them ("A or B?"). Something you tried but couldn't check isn't a question: report it as a gap and say what you tried.
+- Don't narrow the scope on your own. If the budget won't cover everything, finish what you started and list what
+  you didn't reach in one finding (kind=gap) whose note starts with "Not reached:".
 - Every operation references its evidence (ids from snapshot/read) in the evidence field.
 - Call model() first to see the current model. Don't propose what already exists; use new ids (Latin letters, kebab-case).
 - Name things with the words in model().glossary: a synonym there is the same thing as its term, not a new one.
