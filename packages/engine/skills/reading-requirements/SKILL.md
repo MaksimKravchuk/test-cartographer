@@ -36,7 +36,7 @@ ground for calling something a requirement, and the weakest for claiming the pro
 
 - **One thing, two names.** Different documents often name the same thing differently ("request", "ticket").
   Use the term from `model().glossary`. If two names look like one thing and the glossary is silent, ask
-  which term is the main one instead of creating two entities.
+  (a question with `synonym`) instead of creating two entities.
 - **A sentence that reads two ways** is a question for the person, not a guess.
 - **Silence is not a requirement.** If no source says it, it is not one — however sensible it seems.
 - **A story that fits no element yet** keeps its `covers` empty or partial, with a finding (kind=gap) saying

@@ -26,17 +26,23 @@ Other things that feel like questions have their own kind:
 | You tried to check something and could not | gap | what you tried and what stopped you |
 | You searched and found nothing | gap | where you searched (`searched`) |
 | Two sources say different things | contradiction | each side, quoted |
+| A source cannot be read or looks incomplete (an empty page, a folder its README describes but with no files) | source | what you tried — it is a problem with the inputs, not the product |
 
 `model()` lists open questions from earlier runs. Try to answer each from the sources, and do not ask
-again one that is still open: report its status in the rationale instead.
+again one that is still open: report its status in the rationale instead. `model().answers` holds what a
+person has already answered: take those as given and do not ask them again.
 
 ## Form
 
 - **One question per finding.** If the note needs "and also", it is two findings.
 - **`refs` name the element** it is about, as `<kind>:<entity>.<id>` — `rule:order.cancel-window`,
   `state:project.archived`.
-- **The note is three short parts:** what is known (with evidence), what is missing, then the question,
-  last, ending in the likely answers when you can see them.
+- **The note is three short parts:** what is known (with evidence) and where it shows for a user (screen,
+  API field, command), what is missing, then the question, last.
+- **`options` hold the likely answers** when yes or no does not fit: up to 6 short ones. The person picks
+  one or answers in their own words.
+- **Two names for one thing** (the docs say Location, the code says place): ask with
+  `synonym: { term: "<the model's word>", synonym: "<the other word>" }`. A yes files it in the glossary.
 
 ## Examples
 
@@ -59,7 +65,8 @@ note: No task state could be verified: the entity has no reader, and the help pa
 kind: question
 refs: ["entity:task"]
 note: The help pages describe tasks only through the web UI (e4). Where should a test read a task's
-  state back from: the web app or the API?
+  state back from?
+options: ["The web app", "The API"]
 
 kind: question
 refs: ["transition:task.restore"]
@@ -73,5 +80,6 @@ note: The trash page says a restored task "goes into the done bucket if the task
 kind: question
 refs: ["action:project.duplicate"]
 note: The menu hides Duplicate for an archived project, but the page opens by its address and the copy is
-  created (e12, e13). Is duplicating an archived project intended, or should it be refused like Edit?
+  created (e12, e13). Is duplicating an archived project intended?
+options: ["Intended", "A bug: refuse it like Edit"]
 ```

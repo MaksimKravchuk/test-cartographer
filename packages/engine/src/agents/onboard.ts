@@ -20,7 +20,10 @@ export type OnboardOptions = {
   signal?: AbortSignal;
   // onboard — propose a model from scratch (or add to a thin one);
   // review  — check every element of the existing model against the sources.
-  mode?: 'onboard' | 'review';
+  // clarify — a person can't answer one finding: dig into it and replace it with answerable, single-topic ones.
+  mode?: 'onboard' | 'review' | 'clarify';
+  // clarify: the finding to dig into.
+  target?: { proposal: string; index: number };
 };
 
 // Used when cartographer.yaml has no `kind: onboard` entry — a project can
@@ -51,15 +54,23 @@ function findLines(source: string, quote: string): { from: number; to: number } 
   return { from: source.slice(0, m.index).split('\n').length, to: source.slice(0, m.index + m[0].length).split('\n').length };
 }
 
-const MODE_GOAL = {
+type Mode = NonNullable<OnboardOptions['mode']>;
+const MODE_GOAL: Record<Mode, string> = {
   onboard: 'read everything known about the product — docs, tracker exports, contracts, notes, the code, systems behind MCP — and propose its model plus the backlog.',
   review: 'review the model a person already has against everything known about the product, element by element and source by source, and propose what the model is missing.',
+  clarify: `give a person enough context to answer one finding they could not answer as written (it is quoted in the
+first message). Investigate it: read the sources it touches and find where it shows for a user — the screen, the API route
+and the response field, the CLI command — and quote what you find. Then replace it with findings a person can answer
+on the spot. When the sources settle a part on their own, say so in a finding (kind=confirmation, with the quote)
+instead of asking. Keep the original finding's kind for contradictions and gaps, and its refs. Propose model changes
+only when the investigation shows them. This is one small investigation: hand everything in with a single propose(),
+in the original finding's group (project, or the same entity), without record().`,
 };
 
 // What a run needs every time goes into the prompt; the rest a skill links to
 // and the agent reads with skill(). Reading skills follow the source kinds.
-const skillsFor = (mode: 'onboard' | 'review', kinds: { requirements: boolean; code: boolean }) => [
-  'planning-investigation',
+const skillsFor = (mode: Mode, kinds: { requirements: boolean; code: boolean }) => [
+  ...(mode === 'clarify' ? [] : ['planning-investigation']),
   ...(mode === 'review' ? ['reviewing-model'] : []),
   ...(kinds.requirements ? ['reading-requirements'] : []),
   ...(kinds.code ? ['reading-code'] : []),
@@ -70,7 +81,7 @@ const skillsFor = (mode: 'onboard' | 'review', kinds: { requirements: boolean; c
   'proposing-model-changes/references/project-elements.md',
 ];
 
-const system = (p: { sourceList: string; contracts: string[]; mode: 'onboard' | 'review'; usePriority: boolean; skills: string }) => `You are a research agent of Test Cartographer, where people and agents rebuild a product's specification
+const system = (p: { sourceList: string; contracts: string[]; mode: Mode; usePriority: boolean; skills: string }) => `You are a research agent of Test Cartographer, where people and agents rebuild a product's specification
 from its sources and derive tests from it. Your task: ${MODE_GOAL[p.mode]}
 
 Nothing you propose changes the model directly: a person reviews every operation and finding and decides.
@@ -191,7 +202,7 @@ export async function onboard(ws: Workspace, agentId: string | undefined, opts: 
 
   // Writes one proposal per group straight away, so the Inbox shows it while
   // the agent works on. `batch` numbers a record() call; propose() has none.
-  const tag = mode === 'review' ? 'review' : spec.id;
+  const tag = mode === 'onboard' ? spec.id : mode;
   const save = async ({ rationale, project: group, entities }: Checked, batch?: number): Promise<Proposal[]> => {
     const base = `${timestamp}-${tag}${batch ? `-${batch}` : ''}`;
     const createdAt = new Date().toISOString();
@@ -229,14 +240,12 @@ export async function onboard(ws: Workspace, agentId: string | undefined, opts: 
     },
     {
       name: 'files',
-      description: 'List the files of a code-folder source (skips node_modules, build output, .git and .env files), optionally under a sub-folder.',
+      description: 'List the files of a code-folder source (what git tracks, or without git everything but node_modules, build output and .git; never .env files), optionally under a sub-folder (a path, not a glob).',
       input: z.object({ source: z.string(), dir: z.string().default('') }),
       run: async ({ source, dir }) => {
         const s = sourceOf(source, ['code']);
-        const all = await listCode(codePath(ws.root, s.path!));
-        const prefix = dir.replace(/^\.?\/?/, '').replace(/\/?$/, dir ? '/' : '');
-        const list = all.filter((f) => f.startsWith(prefix));
-        return list.length > 800 ? `${list.slice(0, 800).join('\n')}\n… ${list.length - 800} more — narrow with dir` : list.join('\n') || 'no files';
+        const list = await listCode(codePath(ws.root, s.path!), undefined, dir);
+        return list.length > 800 ? `${list.slice(0, 800).join('\n')}\n… ${list.length - 800} more — narrow with dir` : list.join('\n') || `no files under “${dir}”`;
       },
     },
     {
@@ -297,13 +306,20 @@ export async function onboard(ws: Workspace, agentId: string | undefined, opts: 
           return JSON.stringify(entities[entity]);
         }
         // One call per entity keeps every result readable: the whole Vikunja model was 68 KB and the runtime cut it to a preview.
+        const proposals = await ws.proposals();
         return JSON.stringify({
           project: { roles: redactFields('roles', project.roles, process.env), interfaces: project.interfaces, glossary: project.glossary },
           entities: Object.values(entities).map((e: any) => ({ id: e.id, title: e.title, description: e.description, states: e.states.map((x: any) => x.id), actions: e.actions.map((x: any) => x.id), rules: e.rules.length })),
           backlog: baseBacklog,
           // What earlier runs left open: questions and gaps nobody has settled yet.
-          openQuestions: (await ws.proposals()).flatMap((p) =>
-            p.findings.flatMap((f, i) => ((f.kind === 'gap' || f.kind === 'question') && !p.resolutions.some((r) => r.finding === i) ? [{ kind: f.kind, refs: f.refs, note: f.note }] : [])),
+          openQuestions: proposals.flatMap((p) =>
+            p.findings.flatMap((f, i) => (['gap', 'question', 'source'].includes(f.kind) && !p.resolutions.some((r) => r.finding === i) ? [{ kind: f.kind, refs: f.refs, note: f.note }] : [])),
+          ),
+          answers: proposals.flatMap((p) =>
+            p.resolutions.flatMap((r) => {
+              const f = p.findings[r.finding];
+              return f && f.kind !== 'contradiction' && r.verdict !== 'clarified' ? [{ kind: f.kind, refs: f.refs, note: f.note, answer: r.verdict, ...(r.note ? { text: r.note } : {}) }] : [];
+            }),
           ),
         });
       },
@@ -361,6 +377,24 @@ export async function onboard(ws: Workspace, agentId: string | undefined, opts: 
   const skills = skillsFor(mode, { requirements: sources.some((s) => s.kind !== 'code'), code: sources.some((s) => s.kind === 'code') });
   tools.push(skillTool(skills.filter((s) => !s.includes('/'))));
 
+  // clarify: the finding a person couldn't answer, with its quotes, is the agent's whole brief.
+  let brief = '';
+  const target = mode === 'clarify' ? opts.target : undefined;
+  if (mode === 'clarify') {
+    if (!target) throw new Error('clarify needs the finding to dig into');
+    const original = await ws.proposal(target.proposal);
+    const f = original.findings[target.index];
+    if (!f) throw new Error(`No finding #${target.index} in proposal “${target.proposal}”`);
+    const quotes = f.evidence.flatMap((id) => original.evidence.filter((e) => e.id === id)).map((e) => `- ${e.source ?? 'app'}${e.path ? ` (${e.path})` : ''}: “${e.summary}”`);
+    brief = [
+      `A person can't answer this ${f.kind} as written and asked for more context.`,
+      `Group: ${original.entity ? `entities.${original.entity}` : 'project'}. Refs: ${f.refs.join(', ') || 'none'}.`,
+      `Finding: ${f.note}`,
+      quotes.length ? `Its evidence:\n${quotes.join('\n')}` : 'It has no evidence.',
+      'Call model() and sources(), investigate, then propose() the findings that replace it.',
+    ].filter(Boolean).join('\n');
+  }
+
   try {
     await runAgent({
       runtime,
@@ -371,10 +405,10 @@ export async function onboard(ws: Workspace, agentId: string | undefined, opts: 
         usePriority: registry.usePriority,
         skills: skillsPrompt(skills, tools.map((t) => t.name)),
       }),
-      prompt: mode === 'review' ? 'Start the review: call model() and sources(), then check each element.' : `Start onboarding. Goal: ${spec.goal}`,
+      prompt: mode === 'review' ? 'Start the review: call model() and sources(), then check each element.' : mode === 'clarify' ? brief : `Start onboarding. Goal: ${spec.goal}`,
       tools,
       deliver: 'propose',
-      script: mode === 'review' ? ws.path('agents/review.yaml') : spec.script ? ws.path(spec.script) : undefined,
+      script: mode !== 'onboard' ? ws.path(`agents/${mode}.yaml`) : spec.script ? ws.path(spec.script) : undefined,
       isDone: () => done,
       onLog: log,
       signal: opts.signal,
@@ -383,6 +417,16 @@ export async function onboard(ws: Workspace, agentId: string | undefined, opts: 
     await mcp.close();
   }
   if (!done) throw new Error('The agent finished without an accepted proposal (propose was never called or was rejected)');
+
+  // The original leaves the queue once something replaces it; with nothing new it stays open,
+  // and an answer a person gave while the agent worked stands.
+  const replacements = saved.reduce((n, p) => n + p.findings.length + p.ops.length, 0);
+  const original = target && replacements ? await ws.proposal(target.proposal) : undefined;
+  if (target && original && !original.resolutions.some((r) => r.finding === target.index)) {
+    const note = `More context: ${saved.map((p) => p.id).join(', ')}`;
+    const rest = original.resolutions.filter((r) => r.finding !== target.index);
+    await ws.saveProposal({ ...original, resolutions: [...rest, { finding: target.index, verdict: 'clarified', note, at: new Date().toISOString() }] });
+  }
 
   return saved;
 }

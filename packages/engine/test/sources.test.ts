@@ -4,7 +4,8 @@ import { mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Project, Workspace } from '@tc/model';
-import { checkSources, insideCode, searchCode } from '../src/sources.ts';
+import { execFileSync } from 'node:child_process';
+import { checkSources, insideCode, listCode, searchCode } from '../src/sources.ts';
 
 test('checkSources: file, code folder (skipping node_modules), missing folder, MCP tool outside the allowlist', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'tc-sources-'));
@@ -66,8 +67,45 @@ test('searchCode: hits carry file and line; no match says how much was searched;
     await writeFile(join(dir, 'node_modules', 'lib.js'), "app.post('/hidden')");
     await writeFile(join(dir, '.env'), "SECRET=app.post('/secret')");
     assert.equal(await searchCode(dir, 'app\\.(get|post)\\('), "src/routes.ts:2: app.post('/orders/:id/cancel', cancel);\n(searched 1 of 1 files)");
-    assert.equal(await searchCode(dir, 'CRON', { dir: 'src', ignoreCase: true }), 'no match (searched 1 of 1 files under src/)');
+    assert.equal(await searchCode(dir, 'CRON', { dir: 'src', ignoreCase: true }), 'no match (searched 1 of 1 files under src)');
     await assert.rejects(searchCode(dir, '('), /Bad pattern/);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('listCode: a big folder that fills the cap does not hide the others, and a sub-folder is listed on its own', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'tc-list-'));
+  try {
+    await mkdir(join(dir, 'android', 'core'), { recursive: true });
+    await mkdir(join(dir, 'rust', 'crates', 'server'), { recursive: true });
+    for (let i = 0; i < 5; i++) await writeFile(join(dir, 'android', 'core', `f${i}.kt`), '');
+    await writeFile(join(dir, 'rust', 'crates', 'server', 'main.rs'), '');
+    assert.equal((await listCode(dir, 5)).some((f) => f.startsWith('rust/')), false);
+    assert.deepEqual(await listCode(dir, 5, 'rust/crates/*'), ['rust/crates/server/main.rs']);
+    assert.deepEqual(await listCode(dir, 5, './rust/'), ['rust/crates/server/main.rs']);
+    assert.deepEqual(await listCode(dir, 5, 'nope'), []);
+    // A sub-folder can't lead out of the source, by ".." or by a symlink.
+    await assert.rejects(listCode(join(dir, 'rust'), 5, '..'), /outside the code folder/);
+    await symlink(join(dir, 'android'), join(dir, 'rust', 'out'), 'junction'); // junction: no admin needed on Windows
+    await assert.rejects(listCode(join(dir, 'rust'), 5, 'out'), /outside the code folder/);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('listCode: in a git repo, .gitignore decides and untracked files count; .env never shows', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'tc-git-'));
+  try {
+    await mkdir(join(dir, 'android', '.gradle', 'caches'), { recursive: true });
+    await mkdir(join(dir, 'backend', 'app'), { recursive: true });
+    await writeFile(join(dir, '.gitignore'), '.gradle/\n');
+    await writeFile(join(dir, 'android', '.gradle', 'caches', 'x.bin'), '');
+    await writeFile(join(dir, 'backend', 'app', 'main.py'), '');
+    await writeFile(join(dir, 'backend', '.env'), 'TOKEN=1');
+    execFileSync('git', ['init', '-q', dir]);
+    assert.deepEqual(await listCode(dir), ['.gitignore', 'backend/app/main.py']);
+    assert.deepEqual(await listCode(join(dir, 'backend')), ['app/main.py']);
   } finally {
     await rm(dir, { recursive: true, force: true });
   }

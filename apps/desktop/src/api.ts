@@ -125,8 +125,9 @@ export const api = {
   saveLayout: (id: string, layout: Record<string, { x: number; y: number }>) =>
     call(`/api/entities/${id}/layout`, { method: 'PUT', body: JSON.stringify(layout) }),
   proposals: () => call<ProposalState[]>('/api/proposals'),
-  decide: (id: string, decisions: Decision[]) =>
-    call<EntityState | ProjectDecideResult>(`/api/proposals/${id}/decide`, { method: 'POST', body: JSON.stringify({ decisions }) }),
+  // createEntity: also add the proposal's entity when it isn't in the model yet.
+  decide: (id: string, decisions: Decision[], createEntity?: boolean) =>
+    call<EntityState | ProjectDecideResult>(`/api/proposals/${id}/decide`, { method: 'POST', body: JSON.stringify({ decisions, createEntity }) }),
   run: (filter: { ids?: string[]; entity?: string } = {}) =>
     call<{ job: string }>('/api/runs', { method: 'POST', body: JSON.stringify(filter) }),
   // runtime: settings for this run only, on top of the agent's own.
@@ -155,8 +156,8 @@ export const api = {
   backlog: () => call<BacklogState>('/api/backlog'),
   saveBacklog: (backlog: Backlog, revision: string) =>
     call<{ revision: string }>('/api/backlog', { method: 'PUT', body: JSON.stringify({ backlog, revision }) }),
-  runOnboarding: (provider: 'live' | 'scripted', mode: 'onboard' | 'review' = 'onboard', runtime?: RuntimeOverride) =>
-    call<{ job: string }>('/api/onboarding/run', { method: 'POST', body: JSON.stringify({ provider, mode, runtime }) }),
+  runOnboarding: (provider: 'live' | 'scripted', mode: 'onboard' | 'review' | 'clarify' = 'onboard', runtime?: RuntimeOverride, target?: { proposal: string; index: number }) =>
+    call<{ job: string }>('/api/onboarding/run', { method: 'POST', body: JSON.stringify({ provider, mode, runtime, target }) }),
   runtimes: () => call<RuntimeStatus[]>('/api/runtimes'),
   // A short end-to-end run; the job's result is { ok: boolean; seconds: number }.
   testRuntime: (provider: AgentProvider, model?: string) =>

@@ -16,6 +16,8 @@ optional `references/`.
 | `asking-questions` | one decision per question, readable out of context | ✓ | ✓ | ✓ |
 | `proposing-model-changes` | element shapes, handing in | ✓ | ✓ | ✓ |
 
+A clarify run (the Inbox's "Need more context" on one finding) gets the Research set without `planning-investigation`.
+
 ## How the engine uses them
 
 The agent runtimes (Claude Code, Codex, Copilot, Cursor) run without disk access, so they cannot load skills

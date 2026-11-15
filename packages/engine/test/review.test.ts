@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { cp, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { disagreements, Workspace } from '@tc/model';
+import { disagreements, Proposal, Workspace } from '@tc/model';
 import { onboard } from '../src/agents/onboard.ts';
 
 const repo = resolve(import.meta.dirname, '../../..');
@@ -64,6 +64,36 @@ test('an entity group with nothing in it leaves no proposal', async () => {
     await cp(join(repo, 'workspace'), dir, { recursive: true, filter: (src) => !src.includes('node_modules') });
     await writeFile(join(dir, 'agents/onboarding.yaml'), 'steps:\n  - call: propose\n    input: { rationale: r, entities: { order: { ops: [], findings: [] } } }\n');
     assert.deepEqual(await onboard(new Workspace(dir), undefined, { provider: 'scripted' }), []);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('clarify (scripted): replaces a finding a person could not answer with single-topic ones, and closes it', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'tc-clarify-'));
+  try {
+    await cp(join(repo, 'workspace'), dir, { recursive: true, filter: (src) => !src.includes('node_modules') && !src.includes(`${join('workspace', 'proposals')}`) });
+    const ws = new Workspace(dir);
+    await ws.saveProposal(Proposal.parse({
+      id: 'bundled', entity: 'order', agent: 'onboarding', createdAt: '2026-11-15T00:00:00Z', baseRevision: 'x', rationale: '',
+      findings: [{ kind: 'question', note: 'Where is cancelled shown in the API? Also, is refund built?', refs: ['action:order.cancel'] }],
+    }));
+
+    const [p] = await onboard(ws, undefined, { provider: 'scripted', mode: 'clarify', target: { proposal: 'bundled', index: 0 } });
+    assert.match(p.id, /-clarify-order$/);
+    assert.deepEqual(p.findings.map((f) => f.kind), ['confirmation', 'question']);
+    assert.equal(p.evidence[0].source, 'product-overview');
+
+    const [r] = (await ws.proposal('bundled')).resolutions;
+    assert.equal(r.verdict, 'clarified');
+    assert.match(r.note!, new RegExp(p.id));
+    await assert.rejects(onboard(ws, undefined, { provider: 'scripted', mode: 'clarify', target: { proposal: 'bundled', index: 5 } }), /No finding #5/);
+
+    // An answer a person gave while the agent worked stands.
+    const answered = await ws.proposal('bundled');
+    await ws.saveProposal({ ...answered, resolutions: [{ finding: 0, verdict: 'answered', note: 'Only on the project page', at: '' }] });
+    await onboard(ws, undefined, { provider: 'scripted', mode: 'clarify', target: { proposal: 'bundled', index: 0 } });
+    assert.equal((await ws.proposal('bundled')).resolutions[0].verdict, 'answered');
   } finally {
     await rm(dir, { recursive: true, force: true });
   }

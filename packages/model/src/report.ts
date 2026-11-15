@@ -1,4 +1,5 @@
 import { isActive } from './reach.ts';
+import { findingSynonym } from './proposals.ts';
 import type { Plan, Scenario } from './plan.ts';
 import type { Entity, Evidence, Finding, Project, Proposal, Resolution, Source } from './schema.ts';
 
@@ -39,7 +40,7 @@ export function allFindings(proposals: Proposal[], sources: Source[], usePriorit
           proposal: p.id,
           entity: p.entity,
           index,
-          finding,
+          finding: { ...finding, synonym: findingSynonym(finding) },
           quotes,
           winner: usePriority && spread && top.length === 1 ? top[0] : undefined,
           resolution: p.resolutions.find((r) => r.finding === index),
@@ -71,7 +72,7 @@ export function renderSpec(project: Project, entities: Entity[], findings: Disag
   for (const r of project.roles) lines.push(`- **${r.title}** — ${r.kind === 'system' ? 'background jobs and integrations' : 'a person'}`);
   if (project.glossary.length) {
     lines.push('', '## Glossary', '');
-    for (const t of project.glossary) lines.push(`- **${t.term}**${t.synonyms.length ? ` (also: ${t.synonyms.join(', ')})` : ''} — ${t.definition}`);
+    for (const t of project.glossary) lines.push(`- **${t.term}**${t.synonyms.length ? ` (also: ${t.synonyms.join(', ')})` : ''}${t.definition ? ` — ${t.definition}` : ''}`);
   }
   lines.push('', '## Objects', '');
   for (const e of entities) lines.push(`- **${e.title}**${e.description ? ` — ${e.description}` : ''}`);
@@ -113,7 +114,7 @@ export function renderSpec(project: Project, entities: Entity[], findings: Disag
     const open = findings.filter((f) => f.entity === e.id && !f.resolution);
     if (open.length) {
       lines.push('### Open questions', '');
-      for (const f of open) lines.push(`- ${f.finding.kind === 'contradiction' ? 'Disagreement' : f.finding.kind === 'gap' ? 'Gap' : 'Question'}: ${f.finding.note}`);
+      for (const f of open) lines.push(`- ${f.finding.kind === 'contradiction' ? 'Disagreement' : f.finding.kind === 'gap' ? 'Gap' : f.finding.kind === 'source' ? 'Source problem' : 'Question'}: ${f.finding.note}`);
       lines.push('');
     }
     const planned = [
@@ -180,7 +181,7 @@ export type ReviewCell = 'confirms' | 'contradicts' | 'gap' | 'question';
 export type ReviewMarks = { requirements?: ReviewCell; code?: ReviewCell; app: boolean };
 export type ReviewRow = { entity: string; ref: string; title: string; cells: Record<string, ReviewCell>; marks: ReviewMarks };
 const rank: Record<ReviewCell, number> = { confirms: 0, question: 1, gap: 2, contradicts: 3 };
-const findingCell = { contradiction: 'contradicts', gap: 'gap', question: 'question', confirmation: 'confirms' } as const;
+const findingCell = { contradiction: 'contradicts', gap: 'gap', question: 'question', confirmation: 'confirms', source: 'gap' } as const;
 
 export function reviewMatrix(entities: Entity[], findings: Disagreement[], sources: Pick<Source, 'id' | 'kind'>[] = []): ReviewRow[] {
   const isCode = new Set(sources.filter((s) => s.kind === 'code').map((s) => s.id));

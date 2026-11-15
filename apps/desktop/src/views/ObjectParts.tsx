@@ -2,12 +2,58 @@
 // with who may change each, and the lifecycle of every status-like parameter
 // as a from × to table. Each tick and each empty cell is a test: a subject
 // that may change something, or one that must be refused.
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import type { Attribute, AttributeType, Entity, Role, Transition } from '@tc/model';
 import { lifecycleOrder } from './LifecycleView.tsx';
 
 const NEW = '@new';
 const TYPES: AttributeType[] = ['text', 'number', 'money', 'date', 'bool', 'enum', 'link', 'file', 'other'];
+
+// Rows keep the place they had when the object opened, so deciding one never moves the rest under the cursor:
+// an accepted proposal becomes a normal row in place, and a row that leaves (struck out, deleted) stays as a
+// dimmed line until another object is opened. Returns every key seen, in first-seen order, with its last title.
+export function useStableRows(scope: string, rows: { key: string; title: string }[]): { key: string; title: string; gone: boolean }[] {
+  const ref = useRef({ scope, order: [] as string[], titles: new Map<string, string>() });
+  if (ref.current.scope !== scope) ref.current = { scope, order: [], titles: new Map() };
+  const { order, titles } = ref.current;
+  for (const r of rows) {
+    if (!titles.has(r.key)) order.push(r.key);
+    titles.set(r.key, r.title);
+  }
+  const live = new Set(rows.map((r) => r.key));
+  return order.map((key) => ({ key, title: titles.get(key)!, gone: !live.has(key) }));
+}
+
+// Row keys for proposals: the id an item will have once accepted, unless the model or an earlier
+// proposal already holds that id — then the proposal's own key, so every proposal keeps its row.
+export function rowKeys<T>(items: T[], id: (x: T) => string, own: (x: T) => string, taken: string[]): Map<T, string> {
+  const used = new Set(taken);
+  return new Map(items.map((x) => {
+    const k = id(x) && !used.has(id(x)) ? id(x) : own(x);
+    used.add(k);
+    return [x, k];
+  }));
+}
+
+// The "N new incoming · Accept all · Strike out all" line beside a section heading.
+export function Incoming({ count, busy, blocked, onAll }: { count: number; busy: boolean; blocked: boolean; onAll(v: 'accept' | 'reject'): void }) {
+  if (!count) return null;
+  return (
+    <span className="incoming">
+      <span className="tag proposed">{count} new incoming</span>
+      <button className="btn small" disabled={busy || blocked} onClick={() => onAll('accept')}>Accept all</button>
+      <button className="btn small ghost" disabled={busy || blocked} title="Strike out: agents won't propose them again" onClick={() => onAll('reject')}>Strike out all</button>
+    </span>
+  );
+}
+
+// A row that was here when the object opened and has since been decided away.
+export const GoneRow = ({ title, cols }: { title: string; cols: number }) => (
+  <tr className="gone">
+    <th scope="row"><s>{title}</s> <span className="muted nobody">struck out or deleted</span></th>
+    <td colSpan={cols} />
+  </tr>
+);
 
 export type ProposedAttribute = { key: string; value: Record<string, unknown>; agent: string; rationale: string; blocked: boolean; onDecide(v: 'accept' | 'reject'): void };
 
@@ -55,6 +101,10 @@ export function AttributesTable(props: {
     setValues('');
   };
   const live = entity.attributes.filter((a) => a.status !== 'rejected');
+  // A proposal's row takes the id it will have once accepted, so accepting it keeps its place.
+  const keys = rowKeys(props.proposed, (x) => str(x.value.id), (x) => x.key, live.map((a) => a.id));
+  const keyOf = (x: ProposedAttribute) => keys.get(x)!;
+  const rows = useStableRows(entity.id, [...live.map((a) => ({ key: a.id, title: a.title })), ...props.proposed.map((x) => ({ key: keyOf(x), title: str(x.value.title) || str(x.value.id) }))]);
 
   return (
     <div className="act-table-wrap">
@@ -71,7 +121,10 @@ export function AttributesTable(props: {
           </tr>
         </thead>
         <tbody>
-          {live.map((a) => (
+          {rows.map((row) => {
+            const a = live.find((x) => x.id === row.key);
+            const x = props.proposed.find((y) => keyOf(y) === row.key);
+            if (a) return (
             <tr key={a.id} className={a.status}>
               <th scope="row">
                 {a.title} <span className="id">{a.id}</span>
@@ -96,9 +149,9 @@ export function AttributesTable(props: {
                 <button className="mini" disabled={busy} aria-label={`Delete parameter ${a.title}`} title="Delete the parameter" onClick={() => props.onEdit((e) => { e.attributes = e.attributes.filter((x) => x.id !== a.id); })}>✕</button>
               </td>
             </tr>
-          ))}
-          {props.proposed.map((x) => (
-            <tr key={x.key} className="proposed" title={x.rationale}>
+            );
+            if (x) return (
+            <tr key={row.key} className="proposed" title={x.rationale}>
               <th scope="row">
                 <span className="chip proposed">{str(x.value.title) || str(x.value.id)}</span> <span className="id">{str(x.value.id)}</span>
                 <span className="muted nobody"> proposed by {x.agent}</span>
@@ -116,7 +169,9 @@ export function AttributesTable(props: {
                 </span>
               </td>
             </tr>
-          ))}
+            );
+            return <GoneRow key={row.key} title={row.title} cols={roles.length + 3} />;
+          })}
         </tbody>
       </table>
       {!live.length && !props.proposed.length && <p className="muted attr-empty">No parameters yet. Add the ones people change (status, price, title) or ask an agent to read them from the code.</p>}
