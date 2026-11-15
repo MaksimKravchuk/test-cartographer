@@ -77,10 +77,14 @@ export function validateEntity(entity: Entity, project: Project, actions?: Set<s
     for (const v of vs ?? []) if (!variants.has(v)) err(path, `Unknown variant “${v}”`);
   };
 
+  // A rejected element stays in the model only so agents don't propose it again.
+  // Nothing plans it, so it needn't be testable — only its references must hold.
+  const rejected = (el: { status: string }) => el.status === 'rejected';
+
   for (const s of entity.states) {
     const p = `states.${s.id}`;
     checkVariants(p, s.variants);
-    if (Object.keys(s.match).length === 0) err(p, "Empty probe: the state can't be verified by reading");
+    if (!rejected(s) && Object.keys(s.match).length === 0) err(p, "Empty probe: the state can't be verified by reading");
     for (const setup of s.setup) {
       if (setup.kind === 'tool') {
         if (!toolAllowed(project, setup.tool, 'prepare'))
@@ -95,7 +99,7 @@ export function validateEntity(entity: Entity, project: Project, actions?: Set<s
   for (const a of entity.actions) {
     const p = `actions.${a.id}`;
     for (const roleId of a.by ?? []) if (!roles.has(roleId)) err(p, `Unknown role “${roleId}”`);
-    if (!a.run && !a.invoke) warn(p, `Action “${a.title}” can't be performed in a test: give it a run entry, an invoke tool, or both`);
+    if (!rejected(a) && !a.run && !a.invoke) warn(p, `Action “${a.title}” can't be performed in a test: give it a run entry, an invoke tool, or both`);
     if (a.invoke && !toolAllowed(project, a.invoke.tool, 'trigger'))
       err(p, `Trigger tool “${a.invoke.tool}” is not allowed (mcp.*.allow.trigger)`);
     if (a.run && actions && !actions.has(a.run)) warn(p, `Action “${a.run}” is not implemented in the actions/ library`);
@@ -116,6 +120,7 @@ export function validateEntity(entity: Entity, project: Project, actions?: Set<s
         err(p, `Unknown role “${roleId}”`);
         continue;
       }
+      if (rejected(t)) continue;
       if (action && role.kind === 'human' && !action.run) warn(p, `Role “${roleId}” is human, but action “${t.action}” has no run entry`);
       if (action && role.kind === 'system' && !action.invoke) warn(p, `Role “${roleId}” is system, but action “${t.action}” has no invoke tool`);
     }

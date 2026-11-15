@@ -116,6 +116,23 @@ test('validate: catches broken references, disallowed tools, and an action missi
   assert.match(messages, /Action “o\.ship” is not implemented/);
 });
 
+test('validate: a rejected state, action or transition needn\'t be testable, but its references still must hold', () => {
+  const e = entity({
+    states: [...entity().states, { id: 'limbo', title: 'Limbo', match: {}, status: 'rejected' }],
+    actions: [...baseActions(), { id: 'wish', title: 'Wish', kind: 'command', status: 'rejected' }],
+    transitions: [
+      ...baseTransitions(),
+      { id: 'wish', title: 'Wish', from: 'limbo', to: 'paid', action: 'wish', by: ['client'], status: 'rejected' },
+      { id: 'ghost', title: 'Ghost', from: 'limbo', to: 'nowhere', action: 'wish', by: ['client'], status: 'rejected' },
+    ],
+  });
+  const messages = validateEntity(e, project).map((i) => i.message).join('\n');
+  assert.doesNotMatch(messages, /Empty probe/);
+  assert.doesNotMatch(messages, /can't be performed in a test/);
+  assert.doesNotMatch(messages, /has no run entry/);
+  assert.match(messages, /Unknown state “nowhere”/);
+});
+
 // ── Performer: human roles run, system roles invoke ─────────────────────
 function withSystemRole() {
   return Project.parse({
