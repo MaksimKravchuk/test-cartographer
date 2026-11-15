@@ -162,12 +162,6 @@ textarea.text { resize: vertical; min-height: 64px; font-family: var(--mono); fo
 /* ── Map ─────────────────────────────────────────────────── */
 .map { position: absolute; inset: 0; background: var(--bg); }
 .map .react-flow { background: transparent; }
-.contours {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  color: var(--line);
-}
 .map-toolbar {
   position: absolute;
   top: 12px;
@@ -180,6 +174,30 @@ textarea.text { resize: vertical; min-height: 64px; font-family: var(--mono); fo
   flex-wrap: wrap;
 }
 .map-toolbar .seg, .map-toolbar .btn { box-shadow: 0 1px 0 var(--line); }
+.map-next { margin-left: auto; display: flex; gap: var(--s2); align-items: center; font-size: 13px; color: var(--fg-2); }
+.fans { display: flex; flex-direction: column; gap: var(--s1); margin-top: var(--s2); }
+.fan {
+  display: flex;
+  gap: var(--s1);
+  align-items: baseline;
+  font: inherit;
+  font-size: 12px;
+  text-align: left;
+  color: var(--fg);
+  background: var(--sunken);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 1px var(--s2) 2px;
+  cursor: pointer;
+  min-width: 0;
+}
+.fan .fan-action { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fan .role { color: var(--fg-3); margin-left: auto; white-space: nowrap; }
+.fan.ghost, .fan.proposed { color: var(--accent); border: 1px dashed var(--accent); background: var(--surface); }
+.fan.observed { border: 1px dashed var(--warn); }
+.fan.system { border-style: dashed; color: var(--fg-2); }
+.fan.selected { border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 35%, transparent); }
+.legend-fan { font-size: 11px; text-align: center; border: 1px solid var(--line); border-radius: 4px; background: var(--sunken); }
 
 .legend {
   position: absolute;

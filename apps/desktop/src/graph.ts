@@ -10,18 +10,20 @@ export function autoLayout(
   states: { id: string }[],
   edges: { id: string; from: string; to: string; title: string }[],
   saved: Record<string, { x: number; y: number }>,
+  heights: Record<string, number> = {},
 ): Record<string, { x: number; y: number }> {
   // Edge labels take part in the layout so they don't overlap.
   const g = new dagre.graphlib.Graph({ multigraph: true });
   g.setGraph({ rankdir: 'TB', nodesep: 40, ranksep: 36, edgesep: 20, marginx: 40, marginy: 40 });
-  for (const s of states) g.setNode(s.id, { width: NODE_W, height: NODE_H });
+  const h = (id: string) => heights[id] ?? NODE_H;
+  for (const s of states) g.setNode(s.id, { width: NODE_W, height: h(s.id) });
   for (const e of edges)
     if (g.hasNode(e.from) && g.hasNode(e.to) && e.from !== e.to)
       g.setEdge(e.from, e.to, { width: 60 + e.title.length * 7, height: 26, labelpos: 'c' }, e.id);
   dagre.layout(g);
   const auto = (id: string) => {
     const n = g.node(id);
-    return { x: n.x - NODE_W / 2, y: n.y - NODE_H / 2 };
+    return { x: n.x - NODE_W / 2, y: n.y - h(id) / 2 };
   };
 
   const out: Record<string, { x: number; y: number }> = {};
@@ -196,4 +198,49 @@ export type Selection =
 export function stateTitle(entity: Entity, id: string) {
   if (id === '@new') return 'New';
   return entity.states.find((s) => s.id === id)?.title ?? id;
+}
+
+// ── State map edges ───────────────────────────────────────────────────────
+// A lifecycle where one action leads into a state from many others ("cancel"
+// from every open state) draws as a hairball: N edges, N piled-up labels.
+// Such a fan is shown once, on the state itself, as "← cancel · from 4 states".
+// What is left is drawn one edge per pair of states, both directions merged.
+export type MapItem = { from: string; to: string; action: string; kind: string };
+export type Fan<T> = { dir: 'in' | 'out'; state: string; others: string[]; items: T[] };
+export type PairEdge<T> = { from: string; to: string; items: T[] };
+
+const FAN_MIN = 3;
+
+export function groupTransitions<T extends MapItem>(items: T[]): { fans: Fan<T>[]; edges: PairEdge<T>[] } {
+  const fans: Fan<T>[] = [];
+  let rest = items;
+  for (const dir of ['in', 'out'] as const) {
+    const here = (t: T) => (dir === 'in' ? t.to : t.from);
+    const there = (t: T) => (dir === 'in' ? t.from : t.to);
+    const groups = new Map<string, T[]>();
+    for (const t of rest) {
+      if (t.from === t.to) continue;
+      const k = `${here(t)}|${t.action}|${t.kind}`;
+      groups.set(k, [...(groups.get(k) ?? []), t]);
+    }
+    const taken = new Set<T>();
+    for (const g of groups.values()) {
+      const state = here(g[0]);
+      const others = [...new Set(g.map(there))];
+      // An action that also leaves this state the other way ("move" between
+      // peers) is a real network, not a fan into a sink; keep it as edges.
+      const peer = items.some((t) => t.action === g[0].action && there(t) === state);
+      if (others.length < FAN_MIN || peer) continue;
+      fans.push({ dir, state, others, items: g });
+      g.forEach((t) => taken.add(t));
+    }
+    rest = rest.filter((t) => !taken.has(t));
+  }
+  const pairs = new Map<string, T[]>();
+  for (const t of rest) {
+    const k = `${[t.from, t.to].sort().join('|')}|${t.kind}`;
+    pairs.set(k, [...(pairs.get(k) ?? []), t]);
+  }
+  const edges = [...pairs.values()].map((g) => ({ from: g[0].from, to: g[0].to, items: g }));
+  return { fans, edges };
 }

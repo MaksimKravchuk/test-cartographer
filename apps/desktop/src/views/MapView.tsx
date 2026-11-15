@@ -7,7 +7,7 @@ import {
 import '@xyflow/react/dist/style.css';
 import type { Entity, State, Transition } from '@tc/model';
 import { api, type EntityState, type ProjectState, type ProposalState } from '../api.ts';
-import { applies, autoLayout, nextId, type Selection } from '../graph.ts';
+import { applies, autoLayout, groupTransitions, nextId, NODE_H, type Selection } from '../graph.ts';
 
 type Props = {
   entity: Entity;
@@ -22,8 +22,15 @@ type Props = {
   onOpenProposal(): void;
 };
 
+type Ghost = { proposal: string; op: number };
+
+// One action leading into (or out of) this state from several others, drawn
+// on the state instead of as a fan of edges.
+type FanView = { dir: 'in' | 'out'; action: string; others: string[]; cls: string; selected: boolean; onPick(): void };
+
 type StateData = {
   state: State;
+  fans: FanView[];
   ghost?: { proposal: string; op: number };
   dim: boolean;
   selected: boolean;
@@ -31,19 +38,44 @@ type StateData = {
 };
 
 type EdgeData = {
-  transition: Transition;
-  ghost?: { proposal: string; op: number };
+  transitions: Transition[];
+  ghost: boolean;
+  status: string;
   dim: boolean;
   selected: boolean;
   result: string | null;
   actionTitle: string;
   roleTitle: string;
+  tooltip: string;
   systemOnly: boolean;
   offset: number;
   onPick(): void;
 };
 
 const NEW = '@new';
+
+function Fans({ fans }: { fans: FanView[] }) {
+  if (!fans.length) return null;
+  return (
+    <div className="fans">
+      {fans.map((f, i) => (
+        <button
+          key={i}
+          className={`fan nodrag ${f.cls} ${f.selected ? 'selected' : ''}`}
+          title={`${f.action} — ${f.dir === 'in' ? 'from' : 'to'}: ${f.others.join(', ')}`}
+          onClick={(e) => {
+            e.stopPropagation();
+            f.onPick();
+          }}
+        >
+          <span aria-hidden="true">{f.dir === 'in' ? '←' : '→'}</span>
+          <span className="fan-action">{f.action}</span>
+          <span className="role">{f.dir === 'in' ? 'from' : 'to'} {f.others.length}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
 
 function StateNode({ data }: NodeProps<Node<StateData>>) {
   const s = data.state;
@@ -52,6 +84,7 @@ function StateNode({ data }: NodeProps<Node<StateData>>) {
     return (
       <div className="start-node" title="Before the instance exists">
         New
+        <Fans fans={data.fans} />
         <Handle type="source" position={Position.Bottom} />
       </div>
     );
@@ -68,6 +101,7 @@ function StateNode({ data }: NodeProps<Node<StateData>>) {
         {s.variants && <span className="flag">{s.variants.length === 1 ? s.variants[0] : `${s.variants.length} variants`}</span>}
         {data.unreachable && <span className="flag warn">no setup</span>}
       </div>
+      <Fans fans={data.fans} />
       <Handle type="source" position={Position.Bottom} />
     </div>
   );
@@ -90,16 +124,16 @@ const stroke = (status: string, ghost: boolean, systemOnly: boolean) =>
 function TransitionEdge(props: EdgeProps<Edge<EdgeData>>) {
   const d = props.data!;
   const [path, lx, ly] = getBezierPath({ ...props, curvature: 0.3 + d.offset * 0.25 });
-  const style = { ...stroke(d.transition.status, !!d.ghost, d.systemOnly), strokeWidth: d.selected ? 2.5 : 1.5, opacity: d.dim ? 0.25 : 1 };
+  const style = { ...stroke(d.status, d.ghost, d.systemOnly), strokeWidth: d.selected ? 2.5 : 1.5, opacity: d.dim ? 0.25 : 1 };
   return (
     <>
-      <BaseEdge path={path} markerEnd={props.markerEnd} style={style} />
+      <BaseEdge path={path} markerStart={props.markerStart} markerEnd={props.markerEnd} style={style} />
       <EdgeLabelRenderer>
         <div
           className={`edge-label nodrag nopan ${d.ghost ? 'ghost' : ''} ${d.selected ? 'selected' : ''} ${d.systemOnly ? 'system' : ''}`}
           style={{ transform: `translate(-50%, -50%) translate(${lx}px, ${ly + d.offset * 26}px)`, opacity: d.dim ? 0.35 : 1 }}
           onClick={d.onPick}
-          title={d.transition.guards.join('\n') || undefined}
+          title={d.tooltip}
         >
           {!d.ghost && <span className={`dot ${d.result ?? ''}`} aria-label={d.result ?? 'not run'} />}
           {d.systemOnly && <span className="system-marker" title="Performed by the system, not a person">⚙</span>}
@@ -126,46 +160,16 @@ function resultOf(state: EntityState, id: string, variant: string | null): strin
   return 'not-run';
 }
 
-function Contours() {
-  // Decorative contour lines: a terrain map still to be surveyed.
-  const rings = [
-    [0.18, 0.28, 9], [0.78, 0.7, 11], [0.55, 0.12, 6],
-  ] as const;
-  return (
-    <svg className="contours" width="100%" height="100%" aria-hidden="true">
-      {rings.flatMap(([cx, cy, n], k) =>
-        Array.from({ length: n }, (_, i) => {
-          const r = 60 + i * 46;
-          const w = 1 + (k % 2) * 0.35;
-          return (
-            <ellipse
-              key={`${k}-${i}`}
-              cx={`${cx * 100}%`}
-              cy={`${cy * 100}%`}
-              rx={r * 1.5 * w}
-              ry={r}
-              fill="none"
-              stroke="currentColor"
-              strokeWidth={i % 4 === 3 ? 1.1 : 0.6}
-              transform={`rotate(${-12 + k * 17})`}
-              style={{ transformOrigin: `${cx * 100}% ${cy * 100}%` }}
-            />
-          );
-        }),
-      )}
-    </svg>
-  );
-}
-
 function Map(props: Props) {
   const { entity, state, project, proposals, variant, selection } = props;
-  const [showProposals, setShowProposals] = useState(true);
+  // Proposals are reviewed in the Inbox; on the map they hide the model
+  // unless there is no model yet to hide.
+  const [showProposals, setShowProposals] = useState(entity.states.length === 0);
   const { fitView } = useReactFlow();
 
   const ghosts = useMemo(() => {
-    const states: { state: State; ghost: { proposal: string; op: number } }[] = [];
-    const transitions: { transition: Transition; ghost: { proposal: string; op: number } }[] = [];
-    if (!showProposals) return { states, transitions };
+    const states: { state: State; ghost: Ghost }[] = [];
+    const transitions: { transition: Transition; ghost: Ghost }[] = [];
     for (const p of proposals)
       p.ops.forEach((op, i) => {
         if (op.op !== 'add') return;
@@ -175,22 +179,67 @@ function Map(props: Props) {
           transitions.push({ transition: { by: [], guards: [], effects: [], status: 'proposed', title: '', ...op.value } as unknown as Transition, ghost });
       });
     return { states, transitions };
-  }, [proposals, showProposals]);
+  }, [proposals]);
+  const ghostCount = ghosts.states.length + ghosts.transitions.length;
+  const shown = useMemo(() => (showProposals ? ghosts : { states: [], transitions: [] }), [ghosts, showProposals]);
 
   const allStates = useMemo(() => {
-    const creates = [...entity.transitions, ...ghosts.transitions.map((g) => g.transition)].some((t) => t.from === NEW);
+    const creates = [...entity.transitions, ...shown.transitions.map((g) => g.transition)].some((t) => t.from === NEW);
     const start = creates ? [{ state: { id: NEW, title: 'New', match: {}, setup: [], status: 'confirmed' } as State, ghost: undefined }] : [];
-    return [...start, ...entity.states.map((s) => ({ state: s, ghost: undefined })), ...ghosts.states];
-  }, [entity.states, entity.transitions, ghosts.states, ghosts.transitions]);
+    return [...start, ...entity.states.map((s) => ({ state: s, ghost: undefined })), ...shown.states];
+  }, [entity.states, entity.transitions, shown]);
   const allTransitions = useMemo(
-    () => [...entity.transitions.map((t) => ({ transition: t, ghost: undefined })), ...ghosts.transitions],
-    [entity.transitions, ghosts.transitions],
+    () => [...entity.transitions.map((t) => ({ transition: t, ghost: undefined as Ghost | undefined })), ...shown.transitions],
+    [entity.transitions, shown],
   );
+
+  const roleTitle = (id: string) => project.project.roles.find((r) => r.id === id)?.title ?? id;
+  const actionTitle = (id: string) => entity.actions.find((a) => a.id === id)?.title || id;
+  const stateTitle = (id: string) => allStates.find((s) => s.state.id === id)?.state.title || id;
+  // Inlined rather than importing reach.ts's roleKind(): any *value* import
+  // from '@tc/model' pulls in its whole index (including the Node-only
+  // workspace.ts) and breaks the browser build — see AccessMatrix.tsx too.
+  // A list of five roles on every label is what made labels unreadable: name one, count several.
+  const roles = (ids: string[]) => {
+    const u = [...new Set(ids)];
+    return u.length === 1 ? roleTitle(u[0]) : u.length ? `${u.length} roles` : '';
+  };
+  const systemOnly = (t: Transition) => t.by.length > 0 && t.by.every((r) => (project.project.roles.find((x) => x.id === r)?.kind ?? 'human') === 'system');
+  const grouped = useMemo(
+    () =>
+      groupTransitions(
+        allTransitions.map((x) => ({
+          ...x,
+          from: x.transition.from,
+          to: x.transition.to,
+          action: x.transition.action,
+          kind: x.ghost ? 'ghost' : `${x.transition.status}${systemOnly(x.transition) ? ':system' : ''}`,
+        })),
+      ),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [allTransitions, project],
+  );
+  type Item = (typeof grouped.edges)[number]['items'][number];
+  const isSelected = (x: Item) =>
+    x.ghost
+      ? selection?.kind === 'ghost' && selection.proposal === x.ghost.proposal && selection.op === x.ghost.op
+      : selection?.kind === 'transition' && selection.id === x.transition.id;
+  // Clicking a group selects its next member, so every transition stays reachable.
+  const pickNext = (items: Item[]) => () => {
+    const x = items[(items.findIndex(isSelected) + 1) % items.length];
+    props.onSelect(x.ghost ? { kind: 'ghost', ...x.ghost } : { kind: 'transition', id: x.transition.id });
+  };
 
   // After “Auto-layout” the saved positions are ignored until the next reload.
   const [savedLayout, setSavedLayout] = useState(state.layout);
   const positions = useMemo(
-    () => autoLayout(allStates.map((s) => s.state), allTransitions.map((t) => t.transition), savedLayout),
+    () =>
+      autoLayout(
+        allStates.map((s) => s.state),
+        grouped.edges.map((e) => ({ id: `${e.from}>${e.to}`, from: e.from, to: e.to, title: e.items.map((x) => x.action).join(' · ') })),
+        savedLayout,
+        Object.fromEntries(allStates.map((s) => [s.state.id, NODE_H + 30 * grouped.fans.filter((f) => f.state === s.state.id).length])),
+      ),
     // Layout is recomputed when the set of nodes changes, not on every drag.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [allStates.map((s) => s.state.id).join(), allTransitions.map((t) => `${t.transition.from}>${t.transition.to}`).join(), savedLayout],
@@ -213,6 +262,16 @@ function Map(props: Props) {
           position: old?.position ?? positions[s.id] ?? { x: 0, y: 0 },
           data: {
             state: s,
+            fans: grouped.fans
+              .filter((f) => f.state === s.id)
+              .map((f) => ({
+                dir: f.dir,
+                action: actionTitle(f.items[0].action),
+                others: f.others.map(stateTitle),
+                cls: f.items[0].ghost ? 'ghost' : f.items[0].kind.endsWith(':system') ? 'system' : f.items[0].transition.status,
+                selected: f.items.some(isSelected),
+                onPick: pickNext(f.items),
+              })),
             ghost,
             dim: !applies(s, variant),
             selected: selection?.kind === 'state' && selection.id === s.id,
@@ -220,15 +279,16 @@ function Map(props: Props) {
           },
         };
       }),
-    [allStates, positions, variant, selection, unreachable],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [allStates, positions, variant, selection, unreachable, grouped],
   );
 
   const [nodes, setNodes] = useState<Node<StateData>[]>(() => buildNodes([]));
   useEffect(() => setNodes((prev) => buildNodes(prev)), [buildNodes]);
   useEffect(() => {
-    const t = setTimeout(() => fitView({ padding: 0.2, duration: 0 }), 50);
+    const t = setTimeout(() => fitView({ padding: 0.15, duration: 0, maxZoom: 1 }), 200);
     return () => clearTimeout(t);
-  }, [entity.id, fitView]);
+  }, [entity.id, showProposals, fitView]);
 
   const saveTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const onNodesChange = (changes: NodeChange<Node<StateData>>[]) => {
@@ -245,42 +305,46 @@ function Map(props: Props) {
     });
   };
 
-  const roleTitle = (id: string) => project.project.roles.find((r) => r.id === id)?.title ?? id;
-  const actionTitle = (id: string) => entity.actions.find((a) => a.id === id)?.title ?? id;
-
   const edges: Edge<EdgeData>[] = useMemo(() => {
     const pairs: Record<string, number> = {};
-    return allTransitions.map(({ transition: t, ghost }) => {
-      const pair = [t.from, t.to].sort().join('|');
+    const color = (x: Item) =>
+      x.ghost || x.transition.status === 'proposed' ? 'var(--accent)' : x.transition.status === 'observed' ? 'var(--warn)' : systemOnly(x.transition) ? 'var(--fg-2)' : 'var(--fg)';
+    return grouped.edges.map(({ from, to, items }) => {
+      const pair = [from, to].sort().join('|');
       const offset = pairs[pair] ?? 0;
       pairs[pair] = offset + 1;
-      const pick = () => props.onSelect(ghost ? { kind: 'ghost', ...ghost } : { kind: 'transition', id: t.id });
-      // Inlined rather than importing reach.ts's roleKind(): any *value* import
-      // from '@tc/model' pulls in its whole index (including the Node-only
-      // workspace.ts) and breaks the browser build — see AccessMatrix.tsx too.
-      const systemOnly = t.by.length > 0 && t.by.every((r) => (project.project.roles.find((x) => x.id === r)?.kind ?? 'human') === 'system');
+      const first = items[0];
+      const marker = { type: MarkerType.ArrowClosed, width: 16, height: 16, color: color(first) };
+      const results = items.map((x) => (x.ghost ? null : resultOf(state, x.transition.id, variant)));
+      const result = results.find((r) => r === 'failed') ?? results.find((r) => r === 'blocked') ?? results.find((r) => r === 'not-run') ?? results.find((r) => r) ?? null;
+      const uniq = (xs: string[]) => [...new Set(xs)].join(', ');
       return {
-        id: ghost ? `ghost:${ghost.proposal}:${ghost.op}` : t.id,
-        source: t.from,
-        target: t.to,
+        id: items.map((x) => (x.ghost ? `ghost:${x.ghost.proposal}:${x.ghost.op}` : x.transition.id)).join('+'),
+        source: from,
+        target: to,
         type: 'transition',
-        markerEnd: { type: MarkerType.ArrowClosed, width: 16, height: 16, color: ghost || t.status === 'proposed' ? 'var(--accent)' : t.status === 'observed' ? 'var(--warn)' : systemOnly ? 'var(--fg-2)' : 'var(--fg)' },
+        markerEnd: marker,
+        markerStart: items.some((x) => x.from === to && x.to === from) ? marker : undefined,
         data: {
-          transition: t,
-          ghost,
-          dim: !applies(t, variant),
-          selected: selection?.kind === 'transition' && selection.id === t.id,
-          result: ghost ? null : resultOf(state, t.id, variant),
-          actionTitle: actionTitle(t.action) || t.action,
-          roleTitle: t.by.map(roleTitle).join(', '),
-          systemOnly,
+          transitions: items.map((x) => x.transition),
+          ghost: !!first.ghost,
+          status: first.transition.status,
+          dim: items.every((x) => !applies(x.transition, variant)),
+          selected: items.some(isSelected),
+          result,
+          actionTitle: uniq(items.map((x) => actionTitle(x.action))),
+          roleTitle: roles(items.flatMap((x) => x.transition.by)),
+          tooltip: items
+            .map((x) => `${stateTitle(x.from)} → ${stateTitle(x.to)}: ${actionTitle(x.action)}\n  by ${x.transition.by.map(roleTitle).join(', ')}${x.transition.guards.length ? `\n  ${x.transition.guards.join('\n  ')}` : ''}`)
+            .join('\n'),
+          systemOnly: first.kind.endsWith(':system'),
           offset,
-          onPick: pick,
+          onPick: pickNext(items),
         },
       };
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [allTransitions, variant, selection, state]);
+  }, [grouped, variant, selection, state]);
 
   const onConnect = (c: Connection) => {
     if (!c.source || !c.target) return;
@@ -308,14 +372,11 @@ function Map(props: Props) {
     setSavedLayout({});
     setNodes([]);
     void api.saveLayout(entity.id, {});
-    setTimeout(() => fitView({ padding: 0.2, duration: 200 }), 250);
+    setTimeout(() => fitView({ padding: 0.2, duration: 200, maxZoom: 1 }), 250);
   };
-
-  const ghostCount = ghosts.states.length + ghosts.transitions.length;
 
   return (
     <div className="map">
-      <Contours />
       <div className="map-toolbar">
         <div className="seg" role="group" aria-label="Variant">
           <button aria-pressed={variant === null} onClick={() => props.onVariant(null)}>All variants</button>
@@ -325,10 +386,16 @@ function Map(props: Props) {
         </div>
         <button className="btn" onClick={addState}>Add state</button>
         <button className="btn" onClick={resetLayout}>Auto-layout</button>
-        {proposals.length > 0 && (
-          <button className={`btn ${showProposals ? 'on' : ''}`} onClick={() => setShowProposals(!showProposals)} aria-pressed={showProposals}>
-            Agent proposals on map{ghostCount ? `: ${ghostCount}` : ''}
-          </button>
+        {ghostCount > 0 && (
+          <div className="map-next">
+            <span>
+              {ghostCount} agent {ghostCount === 1 ? 'proposal waits' : 'proposals wait'} for your decision
+            </span>
+            <button className="btn primary" onClick={props.onOpenProposal}>Review in Inbox</button>
+            <button className={`btn ${showProposals ? 'on' : ''}`} onClick={() => setShowProposals(!showProposals)} aria-pressed={showProposals}>
+              Preview on map
+            </button>
+          </div>
         )}
       </div>
       <ReactFlow
@@ -343,6 +410,7 @@ function Map(props: Props) {
         proOptions={{ hideAttribution: true }}
         minZoom={0.3}
         fitView
+        fitViewOptions={{ maxZoom: 1 }}
       >
         <Controls showInteractive={false} position="bottom-right" />
       </ReactFlow>
@@ -355,6 +423,8 @@ function Map(props: Props) {
         <span>Proposed by an agent</span>
         <svg width="34" height="6"><line x1="0" y1="3" x2="34" y2="3" stroke="var(--fg-2)" strokeWidth="2" strokeDasharray="2 3" /></svg>
         <span>⚙ System acts on its own — no person involved</span>
+        <span className="legend-fan">← a</span>
+        <span>One action from many states, shown on the state</span>
       </div>
     </div>
   );
