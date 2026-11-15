@@ -199,12 +199,16 @@ Done:
 - the backlog — epics, features, stories — as a view over the model: features slice it by action, stories cite the elements they cover, coverage rolls up per epic/feature/story, and unmapped stories are called out;
 - scenarios tagged and annotated by epic/feature/story for Allure TestOps.
 
-Next:
-- actually pushing runs to Allure TestOps (the scenario IDs and epic/feature/story labels are already on every compiled test);
-- cleaning up test data by `runTag`;
-- creating entities from the GUI;
-- agent-authored changes to the action library, reviewed by a person;
-- packaging as a `.app`.
+Next, in this order (each step is its own pull request):
+1. Review as a matrix of model element × source: confirmed, partial, contradicts, not found.
+2. "Not found" always says where the agent looked, and the model keeps a list of unknowns.
+3. A transition counts as confirmed only when a later read shows its effect.
+4. A recorded HAR session as a source.
+5. Every test points to the specification item it checks, and items without a test are listed.
+6. A full loop with an agent under an open license (Codex or the Copilot SDK).
+7. Running on Linux and Windows through the CLI and web GUI; packaging as a `.app` on macOS.
+8. A quickstart on the demo shop.
+9. Later: cleaning up test data by `runTag`, agent-authored changes to the action library reviewed by a person, pushing runs to Allure TestOps (scenario IDs and epic/feature/story labels are already on every compiled test).
 
 ## License
 
