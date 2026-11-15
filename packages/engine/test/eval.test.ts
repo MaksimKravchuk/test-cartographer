@@ -19,6 +19,7 @@ test('eval: names match across wording, synonyms and wildcard transitions; extra
   assert.equal(nameScore('Create task', 'add', new Set(['task']), true), 1);
   assert.equal(nameScore('signUp', 'sign up'), 1);
   assert.ok(nameScore('colour', 'color') >= 0.8);
+  assert.ok(nameScore('in trash', 'trashed') >= 0.8);
   assert.equal(nameScore('Archive project', 'Delete project', new Set(['project']), true), 0);
 
   const ref = flattenReference(

@@ -176,7 +176,9 @@ export function nameScore(a: string, b: string, drop: Set<string> = new Set(), v
   const jac = inter / new Set([...sx, ...sy]).size;
   if (x.length === 1 && y.length === 1) {
     const [p, q] = [x[0], y[0]];
-    return Math.max(jac, p.length >= 5 && 1 - lev(p, q) / Math.max(p.length, q.length) >= 0.8 ? 0.8 : 0);
+    // "trash" / "trashed", "archive" / "archived": one word starts the other.
+    const prefix = Math.min(p.length, q.length) >= 4 && (p.startsWith(q) || q.startsWith(p)) && Math.abs(p.length - q.length) <= 3;
+    return Math.max(jac, prefix || (p.length >= 5 && 1 - lev(p, q) / Math.max(p.length, q.length) >= 0.8) ? 0.8 : 0);
   }
   return jac;
 }
