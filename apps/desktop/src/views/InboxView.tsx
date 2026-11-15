@@ -26,7 +26,7 @@ type FindingKind = 'contradiction' | 'question' | 'gap' | 'source';
 type Item = { key: string; kind: FindingKind | 'proposal'; title: string; where: string; d?: Disagreement; p?: ProposalState };
 type Filter = 'all' | Item['kind'];
 
-type Answer = { v: Resolution['verdict']; title: string; key: string };
+type Answer = { v: Resolution['verdict']; title: string; key: string; note?: string };
 const triad: Answer[] = [
   { v: 'bug', title: 'Bug in the product', key: 'b' },
   { v: 'outdated', title: 'Requirements are outdated', key: 'u' },
@@ -35,6 +35,9 @@ const triad: Answer[] = [
 // The answers that fit each kind: a question is answered, a source problem is fixed or meant.
 const answersFor = (d: Disagreement): Answer[] => {
   const kind = findingKind(d);
+  // An agent's own options come first: it knows what answers fit its question.
+  if (kind === 'question' && d.finding.options?.length)
+    return d.finding.options.map((o, i) => ({ v: 'answered' as const, title: o, key: String(i + 1), note: o }));
   if (kind === 'question')
     return d.finding.synonym
       ? [{ v: 'yes', title: 'Yes, the same thing', key: 'y' }, { v: 'no', title: 'No, different things', key: 'n' }]
@@ -129,7 +132,7 @@ export function InboxView(props: Props) {
       else if (k === 'k') move(-1);
       else if (item?.d && !item.d.resolution && !busy) {
         const v = answersFor(item.d).find((x) => x.key === k);
-        if (v) void resolve(item.d, v.v);
+        if (v) void resolve(item.d, v.v, v.note);
       }
     };
     window.addEventListener('keydown', onKey);
@@ -228,7 +231,7 @@ export function InboxView(props: Props) {
               ) : (
                 <>
                   {answersFor(item.d).map((x) => (
-                    <button key={x.v} className={`btn ${x.v === 'bug' && item.d!.winner ? 'primary' : ''}`} disabled={busy} onClick={() => resolve(item.d!, x.v)}>
+                    <button key={x.key} className={`btn ${x.v === 'bug' && item.d!.winner ? 'primary' : ''}`} disabled={busy} onClick={() => resolve(item.d!, x.v, x.note)}>
                       {x.title} <span className="kbd">{x.key.toUpperCase()}</span>
                     </button>
                   ))}

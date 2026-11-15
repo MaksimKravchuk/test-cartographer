@@ -1,4 +1,5 @@
 import { isActive } from './reach.ts';
+import { findingSynonym } from './proposals.ts';
 import type { Plan, Scenario } from './plan.ts';
 import type { Entity, Evidence, Finding, Project, Proposal, Resolution, Source } from './schema.ts';
 
@@ -39,7 +40,7 @@ export function allFindings(proposals: Proposal[], sources: Source[], usePriorit
           proposal: p.id,
           entity: p.entity,
           index,
-          finding,
+          finding: { ...finding, synonym: findingSynonym(finding) },
           quotes,
           winner: usePriority && spread && top.length === 1 ? top[0] : undefined,
           resolution: p.resolutions.find((r) => r.finding === index),

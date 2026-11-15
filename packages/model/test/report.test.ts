@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { addSynonym, allFindings, checkRoles, disagreements, Entity, lintModel, Project, Proposal, renderSpec, resolveRuntime, reviewMatrix, validateEntity, validateProject } from '@tc/model';
+import { addSynonym, allFindings, findingSynonym, checkRoles, disagreements, Entity, lintModel, Project, Proposal, renderSpec, resolveRuntime, reviewMatrix, validateEntity, validateProject } from '@tc/model';
 
 const project = Project.parse({
   name: 'Shop',
@@ -149,4 +149,13 @@ test('addSynonym: new entry, joins the entry either word has, merges two entries
   assert.deepEqual(addSynonym(g, 'list', 'project'), [{ term: 'Project', definition: 'A list of tasks', synonyms: ['list'] }, g[1]]);
   assert.deepEqual(addSynonym(g, 'Project', 'project'), g);
   assert.deepEqual(addSynonym(g, 'Project', 'place'), [{ term: 'Project', definition: 'A list of tasks', synonyms: ['place', 'Spot'] }]);
+});
+
+test('findingSynonym: the agent’s pair, else read from the wording of an older question', () => {
+  const q = (note: string) => findingSynonym({ kind: 'question', note });
+  assert.deepEqual(q("The code calls this a saved 'place'. Is Location the same thing as Place? Create exists."), { term: 'Location', synonym: 'Place' });
+  assert.deepEqual(q("ADR-0020 calls a project a 'List'. Should 'List' go in the glossary as a synonym of Project?"), { term: 'Project', synonym: 'List' });
+  assert.equal(q('Who can delete a tag?'), undefined);
+  assert.equal(findingSynonym({ kind: 'gap', note: 'Is A the same as B?' }), undefined);
+  assert.deepEqual(findingSynonym({ kind: 'question', note: 'x', synonym: { term: 'A', synonym: 'B' } }), { term: 'A', synonym: 'B' });
 });

@@ -84,7 +84,8 @@ Rules:
 - Name things with the words in model().glossary: a synonym there is the same thing as its term, not a new one.
   When two names look like the same thing (the docs say Location, the code says place), ask in a finding
   (kind=question) with \`synonym: { term: "<the model's word>", synonym: "<the other word>" }\`: a yes files it
-  in the glossary.
+  in the glossary. When yes/no doesn't fit a question, give its likely answers in \`options\` (up to 6, short);
+  a person may still answer in words.
 - When a source can't be read or looks incomplete (a folder an AGENTS.md or README describes has no files,
   a page is empty), report it as kind=source with what you tried, not as a gap: it is a problem with the
   inputs, not the product.

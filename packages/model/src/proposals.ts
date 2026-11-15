@@ -14,6 +14,7 @@ import {
   type ElementKind,
   type Op,
   type Proposal,
+  type Finding,
   type Term,
 } from './schema.ts';
 
@@ -286,4 +287,16 @@ export function addSynonym(glossary: Term[], term: string, synonym: string): Ter
   const merged = { ...home, synonyms: [...home.synonyms] };
   for (const w of [term, synonym, ...(other ? [other.term, ...other.synonyms] : [])]) if (!has(merged, w)) merged.synonyms.push(w.trim());
   return glossary.flatMap((t) => (t === home ? [merged] : t === other ? [] : [t]));
+}
+
+// A question's synonym pair: the one the agent gave, or, for questions asked
+// before agents could give one, read from the wording ("Is Location the same
+// thing as Place?", "Should 'List' go in the glossary as a synonym of Project?").
+export function findingSynonym(f: Pick<Finding, 'kind' | 'note' | 'synonym'>): Finding['synonym'] {
+  if (f.synonym || f.kind !== 'question') return f.synonym;
+  const w = `['"‘“]?([\\w][\\w -]*?)['"’”]?`;
+  const same = new RegExp(`\\bIs (?:an? |the )?${w} the same(?: thing)? as (?:an? |the )?${w}\\?`, 'i').exec(f.note);
+  if (same) return { term: same[1], synonym: same[2] };
+  const syn = new RegExp(`${w} (?:go )?in(?:to)? the glossary as (?:a )?synonym (?:of|for) (?:an? |the )?${w}[?.]`, 'i').exec(f.note);
+  return syn ? { term: syn[2], synonym: syn[1] } : undefined;
 }

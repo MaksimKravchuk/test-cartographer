@@ -563,6 +563,8 @@ export const Finding = z.object({
   searched: z.array(z.string()).optional(),
   // For a question whether two names mean the same thing: answering yes adds the synonym to the glossary.
   synonym: z.object({ term: z.string().min(1), synonym: z.string().min(1) }).optional(),
+  // A question's own answers, when yes/no doesn't fit; a person may still answer in words.
+  options: z.array(z.string().min(1)).max(6).optional(),
 });
 export type Finding = z.infer<typeof Finding>;
 

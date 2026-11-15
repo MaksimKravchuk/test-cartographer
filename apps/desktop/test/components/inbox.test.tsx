@@ -24,6 +24,7 @@ describe('InboxView', () => {
       finding(1, { kind: 'question', note: 'Is Location the same as Place?', synonym: { term: 'Location', synonym: 'Place' } }),
       finding(2, { kind: 'question', note: 'Who can delete a tag?' }),
       finding(3, { kind: 'contradiction', note: 'Docs and code disagree' }),
+      finding(4, { kind: 'question', note: 'Who may archive a project?', options: ['Only the owner', 'Any member'] }),
     ],
     lint: [], sources: [], usePriority: false,
   } as never);
@@ -54,5 +55,10 @@ describe('InboxView', () => {
 
     await userEvent.click(screen.getByRole('button', { name: /Docs and code disagree/ }));
     expect(screen.getByRole('button', { name: /Bug in the product/ })).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: /Who may archive a project/ }));
+    expect(screen.queryByRole('button', { name: /^Yes/ })).toBeNull();
+    await userEvent.click(screen.getByRole('button', { name: /Any member/ }));
+    expect(api.resolve).toHaveBeenCalledWith('p1', 4, 'answered', 'Any member');
   });
 });
