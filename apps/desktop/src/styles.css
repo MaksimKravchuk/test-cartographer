@@ -85,7 +85,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
   white-space: nowrap;
   transition: background 0.12s, border-color 0.12s;
 }
-.btn:hover:not(:disabled) { background: var(--sunken); }
+.btn:hover:not(:disabled):not(.on) { background: var(--sunken); }
 .btn:disabled { opacity: 0.45; cursor: default; }
 .btn.primary { background: var(--fg); color: var(--bg); border-color: var(--fg); }
 .btn.primary:hover:not(:disabled) { background: var(--fg); opacity: 0.88; }
