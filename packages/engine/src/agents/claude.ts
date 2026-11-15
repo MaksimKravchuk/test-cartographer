@@ -55,10 +55,11 @@ export async function claudeStatus(): Promise<RuntimeStatus> {
     await new Promise((resolve) => abort.signal.addEventListener('abort', resolve));
   })();
   const q = query({ prompt: idle as AsyncIterable<never>, options: { abortController: abort, settingSources: [], persistSession: false, tools: [], env: subscriptionEnv() } });
+  let timer: NodeJS.Timeout | undefined;
   try {
     const init = await Promise.race([
       q.initializationResult(),
-      new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Claude Code did not respond in 30 s')), 30_000)),
+      new Promise<never>((_, reject) => (timer = setTimeout(() => reject(new Error('Claude Code did not respond in 30 s')), 30_000))),
     ]);
     const a = init.account;
     const signedIn = !!(a.email || a.subscriptionType);
@@ -74,6 +75,9 @@ export async function claudeStatus(): Promise<RuntimeStatus> {
   } catch (e) {
     return { provider: 'claude', ready: false, models: [], detail: (e as Error).message };
   } finally {
+    // When the handshake wins the race the timer is still pending and would
+    // keep the process (`tc runtimes`) alive for up to 30 s.
+    clearTimeout(timer);
     abort.abort();
     try {
       for await (const _ of q);

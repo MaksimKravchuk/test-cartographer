@@ -160,10 +160,14 @@ export const api = {
 
 export const fileUrl = (path: string) => `/api/files/${path.split('/').map(encodeURIComponent).join('/')}`;
 
-export function subscribe(onEvent: (e: EngineEvent) => void): () => void {
+// `onOpen` runs each time the stream (re)connects. The engine registers the
+// stream before answering, so from then on no event is missed: the moment to
+// read state that the events then keep up to date.
+export function subscribe(onEvent: (e: EngineEvent) => void, onOpen?: () => void): () => void {
   const source = new EventSource('/api/events');
   source.onmessage = (m) => {
     if (m.data) onEvent(JSON.parse(m.data));
   };
+  if (onOpen) source.onopen = onOpen;
   return () => source.close();
 }

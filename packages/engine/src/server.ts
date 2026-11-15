@@ -60,7 +60,8 @@ export function createApp(initial: Workspace) {
   void rememberProject(ws).catch(() => {});
 
   const switchTo = (next: Workspace) => {
-    if ([...jobs.values()].some((j) => j.state === 'running')) throw new HttpError(409, 'Wait for the running job to finish before switching projects');
+    const running = [...jobs.values()].find((j) => j.state === 'running');
+    if (running) throw new HttpError(409, `Wait for “${running.kind}” to finish (or stop it) before switching projects`);
     ws = next;
     watchProject();
     emit({ type: 'project', root: ws.root });
@@ -522,6 +523,10 @@ export function createApp(initial: Workspace) {
       stream.onAbort(() => {
         listeners.delete(send);
       });
+      // A first ping right away: a proxy that holds the response until its
+      // first byte (Vite's dev proxy) would otherwise delay the client's
+      // `open` — which it reads the job list on — until the next ping.
+      await stream.writeSSE({ event: 'ping', data: '' });
       while (!stream.aborted) await stream.sleep(15_000).then(() => stream.writeSSE({ event: 'ping', data: '' }));
     }),
   );

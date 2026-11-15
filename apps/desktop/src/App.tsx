@@ -106,7 +106,8 @@ export function App() {
   useEffect(
     () =>
       subscribe((e) => {
-        // Runtime test runs and sign-ins report on their own card on the Agents page.
+        // Runtime test runs and sign-ins report on their own card on the Agents
+        // page, which also stops them — and picks them up again when reopened.
         if ((e.type === 'log' || e.type === 'job') && /^(test|login):/.test(e.job)) return;
         if (e.type === 'log') setLog((l) => [...l.slice(-800), e.line]);
         if (e.type === 'job') {
