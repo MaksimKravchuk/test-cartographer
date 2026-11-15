@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { AgentProvider, Effort, RuntimeOverride } from '@tc/model';
+import type { AgentProvider, AgentUsage, Effort, RuntimeOverride } from '@tc/model';
 // schema.ts only: the package index pulls in Node-only workspace.ts (see AccessMatrix.tsx).
 import { resolveRuntime, SUBAGENTS } from '@tc/model/schema';
 import { api, runtimeTitle, type Job, type ProjectState, type ProposalState, type RuntimeStatus } from '../api.ts';
@@ -20,6 +20,45 @@ type Props = {
   onOpenSettings(): void;
   onError(m: string): void;
 };
+
+const tokens = (n: number) => (n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : n >= 1e3 ? `${(n / 1e3).toFixed(1)}k` : String(n));
+const clock = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+
+// What the run has used so far: the engine logs it as `📊 <json>`, newest last.
+function UsageLine({ log, elapsed }: { log: string[]; elapsed?: number }) {
+  const last = log.findLast((l) => l.startsWith('📊'));
+  if (!last && elapsed === undefined) return null;
+  const u = last ? (JSON.parse(last.slice(2)) as AgentUsage) : undefined;
+  const ctx = u?.context;
+  const seconds = elapsed ?? u?.seconds;
+  return (
+    <dl className="run-usage" aria-label="Usage">
+      {seconds !== undefined && <div><dt>Time</dt><dd>{clock(seconds)}</dd></div>}
+      {u && (
+        <div>
+          <dt>Tokens</dt>
+          <dd>
+            {tokens(u.input)} in{u.cacheRead ? ` (${tokens(u.cacheRead)} cached)` : ''} · {tokens(u.output)} out
+          </dd>
+        </div>
+      )}
+      {ctx && ctx.used > 0 && (
+        <div>
+          <dt>Context</dt>
+          <dd>{tokens(ctx.used)}{ctx.window ? ` of ${tokens(ctx.window)} (${Math.round((ctx.used / ctx.window) * 100)}%)` : ''}</dd>
+        </div>
+      )}
+      {u?.costUsd !== undefined && (
+        <div title="What these tokens would cost at API prices. Subscriptions don’t bill per token.">
+          <dt>Cost{u.estimated ? ' (estimate)' : ''}</dt>
+          <dd>≈ ${u.costUsd < 0.01 ? u.costUsd.toFixed(4) : u.costUsd.toFixed(2)}</dd>
+        </div>
+      )}
+      {!!u?.premiumRequests && <div><dt>Premium requests</dt><dd>{+u.premiumRequests.toFixed(2)}</dd></div>}
+      {u?.model && <div><dt>Model</dt><dd>{u.model}</dd></div>}
+    </dl>
+  );
+}
 
 type Task = { id: string; title: string; note: string; agent?: string; start(runtime: RuntimeOverride | undefined): Promise<unknown> };
 
@@ -175,8 +214,8 @@ export function RunView({ project, proposals, job, startedAt, log, onOpenInbox, 
           <h2>
             {running ? 'Running' : job.state === 'done' ? 'Last run — done' : 'Last run — failed'}: {jobTitle(job.kind)}
           </h2>
+          <UsageLine log={log} elapsed={running ? elapsed : undefined} />
           <p className="muted">
-            {running && `${Math.floor(elapsed / 60)}:${String(elapsed % 60).padStart(2, '0')} · `}
             {tools} tool {tools === 1 ? 'call' : 'calls'} · {found.length} {found.length === 1 ? 'proposal' : 'proposals'} handed in
           </p>
           {job.error && <div className="error-box">{job.error}</div>}
@@ -202,7 +241,7 @@ export function RunView({ project, proposals, job, startedAt, log, onOpenInbox, 
           {running && found.length === 0 && <p className="muted">Nothing handed in yet. What the agent records shows up here and in the Inbox right away.</p>}
           <details>
             <summary>Raw log</summary>
-            <pre className="runtime-log">{log.join('\n') || 'No output yet.'}</pre>
+            <pre className="runtime-log">{log.filter((l) => !l.startsWith('📊')).join('\n') || 'No output yet.'}</pre>
           </details>
         </>
       )}

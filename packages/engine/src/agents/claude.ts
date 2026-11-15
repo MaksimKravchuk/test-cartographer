@@ -55,10 +55,31 @@ export async function runClaude(h: Harness): Promise<void> {
       abortController: h.abort,
     },
   });
+  // Until the result's exact totals: one entry per API call (its blocks repeat the same usage).
+  const calls = new Map<string, { input: number; output: number; cacheRead: number; cacheWrite: number }>();
+  let context: { used: number; window?: number } | undefined;
   for await (const m of q) {
-    if (m.type === 'assistant')
+    if (m.type === 'assistant') {
       for (const b of m.message.content) if (b.type === 'text' && b.text.trim()) h.onText(b.text.trim());
+      // The lead's latest prompt is what its context holds now; subagents have their own.
+      const u = m.message.usage;
+      if (u) {
+        const prompt = u.input_tokens + (u.cache_read_input_tokens ?? 0) + (u.cache_creation_input_tokens ?? 0);
+        calls.set(m.message.id, { input: prompt, output: u.output_tokens, cacheRead: u.cache_read_input_tokens ?? 0, cacheWrite: u.cache_creation_input_tokens ?? 0 });
+        if (!m.parent_tool_use_id) context = { ...context, used: prompt };
+        const all = [...calls.values()];
+        const sum = (k: 'input' | 'output' | 'cacheRead' | 'cacheWrite') => all.reduce((n, c) => n + c[k], 0);
+        h.onUsage({ model: m.message.model, input: sum('input'), output: sum('output'), cacheRead: sum('cacheRead'), cacheWrite: sum('cacheWrite'), context });
+      }
+    }
     if (m.type === 'result') {
+      // modelUsage covers subagents too; Anthropic counts cached tokens apart from input_tokens.
+      const all = Object.entries(m.modelUsage);
+      const sum = (f: (u: (typeof all)[number][1]) => number) => all.reduce((n, [, u]) => n + f(u), 0);
+      const cacheRead = sum((u) => u.cacheReadInputTokens);
+      const cacheWrite = sum((u) => u.cacheCreationInputTokens);
+      const main = all.find(([id]) => id === h.runtime.model) ?? all[0];
+      h.onUsage({ model: main?.[0], input: sum((u) => u.inputTokens) + cacheRead + cacheWrite, output: sum((u) => u.outputTokens), cacheRead, cacheWrite, costUsd: m.total_cost_usd, context: context && main ? { ...context, window: main[1].contextWindow } : context });
       if (m.subtype !== 'success') throw new Error(`Claude Code stopped (${m.subtype}): ${m.errors.join('; ') || 'no details'}`);
       if (m.is_error) throw new Error(`Claude Code: ${m.result}`);
     }

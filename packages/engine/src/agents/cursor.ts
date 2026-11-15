@@ -2,6 +2,7 @@
 // the Cursor SDK (it mints a user API key, billed like IDE usage). The agent
 // loop runs in-process; its only tools are the bridge's.
 import { Agent, Cursor } from '@cursor/sdk';
+import type { AgentUsage } from '@tc/model';
 import type { Harness, RuntimeStatus } from './bridge.ts';
 
 export async function runCursor(h: Harness): Promise<void> {
@@ -22,14 +23,25 @@ export async function runCursor(h: Harness): Promise<void> {
       if (text.trim()) h.onText(text.trim());
       text = '';
     };
+    const usage: AgentUsage = { model: h.runtime.model, input: 0, output: 0, cacheRead: 0, cacheWrite: 0 };
     try {
       for await (const m of run.stream()) {
+        if (m.type === 'usage') {
+          usage.input += m.usage.inputTokens;
+          usage.output += m.usage.outputTokens;
+          usage.cacheRead! += m.usage.cacheReadTokens;
+          usage.cacheWrite! += m.usage.cacheWriteTokens;
+          h.onUsage({ ...usage });
+        }
         if (m.type === 'assistant') {
           for (const b of m.message.content) if (b.type === 'text') text += b.text;
         } else flush();
       }
       flush();
       const r = await run.wait();
+      // Cursor's billed cost lands a little after the run; a miss leaves the estimate.
+      const billed = await agent.getUsage().catch(() => undefined);
+      if (billed?.cost) h.onUsage({ ...usage, costUsd: billed.cost.rawCostCents / 100 });
       if (r.status === 'error') throw new Error(`Cursor: ${r.error?.message ?? 'the run failed'}`);
       if (r.status === 'cancelled') throw new Error('Cursor run cancelled');
     } finally {
