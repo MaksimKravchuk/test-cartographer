@@ -475,10 +475,11 @@ export async function onboard(ws: Workspace, agentId: string | undefined, opts: 
   }
   if (!done) throw new Error('The agent finished without an accepted proposal (propose was never called or was rejected)');
 
-  // The original leaves the queue once something replaces it; with nothing new it stays open.
+  // The original leaves the queue once something replaces it; with nothing new it stays open,
+  // and an answer a person gave while the agent worked stands.
   const replacements = saved.reduce((n, p) => n + p.findings.length + p.ops.length, 0);
-  if (target && replacements) {
-    const original = await ws.proposal(target.proposal);
+  const original = target && replacements ? await ws.proposal(target.proposal) : undefined;
+  if (target && original && !original.resolutions.some((r) => r.finding === target.index)) {
     const note = `More context: ${saved.map((p) => p.id).join(', ')}`;
     const rest = original.resolutions.filter((r) => r.finding !== target.index);
     await ws.saveProposal({ ...original, resolutions: [...rest, { finding: target.index, verdict: 'clarified', note, at: new Date().toISOString() }] });

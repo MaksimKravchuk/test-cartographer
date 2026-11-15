@@ -63,6 +63,12 @@ test('clarify (scripted): replaces a finding a person could not answer with sing
     assert.equal(r.verdict, 'clarified');
     assert.match(r.note!, new RegExp(p.id));
     await assert.rejects(onboard(ws, undefined, { provider: 'scripted', mode: 'clarify', target: { proposal: 'bundled', index: 5 } }), /No finding #5/);
+
+    // An answer a person gave while the agent worked stands.
+    const answered = await ws.proposal('bundled');
+    await ws.saveProposal({ ...answered, resolutions: [{ finding: 0, verdict: 'answered', note: 'Only on the project page', at: '' }] });
+    await onboard(ws, undefined, { provider: 'scripted', mode: 'clarify', target: { proposal: 'bundled', index: 0 } });
+    assert.equal((await ws.proposal('bundled')).resolutions[0].verdict, 'answered');
   } finally {
     await rm(dir, { recursive: true, force: true });
   }

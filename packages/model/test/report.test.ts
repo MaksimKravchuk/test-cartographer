@@ -155,6 +155,7 @@ test('findingSynonym: the agent’s pair, else read from the wording of an older
   const q = (note: string) => findingSynonym({ kind: 'question', note });
   assert.deepEqual(q("The code calls this a saved 'place'. Is Location the same thing as Place? Create exists."), { term: 'Location', synonym: 'Place' });
   assert.deepEqual(q("ADR-0020 calls a project a 'List'. Should 'List' go in the glossary as a synonym of Project?"), { term: 'Project', synonym: 'List' });
+  assert.deepEqual(q('Should cart go in the glossary as a synonym of Order?'), { term: 'Order', synonym: 'cart' });
   assert.equal(q('Who can delete a tag?'), undefined);
   assert.equal(findingSynonym({ kind: 'gap', note: 'Is A the same as B?' }), undefined);
   assert.deepEqual(findingSynonym({ kind: 'question', note: 'x', synonym: { term: 'A', synonym: 'B' } }), { term: 'A', synonym: 'B' });

@@ -37,6 +37,12 @@ export async function insideCode(root: string, path: string): Promise<{ abs: str
 // (an Android tree with its caches) must not use up the cap before it.
 export async function listCode(dir: string, limit = MAX_FILES, sub = ''): Promise<string[]> {
   sub = sub.replace(/\\/g, '/').replace(/[*?].*$/, '').replace(/^\.?\/+/, '').replace(/\/+$/, '');
+  // The sub-folder must stay inside the source by real path (no "..", no symlink out); a missing one lists nothing.
+  if (sub) {
+    const inside = await insideCode(dir, sub).catch((e: Error) => (e.message.startsWith('No file') ? undefined : Promise.reject(e)));
+    if (!inside) return [];
+    sub = inside.rel.split(sep).join('/');
+  }
   const secret = (r: string) => r.split('/').some((part) => part.startsWith('.env'));
   // An empty answer may just mean the folder itself is .gitignore'd: walk it then.
   const fromGit = (await gitFiles(dir, sub))?.filter((r) => !secret(r));

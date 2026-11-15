@@ -69,6 +69,10 @@ test('listCode: a big folder that fills the cap does not hide the others, and a 
     assert.deepEqual(await listCode(dir, 5, 'rust/crates/*'), ['rust/crates/server/main.rs']);
     assert.deepEqual(await listCode(dir, 5, './rust/'), ['rust/crates/server/main.rs']);
     assert.deepEqual(await listCode(dir, 5, 'nope'), []);
+    // A sub-folder can't lead out of the source, by ".." or by a symlink.
+    await assert.rejects(listCode(join(dir, 'rust'), 5, '..'), /outside the code folder/);
+    await symlink(join(dir, 'android'), join(dir, 'rust', 'out'), 'junction'); // junction: no admin needed on Windows
+    await assert.rejects(listCode(join(dir, 'rust'), 5, 'out'), /outside the code folder/);
   } finally {
     await rm(dir, { recursive: true, force: true });
   }

@@ -297,6 +297,7 @@ export function findingSynonym(f: Pick<Finding, 'kind' | 'note' | 'synonym'>): F
   const w = `['"‘“]?([\\w][\\w -]*?)['"’”]?`;
   const same = new RegExp(`\\bIs (?:an? |the )?${w} the same(?: thing)? as (?:an? |the )?${w}\\?`, 'i').exec(f.note);
   if (same) return { term: same[1], synonym: same[2] };
-  const syn = new RegExp(`${w} (?:go )?in(?:to)? the glossary as (?:a )?synonym (?:of|for) (?:an? |the )?${w}[?.]`, 'i').exec(f.note);
-  return syn ? { term: syn[2], synonym: syn[1] } : undefined;
+  // Unquoted, the synonym is the one word before "go in the glossary": "Should cart go …" is “cart”, not “Should cart”.
+  const syn = new RegExp(`(?:['"‘“]([\\w][\\w -]*?)['"’”]|\\b([\\w-]+)) (?:go )?in(?:to)? the glossary as (?:a )?synonym (?:of|for) (?:an? |the )?${w}[?.]`, 'i').exec(f.note);
+  return syn ? { term: syn[3], synonym: syn[1] ?? syn[2] } : undefined;
 }
