@@ -40,7 +40,7 @@ export function ReportView({ proposals, reloadToken, onChanged, onError }: Props
   const list = data.disagreements.filter((d) => showSettled || !d.resolution);
   const count = (k: Disagreement['finding']['kind']) => data.disagreements.filter((d) => !d.resolution && d.finding.kind === k).length;
   const cols = data.sources.filter((s) => s.enabled);
-  const spoken = data.matrix.filter((r) => Object.keys(r.cells).length > 0);
+  const spoken = data.matrix.filter((r) => Object.keys(r.cells).length > 0 || r.marks.app);
   const silent = data.matrix.length - spoken.length;
   const title = (id?: string) => data.sources.find((s) => s.id === id)?.title ?? id ?? 'evidence';
 
@@ -70,14 +70,19 @@ export function ReportView({ proposals, reloadToken, onChanged, onError }: Props
       )}
       {spoken.length > 0 && cols.length > 0 && (
         <details style={{ marginTop: 12 }}>
-          <summary><b>By source</b> <span className="muted">— what each source says about each element: ✓ confirms, ✕ contradicts, … gap, ? question, blank = says nothing.{silent > 0 && ` ${silent} more elements no source mentions yet.`}</span></summary>
+          <summary><b>By source</b> <span className="muted">— what the requirements, the code and the app say about each element, then each source: ✓ confirms, ✕ contradicts, … gap, ? question, blank = says nothing. App ✓ means an agent saw the effect in the running app.{silent > 0 && ` ${silent} more elements no source mentions yet.`}</span></summary>
           <div style={{ overflowX: 'auto' }}>
             <table className="matrix access" aria-label="Review by source">
-              <thead><tr><th>Element</th>{cols.map((s) => <th key={s.id}>{s.title}</th>)}</tr></thead>
+              <thead><tr><th>Element</th><th>Requirements</th><th>Code</th><th>App</th>{cols.map((s) => <th key={s.id}>{s.title}</th>)}</tr></thead>
               <tbody>
                 {spoken.map((r) => (
                   <tr key={r.ref}>
                     <td className="name" title={r.ref}>{r.title.length > 70 ? `${r.title.slice(0, 69)}…` : r.title}</td>
+                    {(['requirements', 'code'] as const).map((k) => {
+                      const c = r.marks[k];
+                      return <td key={k} title={c ? `${k} ${cellMark[c].title}` : `${k}: nothing`} style={{ color: c ? cellMark[c].color : undefined, fontWeight: 600 }}>{c ? cellMark[c].mark : ''}</td>;
+                    })}
+                    <td title={r.marks.app ? 'seen in the running app' : 'not checked in the app'} style={{ color: 'var(--pass)', fontWeight: 600 }}>{r.marks.app ? '✓' : ''}</td>
                     {cols.map((s) => {
                       const c = r.cells[s.id];
                       return <td key={s.id} title={c ? `${s.title} ${cellMark[c].title}` : `${s.title} says nothing`} style={{ color: c ? cellMark[c].color : undefined }}>{c ? cellMark[c].mark : ''}</td>;

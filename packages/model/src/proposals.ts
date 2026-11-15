@@ -136,12 +136,14 @@ function buildProvenance(proposal: Proposal, evidenceIds: string[], note?: strin
     .map((id) => proposal.evidence.find((e) => e.id === id))
     .filter((e): e is NonNullable<typeof e> => !!e && e.kind === 'source' && !!e.source)
     .map((e) => e.source!);
+  const seen = evidenceIds.some((id) => proposal.evidence.find((e) => e.id === id)?.kind === 'probe');
   return {
     source: 'agent' as const,
     agent: proposal.agent,
     proposal: proposal.id,
     evidence: evidenceIds,
     sources: [...new Set(sources)],
+    ...(seen ? { seen } : {}),
     ...(note ? { note } : {}),
   };
 }

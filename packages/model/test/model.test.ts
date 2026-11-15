@@ -408,6 +408,9 @@ test('proposals: accept → requirement, observe → observation, reject is kept
   assert.equal(refund.provenance?.note, 'looks like a bug');
   assert.deepEqual(next.states.find((s) => s.id === 'shipped')!.variants, ['a', 'b']);
   assert.equal(next.variants.find((v) => v.id === 'c')!.status, 'rejected');
+  // A read back of the entity (probe evidence) marks the element as seen in the app.
+  const probed = Proposal.parse({ ...proposal, evidence: [{ id: 'e1', kind: 'probe', summary: 'read order: {"status":"new"}' }] });
+  assert.equal(applyDecisions(entity(), probed, [{ op: 0, verdict: 'accept' }], project).transitions.find((t) => t.id === 'cancel')!.provenance?.seen, true);
   // A rejected variant is not planned, and neither is an observation.
   const plan = buildPlan(next);
   assert.ok(!plan.scenarios.some((s) => s.variant === 'c' || s.target === 'refund'));
