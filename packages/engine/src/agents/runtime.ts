@@ -9,7 +9,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import YAML from 'yaml';
 import { z } from 'zod';
-import { template, type AgentProvider, type Runtime } from '@tc/model';
+import { SUBAGENTS, template, type AgentProvider, type Runtime } from '@tc/model';
 import { openBridge, type BridgeResult, type Harness, type RuntimeStatus } from './bridge.ts';
 import { claudeStatus, runClaude } from './claude.ts';
 import { codexStatus, runCodex } from './codex.ts';
@@ -127,7 +127,7 @@ export async function runAgent(run: AgentRun): Promise<void> {
     return;
   }
 
-  const runtime = run.runtime;
+  const runtime = { ...run.runtime, subagents: !!run.runtime.subagents && SUBAGENTS.includes(run.runtime.provider) };
   const bridge = await openBridge(
     run.tools.map((t) => {
       const { $schema: _, ...inputSchema } = z.toJSONSchema(t.input, { io: 'input' }) as Record<string, unknown>;
@@ -138,10 +138,13 @@ export async function runAgent(run: AgentRun): Promise<void> {
   const cwd = await mkdtemp(join(tmpdir(), 'tc-agent-'));
   const onAbort = () => abort.abort();
   run.signal?.addEventListener('abort', onAbort);
-  run.onLog(`▶ ${runtimes[runtime.provider].title}${runtime.model ? ` · ${runtime.model}` : ''}${runtime.effort ? ` · effort ${runtime.effort}` : ''}`);
+  run.onLog(`▶ ${runtimes[runtime.provider].title}${runtime.model ? ` · ${runtime.model}` : ''}${runtime.effort ? ` · effort ${runtime.effort}` : ''}${runtime.subagents ? ' · subagents' : ''}`);
   try {
-    const system = `${run.system}\n\nThis run has a budget of ${limit} tool calls; ${run.deliver} doesn't count against it.`;
-    const harness = { system, prompt: run.prompt, runtime, toolNames: run.tools.map((t) => t.name), bridge, cwd, abort, onText: (t: string) => run.onLog(`💬 ${t}`) };
+    const delegation = runtime.subagents
+      ? `\n\nYou may hand separate parts of the work (a source, an object, a batch of checks) to subagents; they share this budget. Only you call ${run.deliver}: tell every subagent not to.`
+      : '';
+    const system = `${run.system}\n\nThis run has a budget of ${limit} tool calls; ${run.deliver} doesn't count against it.${delegation}`;
+    const harness = { system, prompt: run.prompt, runtime, toolNames: run.tools.map((t) => t.name), deliver: run.deliver, bridge, cwd, abort, onText: (t: string) => run.onLog(`💬 ${t}`) };
     await runtimes[runtime.provider].run(harness);
   } catch (e) {
     if (run.signal?.aborted) throw stopped();

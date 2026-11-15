@@ -34,7 +34,7 @@ test('every section opens without an error', async ({ page }) => {
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(e.message));
   await page.goto('/');
-  const places: [string, string[]][] = [['Sources', []], ['Model', ['Map', 'Model']], ['Inbox', ['By source', 'Queue']], ['Spec', []], ['Tests', ['Backlog', 'Export', 'Overview']]];
+  const places: [string, string[]][] = [['Sources', []], ['Model', ['Map', 'Model']], ['Inbox', ['By source', 'Queue']], ['Spec', []], ['Tests', ['Backlog', 'Export', 'Overview']], ['Agent', []]];
   for (const [name, views] of places) {
     await place(page, name).click();
     await expect(place(page, name)).toHaveAttribute('aria-current', 'page');
@@ -43,7 +43,7 @@ test('every section opens without an error', async ({ page }) => {
       await expect(view(page, v)).toHaveAttribute('aria-current', 'page');
     }
   }
-  await page.getByRole('button', { name: 'Settings' }).click();
+  await page.getByRole('button', { name: 'Settings', exact: true }).click();
   for (const v of ['Agents', 'Projects', 'Project']) {
     await view(page, `${v}$`).click();
     await expect(view(page, `${v}$`)).toHaveAttribute('aria-current', 'page');
@@ -90,4 +90,16 @@ test('a review shows by source which one contradicts the model', async ({ page }
   await expect(rules.getByText('proposed').first()).toBeVisible();
   await expect(rules.getByRole('button', { name: 'Requirement' }).first()).toBeEnabled();
   if (process.env.TC_SHOT2) await page.screenshot({ path: process.env.TC_SHOT2, fullPage: true });
+});
+
+test('the Agent tab runs a task and lists what it hands in as it goes', async ({ page }) => {
+  await page.goto('/');
+  await place(page, 'Agent').click();
+  await page.getByRole('radio', { name: /Research from scratch/ }).check();
+  // No provider: the scripted onboarding, which records the backlog before it finishes.
+  await page.getByLabel('Provider').selectOption('');
+  await page.getByRole('button', { name: 'Start research from scratch' }).click();
+  await expect(page.getByRole('heading', { name: /Last run — done/ })).toBeVisible({ timeout: 60_000 });
+  await expect(page.getByRole('button', { name: 'Review in Inbox' })).toHaveCount(3);
+  if (process.env.TC_SHOT3) await page.screenshot({ path: process.env.TC_SHOT3, fullPage: true });
 });

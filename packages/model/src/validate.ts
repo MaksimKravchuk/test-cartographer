@@ -1,4 +1,4 @@
-import { NEW, type Entity, type Project } from './schema.ts';
+import { NEW, SUBAGENTS, type Entity, type Project } from './schema.ts';
 import { arrange, isActive, type Catalog } from './reach.ts';
 import { NO_READER } from './plan.ts';
 
@@ -42,6 +42,8 @@ export function validateProject(project: Project, actions?: Set<string>): Issue[
   }
   if (project.runtime?.baseUrl && project.runtime.provider !== 'codex')
     issues.push({ level: 'warning', path: 'runtime.baseUrl', message: 'Only the Codex runtime can use a model endpoint (baseUrl) — it is ignored' });
+  if (project.runtime?.subagents && !SUBAGENTS.includes(project.runtime.provider))
+    issues.push({ level: 'warning', path: 'runtime.subagents', message: 'Only Claude Code and Codex can run subagents — it is ignored' });
   // One word, one meaning: a term or synonym listed twice makes agents guess.
   for (const d of duplicates(project.glossary.flatMap((t) => [t.term, ...t.synonyms].map((w) => w.trim().toLowerCase()))))
     issues.push({ level: 'error', path: `glossary.${d}`, message: `“${d}” is in the glossary more than once` });

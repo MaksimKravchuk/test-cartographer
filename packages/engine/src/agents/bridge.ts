@@ -22,6 +22,8 @@ export type Harness = {
   prompt: string;
   runtime: Runtime;
   toolNames: string[];
+  // The tool that hands in the result: only the lead agent may call it, never a subagent.
+  deliver: string;
   bridge: Bridge;
   cwd: string;
   abort: AbortController;
