@@ -43,7 +43,7 @@ test('lintModel: an action nobody performs, an action with nothing known, vague 
 });
 
 test('action.by: an unknown role is caught by validation and by checkRoles', () => {
-  const e = Entity.parse({ ...order, actions: [{ id: 'cancel', title: 'Cancel', by: ['Buyer'], run: 'order.cancel' }] });
-  assert.ok(validateEntity(e, project).some((i) => i.path === 'actions.cancel' && /Unknown role “Buyer”/.test(i.message)));
+  const e = Entity.parse({ ...order, actions: [{ id: 'cancel', title: 'Cancel', by: ['customer'], run: 'order.cancel' }] });
+  assert.ok(validateEntity(e, project).some((i) => i.path === 'actions.cancel' && /Unknown role “customer”/.test(i.message)));
   assert.match(checkRoles({ op: 'add', kind: 'action', value: { id: 'x', title: 'x', by: ['Buyer'] }, evidence: [] }, project.roles) ?? '', /Buyer/);
 });
