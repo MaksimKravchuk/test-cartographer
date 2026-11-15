@@ -57,3 +57,14 @@ test('onboarding refuses changes to an entity that is neither in the model nor a
     await rm(dir, { recursive: true, force: true });
   }
 });
+
+test('an entity group with nothing in it leaves no proposal', async () => {
+  const dir = join(repo, `.tc-test-${process.pid}-empty`);
+  try {
+    await cp(join(repo, 'workspace'), dir, { recursive: true, filter: (src) => !src.includes('node_modules') });
+    await writeFile(join(dir, 'agents/onboarding.yaml'), 'steps:\n  - call: propose\n    input: { rationale: r, entities: { order: { ops: [], findings: [] } } }\n');
+    assert.deepEqual(await onboard(new Workspace(dir), undefined, { provider: 'scripted' }), []);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});

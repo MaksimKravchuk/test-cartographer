@@ -48,4 +48,4 @@ Integration and e2e tests start the demo shop on port 4400 unless one is already
 
 ## Layout
 
-`packages/model` is the model, with no browser or network I/O. `packages/engine` is the local API, the agents, the test compiler and the runner. `apps/desktop` is the GUI. `demo/shop` is the app the example explores. `workspace` is the example project. The README describes each in detail.
+`packages/model` is the model, with no browser or network I/O. `packages/engine` is the local API, the agents, the test compiler and the runner; how the agents work is written as skills in `packages/engine/skills` (its README has the rules for changing them). `apps/desktop` is the GUI. `demo/shop` is the app the example explores. `workspace` is the example project. The README describes each in detail.
