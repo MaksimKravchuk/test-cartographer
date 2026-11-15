@@ -7,6 +7,7 @@ import {
 import '@xyflow/react/dist/style.css';
 import type { Entity, State, Transition } from '@tc/model';
 import { api, type EntityState, type ProjectState, type ProposalState } from '../api.ts';
+import { LifecycleView } from './LifecycleView.tsx';
 import { applies, autoLayout, groupTransitions, nextId, NODE_H, type Selection } from '../graph.ts';
 
 type Props = {
@@ -20,13 +21,14 @@ type Props = {
   onSelect(s: Selection): void;
   onChange(e: Entity): void;
   onOpenProposal(): void;
+  onDecide(ops: { proposal: string; op: number }[], verdict: 'accept' | 'reject'): void;
 };
 
 type Ghost = { proposal: string; op: number };
 
 // One action leading into (or out of) this state from several others, drawn
 // on the state instead of as a fan of edges.
-type FanView = { dir: 'in' | 'out'; action: string; others: string[]; cls: string; selected: boolean; onPick(): void };
+type FanView = { dir: 'in' | 'out'; action: string; others: string[]; cls: string; selected: boolean; dim: boolean; result: string | null; onPick(): void };
 
 type StateData = {
   state: State;
@@ -62,12 +64,14 @@ function Fans({ fans }: { fans: FanView[] }) {
         <button
           key={i}
           className={`fan nodrag ${f.cls} ${f.selected ? 'selected' : ''}`}
+          style={{ opacity: f.dim ? 0.35 : 1 }}
           title={`${f.action} — ${f.dir === 'in' ? 'from' : 'to'}: ${f.others.join(', ')}`}
           onClick={(e) => {
             e.stopPropagation();
             f.onPick();
           }}
         >
+          {f.result && <span className={`dot ${f.result}`} aria-label={f.result} />}
           <span aria-hidden="true">{f.dir === 'in' ? '←' : '→'}</span>
           <span className="fan-action">{f.action}</span>
           <span className="role">{f.dir === 'in' ? 'from' : 'to'} {f.others.length}</span>
@@ -160,11 +164,18 @@ function resultOf(state: EntityState, id: string, variant: string | null): strin
   return 'not-run';
 }
 
+// The result a group of transitions shows: its worst member's.
+const worst = (rs: (string | null)[]) =>
+  rs.find((r) => r === 'failed') ?? rs.find((r) => r === 'blocked') ?? rs.find((r) => r === 'not-run') ?? rs.find((r) => r) ?? null;
+
 function Map(props: Props) {
   const { entity, state, project, proposals, variant, selection } = props;
   // Proposals are reviewed in the Inbox; on the map they hide the model
   // unless there is no model yet to hide.
   const [showProposals, setShowProposals] = useState(entity.states.length === 0);
+  // Lifecycle (states as columns, transitions as rows with their rules) reads
+  // like a spec; the graph is for drawing new transitions by dragging.
+  const [mode, setMode] = useState<'lifecycle' | 'graph'>('lifecycle');
   const { fitView } = useReactFlow();
 
   const ghosts = useMemo(() => {
@@ -172,7 +183,7 @@ function Map(props: Props) {
     const transitions: { transition: Transition; ghost: Ghost }[] = [];
     for (const p of proposals)
       p.ops.forEach((op, i) => {
-        if (op.op !== 'add') return;
+        if (op.op !== 'add' || p.decisions.some((d) => d.op === i)) return;
         const ghost = { proposal: p.id, op: i };
         if (op.kind === 'state') states.push({ state: { match: {}, setup: [], status: 'proposed', title: '', ...op.value } as unknown as State, ghost });
         if (op.kind === 'transition')
@@ -270,6 +281,8 @@ function Map(props: Props) {
                 others: f.others.map(stateTitle),
                 cls: f.items[0].ghost ? 'ghost' : f.items[0].kind.endsWith(':system') ? 'system' : f.items[0].transition.status,
                 selected: f.items.some(isSelected),
+                dim: f.items.every((x) => !applies(x.transition, variant)),
+                result: worst(f.items.map((x) => (x.ghost ? null : resultOf(state, x.transition.id, variant)))),
                 onPick: pickNext(f.items),
               })),
             ghost,
@@ -280,7 +293,7 @@ function Map(props: Props) {
         };
       }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [allStates, positions, variant, selection, unreachable, grouped],
+    [allStates, positions, variant, selection, unreachable, grouped, state],
   );
 
   const [nodes, setNodes] = useState<Node<StateData>[]>(() => buildNodes([]));
@@ -288,7 +301,7 @@ function Map(props: Props) {
   useEffect(() => {
     const t = setTimeout(() => fitView({ padding: 0.15, duration: 0, maxZoom: 1 }), 200);
     return () => clearTimeout(t);
-  }, [entity.id, showProposals, fitView]);
+  }, [entity.id, showProposals, mode, fitView]);
 
   const saveTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const onNodesChange = (changes: NodeChange<Node<StateData>>[]) => {
@@ -315,8 +328,7 @@ function Map(props: Props) {
       pairs[pair] = offset + 1;
       const first = items[0];
       const marker = { type: MarkerType.ArrowClosed, width: 16, height: 16, color: color(first) };
-      const results = items.map((x) => (x.ghost ? null : resultOf(state, x.transition.id, variant)));
-      const result = results.find((r) => r === 'failed') ?? results.find((r) => r === 'blocked') ?? results.find((r) => r === 'not-run') ?? results.find((r) => r) ?? null;
+      const result = worst(items.map((x) => (x.ghost ? null : resultOf(state, x.transition.id, variant))));
       const uniq = (xs: string[]) => [...new Set(xs)].join(', ');
       return {
         id: items.map((x) => (x.ghost ? `ghost:${x.ghost.proposal}:${x.ghost.op}` : x.transition.id)).join('+'),
@@ -378,6 +390,10 @@ function Map(props: Props) {
   return (
     <div className="map">
       <div className="map-toolbar">
+        <div className="seg" role="group" aria-label="View">
+          <button aria-pressed={mode === 'lifecycle'} onClick={() => setMode('lifecycle')}>Lifecycle</button>
+          <button aria-pressed={mode === 'graph'} onClick={() => setMode('graph')}>Graph</button>
+        </div>
         <div className="seg" role="group" aria-label="Variant">
           <button aria-pressed={variant === null} onClick={() => props.onVariant(null)}>All variants</button>
           {entity.variants.map((v) => (
@@ -385,7 +401,7 @@ function Map(props: Props) {
           ))}
         </div>
         <button className="btn" onClick={addState}>Add state</button>
-        <button className="btn" onClick={resetLayout}>Auto-layout</button>
+        {mode === 'graph' && <button className="btn" onClick={resetLayout}>Auto-layout</button>}
         {ghostCount > 0 && (
           <div className="map-next">
             <span>
@@ -393,11 +409,28 @@ function Map(props: Props) {
             </span>
             <button className="btn primary" onClick={props.onOpenProposal}>Review in Inbox</button>
             <button className={`btn ${showProposals ? 'on' : ''}`} onClick={() => setShowProposals(!showProposals)} aria-pressed={showProposals}>
-              Preview on map
+              {mode === 'graph' ? 'Preview on map' : 'Show in rows'}
             </button>
           </div>
         )}
       </div>
+      {mode === 'lifecycle' && (
+        <div className="lifecycle-scroll">
+          <LifecycleView
+            entity={entity}
+            state={state}
+            project={project}
+            states={allStates}
+            items={allTransitions}
+            variant={variant}
+            selection={selection}
+            onSelect={props.onSelect}
+            onDecide={props.onDecide}
+            resultOf={(id) => resultOf(state, id, variant)}
+          />
+        </div>
+      )}
+      {mode === 'graph' && (
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -414,6 +447,8 @@ function Map(props: Props) {
       >
         <Controls showInteractive={false} position="bottom-right" />
       </ReactFlow>
+      )}
+      {mode === 'graph' && (
       <div className="legend" aria-label="Legend">
         <svg width="34" height="6"><line x1="0" y1="3" x2="34" y2="3" stroke="var(--fg)" strokeWidth="2" /></svg>
         <span>Requirement — confirmed by a person</span>
@@ -426,6 +461,7 @@ function Map(props: Props) {
         <span className="legend-fan">← a</span>
         <span>One action from many states, shown on the state</span>
       </div>
+      )}
     </div>
   );
 }

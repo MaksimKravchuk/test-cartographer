@@ -946,3 +946,75 @@ table.grid :is(th, td):first-child { padding-left: 0; }
 .sources-list table.grid :is(th, td):first-child { padding-left: var(--s4); }
 .settings h2 + p { margin-top: 0; }
 ::placeholder { color: var(--fg-3); opacity: 0.7; }
+
+/* ── Lifecycle: states as columns, transitions as rows ───── */
+.lifecycle-scroll { position: absolute; inset: 0; top: 64px; overflow: auto; padding: 0 var(--s4) var(--s8); }
+.lifecycle { display: grid; column-gap: var(--s2); row-gap: 0; align-items: start; min-width: min-content; }
+.lc-state {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  grid-row: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  align-items: flex-start;
+  text-align: left;
+  font: inherit;
+  color: var(--fg);
+  background: var(--surface);
+  border: 1.5px solid var(--fg);
+  border-radius: var(--r2);
+  padding: var(--s2) var(--s3);
+  margin-bottom: var(--s3);
+  cursor: pointer;
+}
+.lc-state .title { font-weight: 500; }
+.lc-state .id { font-family: var(--mono, monospace); font-size: 11px; color: var(--fg-3); }
+.lc-state .tag { font-size: 11px; color: var(--fg-2); }
+.lc-state.ghost, .lc-state.proposed { border-style: dashed; border-color: var(--accent); background: var(--accent-weak); }
+.lc-state.ghost .tag, .lc-state.proposed .tag { color: var(--accent); }
+.lc-state.observed { border-style: dashed; border-color: var(--warn); }
+.lc-state.start { border-radius: 999px; align-items: center; cursor: default; background: var(--sunken); border-color: var(--line); }
+.lc-state.selected { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 35%, transparent); }
+.lc-rail { justify-self: center; width: 1px; height: 100%; background: var(--line); z-index: 0; }
+.lc-arrow { position: relative; z-index: 1; height: 34px; margin-top: var(--s3); cursor: pointer; }
+.lc-arrow .lc-line { position: absolute; bottom: 5px; border-top: 1.5px solid var(--fg); }
+.lc-arrow.proposed .lc-line { border-top: 1.5px dashed var(--accent); }
+.lc-arrow.observed .lc-line { border-top: 1.5px dashed var(--warn); }
+.lc-arrow.rejected { opacity: 0.45; }
+.lc-arrow.dim, .lc-detail.dim { opacity: 0.3; }
+.lc-end { position: absolute; bottom: -1px; transform: translateX(-50%); font-size: 12px; line-height: 1; color: var(--fg); }
+.lc-arrow.proposed .lc-end { color: var(--accent); }
+.lc-label {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  transform: translateX(-50%);
+  display: flex;
+  gap: var(--s1);
+  align-items: center;
+  white-space: nowrap;
+  font-size: 13px;
+  font-weight: 500;
+  padding: 0 var(--s2);
+  background: var(--bg);
+}
+.lc-arrow.proposed .lc-label { color: var(--accent); }
+.lc-arrow.selected .lc-label { outline: 1.5px solid var(--accent); border-radius: 4px; }
+.lc-detail {
+  position: relative;
+  z-index: 1;
+  margin: var(--s1) 0 0 var(--s3);
+  padding: var(--s1) 0 var(--s1) var(--s3);
+  border-left: 1px solid var(--line);
+  background: var(--bg);
+  font-size: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.lc-branch { display: grid; grid-template-columns: 52px 1fr; gap: var(--s2); }
+.lc-branch .k { color: var(--fg-3); text-transform: uppercase; font-size: 10px; letter-spacing: 0.04em; padding-top: 2px; }
+.lc-decide { margin-top: var(--s1); }
+.lc-empty { margin-top: var(--s4); }
