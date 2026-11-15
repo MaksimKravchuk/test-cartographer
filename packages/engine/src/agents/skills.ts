@@ -20,9 +20,12 @@ const Frontmatter = z.object({
 
 export type Skill = { name: string; description: string; tools: string[]; body: string; references: string[] };
 
+// A Windows checkout may hold the files with CRLF line ends.
+export const skillFile = (path: string): string => readFileSync(join(SKILLS_DIR, path), 'utf8').replace(/\r\n/g, '\n');
+
 export function loadSkill(name: string): Skill {
   const dir = join(SKILLS_DIR, name);
-  const m = /^---\n([\s\S]*?)\n---\n([\s\S]*)$/.exec(readFileSync(join(dir, 'SKILL.md'), 'utf8'));
+  const m = /^---\n([\s\S]*?)\n---\n([\s\S]*)$/.exec(skillFile(`${name}/SKILL.md`));
   if (!m) throw new Error(`Skill “${name}” has no frontmatter`);
   const meta = Frontmatter.parse(YAML.parse(m[1]));
   const refs = join(dir, 'references');
@@ -37,7 +40,7 @@ export function loadSkill(name: string): Skill {
 
 const reference = (skill: Skill, file: string): string => {
   if (!skill.references.includes(file)) throw new Error(`Skill “${skill.name}” has no file “${file}”. It has: ${skill.references.join(', ') || 'none'}`);
-  return readFileSync(join(SKILLS_DIR, skill.name, file), 'utf8').trim();
+  return skillFile(`${skill.name}/${file}`).trim();
 };
 
 // The skills section of a system prompt. An item is a skill name, or

@@ -2,9 +2,8 @@
 // the Agent Skills format and to the tools the engine really offers.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readdirSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
-import { loadSkill, SKILLS_DIR, skillsPrompt, skillTool } from '../src/agents/skills.ts';
+import { readdirSync } from 'node:fs';
+import { loadSkill, skillFile, SKILLS_DIR, skillsPrompt, skillTool } from '../src/agents/skills.ts';
 
 const names = readdirSync(SKILLS_DIR, { withFileTypes: true }).filter((d) => d.isDirectory()).map((d) => d.name);
 // A tool call a skill mentions: a code span that starts with `name(`.
@@ -26,7 +25,7 @@ for (const name of names) {
     assert.deepEqual(skill.references.filter((f) => !links(skill.body).includes(f)), [], 'every reference is linked from SKILL.md');
     const texts = [skill.body];
     for (const file of skill.references) {
-      const text = readFileSync(join(SKILLS_DIR, name, file), 'utf8');
+      const text = skillFile(`${name}/${file}`);
       assert.deepEqual(links(text), [], `${file}: references stay one level deep`);
       if (text.split('\n').length > 100) assert.match(text, /^## Contents$/m, `${file}: a long reference starts with its contents`);
       texts.push(text);
@@ -36,7 +35,7 @@ for (const name of names) {
 }
 
 test('entry-point search patterns are valid regular expressions', () => {
-  const text = readFileSync(join(SKILLS_DIR, 'reading-code/references/entry-points.md'), 'utf8');
+  const text = skillFile('reading-code/references/entry-points.md');
   const patterns = [...text.matchAll(/^- [^`\n]*: `([^`]+)`/gm)].map((m) => m[1]);
   assert.ok(patterns.length > 20);
   for (const p of patterns) assert.doesNotThrow(() => new RegExp(p), p);
