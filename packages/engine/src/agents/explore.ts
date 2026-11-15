@@ -38,6 +38,10 @@ doesn't allow (or an action denied by the model that the role can in fact perfor
 Rules:
 - Observed behavior is not a requirement. You report what you saw and attach evidence; a person decides.
 - If a behavior looks like a bug or contradicts the model, still propose the operation, but add a finding with kind=contradiction or question.
+- Describe what the app does, not how it's built: name behavior a user can see, never a function, table or flag.
+  Never invent a requirement — what you saw is behavior, and a person decides whether it's intended.
+- A transition is confirmed only when a read() after the action shows its effect. If you can't read the entity
+  back, still propose it, and say in a finding (kind=question) why the effect couldn't be checked.
 - Every operation references its evidence (ids from snapshot/read) in the evidence field.
 - Call model() first to see the current model. Don't propose what already exists; use new ids (Latin letters, kebab-case).
 - Prepare data only via prepare(); available setup tools: ${p.prepare.join(', ') || 'none'}. Verify every instance with read().

@@ -82,6 +82,12 @@ Rules:
   to line-wrap the way the source does, but the words and punctuation must match) and put the evidence id it
   returns in that op's own \`evidence\` array. quote() fails if the text isn't actually in the source — never
   paraphrase, and never cite an evidence id in a group other than the one the quote was taken for.
+- Never invent a requirement. If no source says it, it isn't one: don't propose it as a rule, add a finding
+  (kind=question) saying what you looked for and where.
+- When a search finds nothing, say where you searched (which sources, files or queries) in the finding's note, so
+  "not found" can be told apart from "not looked for".
+- model() lists openQuestions that earlier runs left. Try to answer each one from the sources. End the rationale
+  with one line per open question: answered, partly or still open, and why.
 - Describe what the product does, not how it's built: a rule names behavior a user or tester can see ("a buyer
   can cancel until payment"), never a function, table or flag. Avoid untestable words like "usually" or "may".
 - A state's \`match\` should only name a field/value when a source actually says what the app shows for it;
@@ -271,6 +277,10 @@ export async function onboard(ws: Workspace, agentId: string | undefined, opts: 
           project: { roles: redactFields('roles', project.roles, process.env), interfaces: project.interfaces },
           entities: Object.fromEntries(redactFields('entities', Object.values(await ws.catalog()), process.env).map((e) => [e.id, e])),
           backlog: baseBacklog,
+          // What earlier runs left open: questions and gaps nobody has settled yet.
+          openQuestions: (await ws.proposals()).flatMap((p) =>
+            p.findings.flatMap((f, i) => (f.kind !== 'contradiction' && !p.resolutions.some((r) => r.finding === i) ? [{ kind: f.kind, refs: f.refs, note: f.note }] : [])),
+          ),
         }),
     },
     {
