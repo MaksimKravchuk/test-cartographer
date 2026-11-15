@@ -9,7 +9,7 @@ import { readFile } from 'node:fs/promises';
 import { dirname, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
-  AgentProvider, RuntimeOverride, applyDecisions, applyProjectDecisions, removeRole, Backlog, backlogCoverage, buildPlan, conflicts, coverage, Decision, Entity, objectParents, Project,
+  AgentProvider, RuntimeOverride, applyDecisions, applyProjectDecisions, removeRole, Backlog, backlogCoverage, buildPlan, conflicts, coverage, Decision, Entity, objectParents, Project, type Proposal,
   RevisionConflict, Resolution, addSynonym, allFindings, findingSynonym, lintModel, reviewMatrix, FILE_SOURCE_KINDS, ToolCall, isFileSource, validateBacklog, validateEntity, validateProject, type ProjectState, type Workspace,
 } from '@tc/model';
 import { z } from 'zod';
@@ -382,7 +382,8 @@ export function createApp(initial: Workspace) {
   });
 
   app.post('/api/proposals/:id/decide', async (c) => {
-    const { decisions } = z.object({ decisions: z.array(Decision) }).parse(await c.req.json());
+    // createEntity: the proposal's entity doesn't exist yet — add it along with what's accepted.
+    const { decisions, createEntity: addEntity } = z.object({ decisions: z.array(Decision), createEntity: z.boolean().optional() }).parse(await c.req.json());
     const proposal = await ws.proposal(c.req.param('id'));
     if (proposal.status !== 'pending') throw new HttpError(409, 'The proposal has already been decided');
     // Ops can be decided a few at a time (from the model, in place): the
@@ -397,7 +398,9 @@ export function createApp(initial: Workspace) {
       ? { status: 'decided' as const, decisions: all, decidedAt: new Date().toISOString() }
       : { decisions: all };
 
-    if (!proposal.entity) {
+    // Applies decisions on a project-level proposal (roles, interfaces, new entities, backlog).
+    const decideProject = async (proposal: Proposal, decisions: Decision[], settled: Partial<Proposal>) => {
+      const by = { kind: 'agent' as const, agent: proposal.agent, proposal: proposal.id };
       const project = await ws.project();
       const { backlog, revision: backlogRevision } = await ws.backlog();
       const entityIds = await ws.entityIds();
@@ -418,11 +421,31 @@ export function createApp(initial: Workspace) {
         }
       }
       await ws.saveProposal({ ...proposal, ...settled });
-      return c.json({ project: nextProject, backlog: nextBacklog, created: created.map((e) => e.id) });
-    }
+      return { project: nextProject, backlog: nextBacklog, created: created.map((e) => e.id) };
+    };
+    if (!proposal.entity) return c.json(await decideProject(proposal, decisions, settled));
 
-    if (!(await ws.entityIds()).includes(proposal.entity))
-      throw new HttpError(409, `Entity “${proposal.entity}” doesn't exist yet — accept it in the project proposal first`);
+    if (!(await ws.entityIds()).includes(proposal.entity)) {
+      // Striking out needs no entity.
+      if (decisions.every((d) => d.verdict === 'reject')) {
+        await ws.saveProposal({ ...proposal, ...settled });
+        return c.json({ project: await ws.project(), backlog: (await ws.backlog()).backlog, created: [] });
+      }
+      if (!addEntity) throw new HttpError(409, `Entity “${proposal.entity}” doesn't exist yet — accept it in the project proposal first`);
+      // Prefer the agent's own "add entity" op (title, description, reader); else a bare entity.
+      const id = proposal.entity;
+      const pending = (await ws.proposals()).filter((p) => !p.entity && p.status === 'pending');
+      const source = pending
+        .flatMap((p) => p.ops.map((op, i) => ({ p, op, i })))
+        .find(({ p, op, i }) => op.kind === 'entity' && op.op === 'add' && op.value.id === id && !p.decisions.some((d) => d.op === i));
+      if (source) {
+        const all = [...source.p.decisions, { op: source.i, verdict: 'accept' as const }];
+        const done = source.p.ops.every((_, i) => all.some((d) => d.op === i));
+        await decideProject(source.p, [{ op: source.i, verdict: 'accept' }], done ? { status: 'decided', decisions: all, decidedAt: new Date().toISOString() } : { decisions: all });
+      } else {
+        await createEntity(ws, { id, title: id.replace(/[-_]/g, ' ').replace(/^./, (x) => x.toUpperCase()) });
+      }
+    }
     const { entity, revision } = await ws.entity(proposal.entity);
     const next = applyDecisions(entity, proposal, decisions, await ws.project());
     await ws.saveEntity(next, revision, by);

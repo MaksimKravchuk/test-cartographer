@@ -32,7 +32,7 @@ const kindText: Record<string, string> = {
   role: 'role', interface: 'interface', entity: 'entity', epic: 'epic', feature: 'feature', story: 'story',
 };
 const findingText = { gap: 'Gap', contradiction: 'Contradiction', question: 'Question', confirmation: 'Confirmed by a source', source: 'Source problem' };
-const verdictText: Record<Verdict, string> = { accept: 'Accepted as a requirement', observe: 'Recorded as an observation', reject: 'Rejected', plan: 'Planned: required, not built yet' };
+const verdictText: Record<Verdict, string> = { accept: 'Accepted as a requirement', observe: 'Accepted as observed only', reject: 'Struck out', plan: 'Accepted as not built yet' };
 
 const fieldText: Record<string, string> = {
   from: 'from', to: 'to', by: 'performed by', action: 'action', kind: 'kind', run: 'run', invoke: 'invoke tool', trigger: 'trigger',
@@ -220,11 +220,11 @@ export function ProposalsView(props: Props) {
   const sourceTitle = (id?: string) => (id ? (sources.find((s) => s.id === id)?.title ?? id) : '');
 
   const priorVerdict = (i: number) => p?.decisions.find((x) => x.op === i)?.verdict;
-  const apply = async (decisions: Decision[]) => {
+  const apply = async (decisions: Decision[], createEntity?: boolean) => {
     if (!p || !decisions.length) return;
     setBusy(true);
     try {
-      props.onDecided(await api.decide(p.id, decisions));
+      props.onDecided(await api.decide(p.id, decisions, createEntity));
     } catch (e) {
       props.onError((e as Error).message);
     } finally {
@@ -254,8 +254,8 @@ export function ProposalsView(props: Props) {
 
             {missingEntity && (
               <div className="finding">
-                <b>Entity “{p.entity}” doesn't exist yet.</b> Accept the project proposal that creates it first, then come back
-                to decide this one — every change below can only be rejected until then.
+                <b>“{p.entity}” isn't in the model yet.</b> Adding a change below adds “{p.entity}” too, as the agent proposed it
+                (or empty, if it didn't); striking a change out doesn't.
               </div>
             )}
 
@@ -268,13 +268,20 @@ export function ProposalsView(props: Props) {
             ))}
 
             <h3 style={{ margin: '24px 0 10px', fontSize: 14 }}>Model changes</h3>
+            {p.status === 'pending' && p.ops.some((op) => !noStatusKinds.has(op.kind)) && (
+              <p className="muted" style={{ margin: '0 0 10px' }}>
+                <b>Accept as requirement</b>: the product must do this, tests check it. <b>Observed only</b>: the product does this but no
+                source requires it, so it's recorded, not enforced. <b>Not built yet</b>: required, tested once it's built.
+              </p>
+            )}
             {p.ops.map((op, i) => {
               const isProject = projectKinds.has(op.kind);
               const d = isProject ? describeProject(op, { project, entities: props.entities, backlog, opsSoFar: p.ops }) : describe(op, entity ?? emptyEntity);
               const noObserve = noStatusKinds.has(op.kind);
               const decided = priorVerdict(i);
               const open = p.status === 'pending' && !priorVerdict(i);
-              const conflict = open ? conflictOf(i) : undefined;
+              // A missing entity isn't a dead end: the change can bring the entity with it.
+              const conflict = open && !missingEntity ? conflictOf(i) : undefined;
               const sourceEvidence = op.evidence.map((id) => evidenceById(id)).filter((e): e is Evidence => !!e && e.kind === 'source');
               const otherEvidence = op.evidence.map((id) => evidenceById(id)).filter((e): e is Evidence => !!e && e.kind !== 'source');
               return (
@@ -284,19 +291,28 @@ export function ProposalsView(props: Props) {
                     <div className="what">{d.what}</div>
                   </div>
                   <div className="decide">
-                    {open ? (
+                    {open && missingEntity ? (
                       <>
-                        <button className="btn small" disabled={busy || !!conflict} onClick={() => apply([{ op: i, verdict: 'accept' }])}>
-                          {noObserve ? 'Apply' : 'Requirement'}
+                        <button className="btn small primary" disabled={busy} onClick={() => apply([{ op: i, verdict: 'accept' }], true)}>
+                          Add “{p.entity}” and this {kindText[op.kind] ?? op.kind}
+                        </button>
+                        <button className="btn small ghost" disabled={busy} onClick={() => apply([{ op: i, verdict: 'reject' }])}>
+                          Don't add
+                        </button>
+                      </>
+                    ) : open ? (
+                      <>
+                        <button className="btn small primary" disabled={busy || !!conflict} onClick={() => apply([{ op: i, verdict: 'accept' }])}>
+                          {noObserve ? 'Apply' : 'Accept as requirement'}
                         </button>
                         {!noObserve && (
-                          <button className="btn small" disabled={busy || !!conflict} onClick={() => apply([{ op: i, verdict: 'observe' }])}>
-                            Observed
+                          <button className="btn small ghost" title="The product does this, but no source requires it: recorded, not enforced" disabled={busy || !!conflict} onClick={() => apply([{ op: i, verdict: 'observe' }])}>
+                            Observed only
                           </button>
                         )}
                         {!noObserve && (
-                          <button className="btn small" title="Required, but not built yet: no tests until it is" disabled={busy || !!conflict} onClick={() => apply([{ op: i, verdict: 'plan' }])}>
-                            Planned
+                          <button className="btn small ghost" title="Required, but not built yet: no tests until it is" disabled={busy || !!conflict} onClick={() => apply([{ op: i, verdict: 'plan' }])}>
+                            Not built yet
                           </button>
                         )}
                         <button className="btn small ghost" disabled={busy} onClick={() => apply([{ op: i, verdict: 'reject' }])}>
@@ -329,9 +345,9 @@ export function ProposalsView(props: Props) {
                 <button
                   className="btn"
                   disabled={busy || props.dirty}
-                  onClick={() => apply(p.ops.flatMap((_, i) => (priorVerdict(i) ? [] : [{ op: i, verdict: conflictOf(i) ? 'reject' : 'accept' } as Decision])))}
+                  onClick={() => apply(p.ops.flatMap((_, i) => (priorVerdict(i) ? [] : [{ op: i, verdict: conflictOf(i) && !missingEntity ? 'reject' : 'accept' } as Decision])), !!missingEntity)}
                 >
-                  Accept the rest
+                  {missingEntity ? `Add “${p.entity}” and the rest` : 'Accept the rest'}
                 </button>
                 <span className="muted">{props.dirty ? 'Save or discard your model edits first.' : 'Each change applies as soon as you decide it. Conflicting changes are struck out.'}</span>
               </div>

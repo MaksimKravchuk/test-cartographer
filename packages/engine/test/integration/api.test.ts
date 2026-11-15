@@ -133,6 +133,27 @@ describe('input checks', () => {
     assert.equal((await w.proposal('syn')).resolutions[0].verdict, 'yes');
   });
 
+  test('a change to an entity not in the model yet can bring the entity with it', async () => {
+    const w = new Workspace(ws.root);
+    const base = { agent: 'onboarding', createdAt: new Date().toISOString(), baseRevision: 'new', rationale: '', evidence: [], findings: [], status: 'pending' as const, decisions: [], resolutions: [] };
+    await w.saveProposal({ ...base, id: 'auth-project', ops: [{ op: 'add', kind: 'entity', value: { id: 'auth', title: 'Account' }, evidence: [] }] });
+    const action = (id: string) => ({ op: 'add' as const, kind: 'action' as const, value: { id, title: id }, evidence: [] });
+    await w.saveProposal({ ...base, id: 'auth-ops', entity: 'auth', ops: [action('signup'), action('login')] });
+
+    // Striking out needs no entity; accepting asks for it.
+    assert.equal((await app.request('/api/proposals/auth-ops/decide', json('POST', { decisions: [{ op: 1, verdict: 'reject' }] }))).status, 200);
+    assert.ok(!(await w.entityIds()).includes('auth'));
+    assert.equal((await app.request('/api/proposals/auth-ops/decide', json('POST', { decisions: [{ op: 0, verdict: 'accept' }] }))).status, 409);
+
+    const res = await app.request('/api/proposals/auth-ops/decide', json('POST', { decisions: [{ op: 0, verdict: 'accept' }], createEntity: true }));
+    assert.equal(res.status, 200);
+    const { entity } = await w.entity('auth');
+    assert.equal(entity.title, 'Account', "the agent's own entity op is used");
+    assert.deepEqual(entity.actions.map((a) => a.id), ['signup']);
+    assert.equal((await w.proposal('auth-project')).status, 'decided');
+    assert.equal((await w.proposal('auth-ops')).status, 'decided');
+  });
+
   test('a malformed body is a 400 with a readable message', async () => {
     const res = await app.request('/api/project', json('PUT', { project: { name: 42 } }));
     assert.equal(res.status, 400);

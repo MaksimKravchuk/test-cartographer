@@ -98,7 +98,7 @@ test('a review shows by source which one contradicts the model', async ({ page }
   // The agent's rule sits on the action itself, with its quote and the verdicts in words.
   const rules = page.getByRole('region', { name: 'Rules' });
   await expect(rules.getByText('proposed').first()).toBeVisible();
-  await expect(rules.getByRole('button', { name: 'Requirement' }).first()).toBeEnabled();
+  await expect(rules.getByRole('button', { name: 'Accept as requirement' }).first()).toBeEnabled();
   if (process.env.TC_SHOT2) await page.screenshot({ path: process.env.TC_SHOT2, fullPage: true });
 });
 

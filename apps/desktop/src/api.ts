@@ -125,8 +125,9 @@ export const api = {
   saveLayout: (id: string, layout: Record<string, { x: number; y: number }>) =>
     call(`/api/entities/${id}/layout`, { method: 'PUT', body: JSON.stringify(layout) }),
   proposals: () => call<ProposalState[]>('/api/proposals'),
-  decide: (id: string, decisions: Decision[]) =>
-    call<EntityState | ProjectDecideResult>(`/api/proposals/${id}/decide`, { method: 'POST', body: JSON.stringify({ decisions }) }),
+  // createEntity: also add the proposal's entity when it isn't in the model yet.
+  decide: (id: string, decisions: Decision[], createEntity?: boolean) =>
+    call<EntityState | ProjectDecideResult>(`/api/proposals/${id}/decide`, { method: 'POST', body: JSON.stringify({ decisions, createEntity }) }),
   run: (filter: { ids?: string[]; entity?: string } = {}) =>
     call<{ job: string }>('/api/runs', { method: 'POST', body: JSON.stringify(filter) }),
   // runtime: settings for this run only, on top of the agent's own.

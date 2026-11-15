@@ -54,9 +54,9 @@ export function rulesOf(entity: Entity, action: string): Rule[] {
 export function Decide({ busy, noObserve, onDecide }: { busy: boolean; noObserve?: boolean; onDecide(v: Verdict): void }) {
   return (
     <span className="decide">
-      <button className="btn small" title="True: make it part of the model" disabled={busy} onClick={() => onDecide('accept')}>Requirement</button>
-      {!noObserve && <button className="btn small" title="That's how it works, but it isn't a requirement" disabled={busy} onClick={() => onDecide('observe')}>Observed</button>}
-      {!noObserve && <button className="btn small" title="Required, but not built yet: no tests until it is" disabled={busy} onClick={() => onDecide('plan')}>Planned</button>}
+      <button className="btn small primary" title="The product must do this: tests check it" disabled={busy} onClick={() => onDecide('accept')}>Accept as requirement</button>
+      {!noObserve && <button className="btn small ghost" title="The product does this, but no source requires it: recorded, not enforced" disabled={busy} onClick={() => onDecide('observe')}>Observed only</button>}
+      {!noObserve && <button className="btn small ghost" title="Required, but not built yet: no tests until it is" disabled={busy} onClick={() => onDecide('plan')}>Not built yet</button>}
       <button className="btn small ghost" title="Strike out: agents won't propose it again" disabled={busy} onClick={() => onDecide('reject')}>Strike out</button>
     </span>
   );

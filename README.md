@@ -155,13 +155,16 @@ Compiled scenarios carry their backlog trace as `@epic:<id>`, `@feature:<id>`, `
 
 ### Agent proposals
 
-An agent works in one role's interface: it opens pages, takes snapshots, clicks, and prepares data. The result is `proposals/*.yaml`: a patch to the model (`add` / `update` / `remove`) plus findings (gap, contradiction, question) and evidence. For each operation a person picks one of three:
+An agent works in one role's interface: it opens pages, takes snapshots, clicks, and prepares data. The result is `proposals/*.yaml`: a patch to the model (`add` / `update` / `remove`) plus findings (gap, contradiction, question) and evidence. For each operation a person picks one:
 
-- **Requirement** — the element becomes `confirmed`;
-- **Observation** — `observed`;
-- **Reject**.
+- **Accept as requirement** — the element becomes `confirmed`, tests check it;
+- **Observed only** — `observed`: the product does it, no source requires it;
+- **Not built yet** — `planned`: required, tested once built;
+- **Strike out**.
 
-A proposal patches one entity, or — with no `entity` field — the project itself: roles, interfaces, new entities, epics, features, stories (only onboarding writes these). A `role` / `interface` / `entity` op has no status of its own, so there's no "Observation" for it: accept applies it, reject skips it.
+A change to an entity that isn't in the model yet offers **Add “<entity>” and this change**: the entity is added too, from the agent's own proposal of it when there is one.
+
+A proposal patches one entity, or — with no `entity` field — the project itself: roles, interfaces, new entities, epics, features, stories (only onboarding writes these). A `role` / `interface` / `entity` op has no status of its own, so there's no "Observed only" for it: accept applies it, reject skips it.
 
 A proposal is created against a specific model revision (the backlog revision, for a project-level one). If the model has changed since, only operations that actually broke count as conflicts.
 

@@ -54,7 +54,7 @@ Open **Ask agent › Review the model**. The agent reads each source against eac
 - what's missing: a rule or an action the sources describe and the model doesn't;
 - contradictions: the product overview says *"A buyer can cancel an order only until it has been paid"*, while `demo/shop/domain.ts` lets the buyer cancel a paid order.
 
-Findings appear in place with a dashed border. Click **Cancel** in the buyer's row to see that action's rules with their quotes and their R / C / A marks (what the requirements, the code and the app say), then decide each finding: **Requirement**; **Observed**, that's how it works but it isn't a requirement; **Planned**, required but not built yet; **Strike out**, agents won't propose it again.
+Findings appear in place with a dashed border. Click **Cancel** in the buyer's row to see that action's rules with their quotes and their R / C / A marks (what the requirements, the code and the app say), then decide each finding: **Accept as requirement**, tests check it; **Observed only**, that's how it works but no source requires it; **Not built yet**, required but not built; **Strike out**, agents won't propose it again.
 
 ## 4. Inbox
 
