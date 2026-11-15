@@ -115,7 +115,7 @@ export function ModelView({ project, proposals, reloadToken, running, onResearch
         setQueue({ gaps: r.lint, questions: open.filter((d) => d.finding.kind !== 'contradiction'), contradictions: open.filter((d) => d.finding.kind === 'contradiction') });
       })
       .catch((e) => onError((e as Error).message));
-  }, [reloadToken, proposals.length]);
+  }, [reloadToken, proposals]);
 
   // "action:order.cancel" → select that action; a rule or transition → its action; anything else → the object's page.
   const openRef = (ref: string) => {
@@ -126,7 +126,8 @@ export function ModelView({ project, proposals, reloadToken, running, onResearch
     const action =
       kind === 'action' ? id
       : kind === 'rule' ? (e.rules.find((r) => r.id === id)?.action ?? e.transitions.find((t) => t.id === e.rules.find((r) => r.id === id)?.transition)?.action)
-      : kind === 'transition' || kind === 'permit' ? [...e.transitions, ...e.permits].find((t) => t.id === id)?.action
+      : kind === 'transition' ? e.transitions.find((t) => t.id === id)?.action
+      : kind === 'permit' ? e.permits.find((t) => t.id === id)?.action
       : undefined;
     if (action) setSelected({ entity, action });
     else onOpenEntity(entity);
