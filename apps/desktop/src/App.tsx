@@ -330,14 +330,7 @@ export function App() {
         {route.page === 'spec' && <SpecView reloadToken={reloadToken} onError={(m) => notify(m, true)} />}
 
         {route.page === 'onboarding' && (
-          <OnboardingView
-            project={project}
-            job={job}
-            running={running}
-            reloadToken={reloadToken}
-            onOpenProposals={() => go({ page: 'proposals' })}
-            onError={(m) => notify(m, true)}
-          />
+          <OnboardingView project={project} reloadToken={reloadToken} onError={(m) => notify(m, true)} />
         )}
 
         {route.page === 'backlog' && (

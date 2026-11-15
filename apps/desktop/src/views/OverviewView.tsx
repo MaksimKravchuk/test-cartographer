@@ -28,7 +28,7 @@ export function OverviewView({ project, entities, onOpen, onOpenOnboarding, onOp
         <div className="finding" style={{ maxWidth: '72ch' }}>
           <b>Nothing here yet.</b> Upload what you know about the system — docs, a tracker export, contracts — and let an
           agent propose the first map.{' '}
-          <button className="btn small primary" onClick={onOpenOnboarding}>Go to Onboarding</button>
+          <button className="btn small primary" onClick={onOpenOnboarding}>Go to Sources</button>
         </div>
       )}
 

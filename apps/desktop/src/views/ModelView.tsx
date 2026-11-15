@@ -457,7 +457,7 @@ export function ModelView({ project, proposals, reloadToken, running, onOpenEnti
 
       <aside className="model-next" aria-label="Next">
         <NextQueue queue={queue} busy={busy} onOpen={openRef} onSettle={(d) => act(() => api.resolve(d.proposal, d.index, 'fine'))} />
-        {otherOpen > 0 && <p className="muted next-more">{otherOpen} more findings (states, transitions, backlog) wait in Inbox › Proposals.</p>}
+        {otherOpen > 0 && <p className="muted next-more">{otherOpen} more findings (states, transitions, backlog) wait in the Inbox.</p>}
       </aside>
     </div>
   );

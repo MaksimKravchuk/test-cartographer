@@ -50,7 +50,7 @@ async function click(target: Locator) {
 }
 const nav = (name: string) => page.getByRole('navigation', { name: 'Sections' }).getByRole('button', { name: new RegExp(`^${name}`) });
 async function scroll(y: number) {
-  await page.locator('.page').evaluate((e, y) => e.scrollTo({ top: y, behavior: 'smooth' }), y);
+  await page.locator('.spec-page').evaluate((e, y) => e.scrollTo({ top: y, behavior: 'smooth' }), y);
   await hold(0.8);
 }
 
@@ -77,13 +77,13 @@ await hold(3);
 await click(accept);
 await hold(2);
 
-await caption('3 · Disagreements: requirements say one thing, the code another');
+await caption('3 · Inbox: requirements say one thing, the code another');
 await click(nav('Inbox'));
 await hold(3.5);
 await click(page.getByRole('button', { name: 'Bug in the product' }).first());
 await hold(1.5);
 
-await caption('4 · Specification: the confirmed model, with sources for every rule');
+await caption('4 · Spec: the confirmed model, with the tests behind every rule');
 await click(nav('Spec'));
 await hold(2);
 await scroll(700);

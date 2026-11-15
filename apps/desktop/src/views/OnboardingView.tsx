@@ -1,18 +1,14 @@
 import { useEffect, useState } from 'react';
 import type { DragEvent } from 'react';
 import type { FileSourceKind, Source, SourceKind } from '@tc/model';
-// schema.ts only: the package index pulls in Node-only workspace.ts (see AccessMatrix.tsx).
-import { resolveRuntime } from '@tc/model/schema';
-import { api, runtimeTitle, type Job, type ProjectState, type SourceCheck, type SourceInfo } from '../api.ts';
+import { api, type ProjectState, type SourceCheck, type SourceInfo } from '../api.ts';
 
 type Props = {
   project: ProjectState;
-  job: Job | null;
-  running: boolean;
   reloadToken: number;
-  onOpenProposals(): void;
   onError(m: string): void;
 };
+type Adding = 'file' | 'code' | 'mcp' | null;
 
 const kindLabel: Record<SourceKind, string> = { doc: 'Product doc', backlog: 'Tracker export', contract: 'API contract', note: 'Note', code: 'Code folder', mcp: 'Via MCP' };
 const fileKinds: FileSourceKind[] = ['doc', 'backlog', 'contract', 'note'];
@@ -29,9 +25,11 @@ function readAsText(file: File): Promise<string> {
 
 // Every source of knowledge about the product, in one place: uploaded files,
 // code folders, systems behind MCP (Confluence, Jira). Each has a priority —
-// who wins when sources disagree — and an access check. Onboarding reads the
-// enabled uploaded files and proposes the first SOAR map plus the backlog.
-export function OnboardingView({ project, job, running, reloadToken, onOpenProposals, onError }: Props) {
+// who wins when sources disagree — and an access check. Adding a source opens
+// one form at a time from the Add source menu. Agents start from Ask agent.
+export function OnboardingView({ project, reloadToken, onError }: Props) {
+  const [adding, setAdding] = useState<Adding>(null);
+  const [menu, setMenu] = useState(false);
   const [sources, setSources] = useState<SourceInfo[] | null>(null);
   const [kind, setKind] = useState<FileSourceKind>('doc');
   const [usePriority, setUsePriority] = useState(true);
@@ -48,25 +46,10 @@ export function OnboardingView({ project, job, running, reloadToken, onOpenPropo
   const [busy, setBusy] = useState(false);
   const [confirmRemove, setConfirmRemove] = useState<string | null>(null);
   const [viewing, setViewing] = useState<{ source: Source; text: string } | null>(null);
-  // The onboarding agent is the project's `kind: 'onboard'` agent, if any —
-  // an onboard agent isn't tied to a role/entity, so there's only ever one to consider.
-  const onboardAgent = project.project.agents.find((a) => a.kind === 'onboard');
-  const runtime = resolveRuntime(project.project, onboardAgent);
-  const [provider, setProvider] = useState<'live' | 'scripted'>(runtime ? 'live' : 'scripted');
-  const [ranJobId, setRanJobId] = useState<string | null>(null);
-  const [finished, setFinished] = useState(false);
-
   const load = () => {
     api.sources().then((r) => { setSources(r.sources); setUsePriority(r.usePriority); }).catch((e) => onError((e as Error).message));
   };
   useEffect(() => { load(); }, [reloadToken]);
-
-  useEffect(() => {
-    if (job && ranJobId && job.id === ranJobId && job.state !== 'running') {
-      if (job.state === 'done') setFinished(true);
-      setRanJobId(null);
-    }
-  }, [job, ranJobId]);
 
   const addFiles = async (files: FileList | File[]) => {
     const list = Array.from(files);
@@ -158,60 +141,66 @@ export function OnboardingView({ project, job, running, reloadToken, onOpenPropo
     void addFiles(e.dataTransfer.files);
   };
 
-  const runOnboarding = async () => {
-    setFinished(false);
-    try {
-      const { job: id } = await api.runOnboarding(provider);
-      setRanJobId(id);
-    } catch (e) {
-      onError((e as Error).message);
-    }
+  const open = (a: Adding) => {
+    setAdding(a);
+    setMenu(false);
   };
 
   return (
     <div className="page onboarding">
-      <h1>Sources</h1>
-      <p className="lede">
-        Everything known about the product, in one place: product docs, tracker exports, API contracts, notes, the code,
-        and systems such as Confluence or Jira through MCP. Check that agents can reach each one, and set who wins when they
-        disagree: priority 1 is the strongest — requirements outrank code by default.
-      </p>
-
-      <section>
-        <div className="row">
-          <h2 style={{ margin: 0 }}>Sources {sources ? `(${sources.length})` : ''}</h2>
-          <label className="row" style={{ gap: 6 }}>
-            <input type="checkbox" checked={usePriority} disabled={busy} onChange={(e) => act(() => api.setUsePriority(e.target.checked))} />
-            Use priorities <span className="muted">(off: every disagreement goes to you)</span>
-          </label>
-          <button className="btn primary" disabled={checking || !sources?.length} onClick={checkAccess}>{checking ? 'Checking…' : 'Check access'}</button>
+      <div className="row page-head">
+        <div>
+          <h1>Sources</h1>
+          <p className="lede" style={{ margin: 0 }}>What agents read: product docs, tracker exports, API contracts, notes, the code, and systems such as Confluence or Jira through MCP.</p>
         </div>
+        <span className="spacer" />
+        <label className="switch-label" title="Off: every disagreement between sources goes to you">
+          <input type="checkbox" role="switch" checked={usePriority} disabled={busy} onChange={(e) => act(() => api.setUsePriority(e.target.checked))} />
+          Use priorities
+        </label>
+        <button className="btn" disabled={checking || !sources?.length} onClick={checkAccess}>{checking ? 'Checking…' : 'Check access'}</button>
+        <div className="menu-anchor">
+          <button className="btn primary" aria-haspopup="menu" aria-expanded={menu} onClick={() => setMenu(!menu)}>
+            Add source <span aria-hidden className="caret">▾</span>
+          </button>
+          {menu && (
+            <div className="menu" role="menu" aria-label="Add source">
+              <button role="menuitem" onClick={() => open('file')}><b>Document</b><small>Upload or paste a product doc, tracker export, API contract or note</small></button>
+              <button role="menuitem" onClick={() => open('code')}><b>Code folder</b><small>A repository or folder on this computer</small></button>
+              <button role="menuitem" onClick={() => open('mcp')}><b>Through MCP</b><small>Confluence, Jira and other systems behind an MCP server</small></button>
+            </div>
+          )}
+        </div>
+      </div>
+      {usePriority && <p className="muted hint-line">When sources disagree, the one with the higher priority stands: 1 is the strongest. Requirements outrank code by default.</p>}
+
+      <div className="sources-list">
         <table className="grid">
           <thead>
-            <tr><th>On</th><th>Priority</th><th>Title</th><th>Kind</th><th>Where</th><th>Access</th><th /></tr>
+            <tr><th>On</th><th>Priority</th><th>Source</th><th>Kind</th><th>Where</th><th>Access</th><th /></tr>
           </thead>
           <tbody>
             {sources?.map((s) => (
-              <tr key={s.id} className={s.enabled ? undefined : 'muted'}>
+              <tr key={s.id} className={s.enabled ? undefined : 'off'}>
                 <td>
                   <input type="checkbox" aria-label={`Use ${s.title}`} checked={s.enabled} disabled={busy} onChange={(e) => act(() => api.updateSource(s.id, { enabled: e.target.checked }))} />
                 </td>
                 <td>
-                  <select className="text" aria-label={`Priority of ${s.title}`} value={s.priority} disabled={busy || !usePriority} onChange={(e) => act(() => api.updateSource(s.id, { priority: Number(e.target.value) }))}>
+                  <select className="text prio" aria-label={`Priority of ${s.title}`} value={s.priority} disabled={busy || !usePriority} onChange={(e) => act(() => api.updateSource(s.id, { priority: Number(e.target.value) }))}>
                     {[1, 2, 3, 4, 5].map((n) => <option key={n} value={n}>{n}</option>)}
                   </select>
                 </td>
-                <td>{s.title}<div className="id">{s.id}</div></td>
-                <td className="muted">{kindLabel[s.kind]}</td>
+                <td><b>{s.title}</b><div className="id">{s.id}</div></td>
+                <td><span className="kind">{kindLabel[s.kind]}</span></td>
                 <td className="muted"><span className="id">{where(s)}</span></td>
                 <td>
                   {checks[s.id] ? (
-                    <span style={{ color: checks[s.id].ok ? 'var(--ok)' : 'var(--bad)' }} title={checks[s.id].detail}>{checks[s.id].ok ? '✓' : '✗'} {checks[s.id].detail}</span>
-                  ) : <span className="muted">not checked</span>}
+                    <span className="access" title={checks[s.id].detail}><span className={`dot ${checks[s.id].ok ? 'ok' : 'bad'}`} /> {checks[s.id].ok ? 'readable' : 'no access'} <span className="muted">{checks[s.id].detail}</span></span>
+                  ) : <span className="access muted"><span className="dot" /> not checked</span>}
                 </td>
                 <td>
-                  <div className="row">
-                    {s.file && <button className="btn small" onClick={() => view(s.id)}>View</button>}
+                  <div className="row" style={{ justifyContent: 'end' }}>
+                    {s.file && <button className="btn small ghost" onClick={() => view(s.id)}>View</button>}
                     {confirmRemove === s.id ? (
                       <>
                         <span className="muted">{s.file ? 'Move to sources/.trash?' : 'Remove from the list?'}</span>
@@ -219,120 +208,94 @@ export function OnboardingView({ project, job, running, reloadToken, onOpenPropo
                         <button className="btn small" onClick={() => setConfirmRemove(null)}>Keep</button>
                       </>
                     ) : (
-                      <button className="btn small" onClick={() => setConfirmRemove(s.id)}>Remove…</button>
+                      <button className="btn small ghost" onClick={() => setConfirmRemove(s.id)}>Remove…</button>
                     )}
                   </div>
                 </td>
               </tr>
             ))}
-            {sources?.length === 0 && <tr><td colSpan={7} className="muted">No sources yet — add one below.</td></tr>}
+            {sources?.length === 0 && <tr><td colSpan={7} className="muted">No sources yet. Use Add source to bring in docs, code or a system through MCP.</td></tr>}
             {!sources && <tr><td colSpan={7} className="muted">Loading…</td></tr>}
           </tbody>
         </table>
-      </section>
+      </div>
 
-      <section>
-        <h2>Add a code folder</h2>
-        <div className="row">
-          <label className="field" style={{ flex: 1, marginBottom: 0 }}>
-            <span>Folder on this computer (absolute, ~/…, or relative to the project)</span>
-            <input className="text" value={codePath} onChange={(e) => setCodePath(e.target.value)} placeholder="~/work/shop" />
-          </label>
-          <button className="btn" disabled={busy || !codePath.trim()} onClick={addCode}>Add folder</button>
-        </div>
-
-        <h2 style={{ marginTop: 24 }}>Add a source through MCP</h2>
-        {readTools.length === 0 ? (
-          <p className="muted">No MCP server has read tools yet. Add one in Settings (for example an Atlassian MCP server for Confluence or Jira) and allow a read tool.</p>
-        ) : (
-          <div className="row" style={{ alignItems: 'flex-end' }}>
-            <label className="field" style={{ marginBottom: 0 }}>
-              <span>Read tool that proves access</span>
-              <select className="text" value={mcpTool} onChange={(e) => setMcpTool(e.target.value)}>
-                <option value="">Choose…</option>
-                {readTools.map((t) => <option key={t} value={t}>{t}</option>)}
-              </select>
-            </label>
-            <label className="field" style={{ flex: 1, marginBottom: 0 }}>
-              <span>Arguments (JSON)</span>
-              <input className="text" value={mcpArgs} onChange={(e) => setMcpArgs(e.target.value)} placeholder='{"space": "SHOP"}' />
-            </label>
-            <label className="field" style={{ marginBottom: 0 }}>
-              <span>Title</span>
-              <input className="text" value={mcpTitle} onChange={(e) => setMcpTitle(e.target.value)} placeholder="Confluence · SHOP" />
-            </label>
-            <button className="btn" disabled={busy || !mcpTool} onClick={addMcp}>Add</button>
+      {adding && (
+        <section className="add-panel" aria-label="Add a source">
+          <div className="row">
+            <h2 style={{ margin: 0 }}>{adding === 'file' ? 'Add a document' : adding === 'code' ? 'Add a code folder' : 'Add a source through MCP'}</h2>
+            <span className="spacer" />
+            <button className="btn small ghost" onClick={() => setAdding(null)}>Close</button>
           </div>
-        )}
 
-        <h2 style={{ marginTop: 24 }}>Upload a file</h2>
-        <label className="field" style={{ maxWidth: 260 }}>
-          <span>Kind (applies to what you add next)</span>
-          <select className="text" value={kind} onChange={(e) => setKind(e.target.value as FileSourceKind)}>
-            {fileKinds.map((k) => <option key={k} value={k}>{kindLabel[k]}</option>)}
-          </select>
-        </label>
+          {adding === 'code' && (
+            <div className="row" style={{ alignItems: 'flex-end' }}>
+              <label className="field" style={{ flex: 1, marginBottom: 0 }}>
+                <span>Folder on this computer (absolute, ~/…, or relative to the project)</span>
+                <input className="text" autoFocus value={codePath} onChange={(e) => setCodePath(e.target.value)} placeholder="~/work/shop" />
+              </label>
+              <button className="btn primary" disabled={busy || !codePath.trim()} onClick={addCode}>Add folder</button>
+            </div>
+          )}
 
-        <div
-          className={`dropzone ${dragOver ? 'over' : ''}`}
-          onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-          onDragLeave={() => setDragOver(false)}
-          onDrop={onDrop}
-        >
-          <p>Drag files here, or</p>
-          <label className="btn small" style={{ cursor: 'pointer' }}>
-            Choose files…
-            <input
-              type="file"
-              multiple
-              style={{ display: 'none' }}
-              disabled={busy}
-              onChange={(e) => { void addFiles(e.target.files ?? []); e.target.value = ''; }}
-            />
-          </label>
-          <p className="muted">Read as text in the browser. Binary or oversized files come back with a clear error.</p>
-        </div>
+          {adding === 'mcp' && (readTools.length === 0 ? (
+            <p className="muted">No MCP server has read tools yet. Add one in Settings (for example an Atlassian MCP server for Confluence or Jira) and allow a read tool.</p>
+          ) : (
+            <div className="row" style={{ alignItems: 'flex-end' }}>
+              <label className="field" style={{ marginBottom: 0 }}>
+                <span>Read tool that proves access</span>
+                <select className="text" value={mcpTool} onChange={(e) => setMcpTool(e.target.value)}>
+                  <option value="">Choose…</option>
+                  {readTools.map((t) => <option key={t} value={t}>{t}</option>)}
+                </select>
+              </label>
+              <label className="field" style={{ flex: 1, marginBottom: 0 }}>
+                <span>Arguments (JSON)</span>
+                <input className="text" value={mcpArgs} onChange={(e) => setMcpArgs(e.target.value)} placeholder='{"space": "SHOP"}' />
+              </label>
+              <label className="field" style={{ marginBottom: 0 }}>
+                <span>Title</span>
+                <input className="text" value={mcpTitle} onChange={(e) => setMcpTitle(e.target.value)} placeholder="Confluence · SHOP" />
+              </label>
+              <button className="btn primary" disabled={busy || !mcpTool} onClick={addMcp}>Add</button>
+            </div>
+          ))}
 
-        <h3 style={{ marginTop: 20 }}>Or paste text</h3>
-        <label className="field">
-          <span>Name</span>
-          <input className="text" value={pasteName} onChange={(e) => setPasteName(e.target.value)} placeholder="Refund policy notes" />
-        </label>
-        <label className="field">
-          <span>Text</span>
-          <textarea className="text" style={{ minHeight: 120 }} value={pasteContent} onChange={(e) => setPasteContent(e.target.value)} />
-        </label>
-        <button className="btn" disabled={busy || !pasteName.trim() || !pasteContent.trim()} onClick={addPasted}>Add pasted text</button>
-      </section>
-
-      <section>
-        <h2>Run onboarding</h2>
-        <p className="muted" style={{ marginTop: 0 }}>
-          Reads every enabled uploaded file above (code and MCP sources come with the research agent, next) and writes a project-level proposal — nothing changes in the model until you decide it on the Proposals page.
-        </p>
-        <div className="row">
-          <label className="field" style={{ marginBottom: 0 }}>
-            <span>Who onboards</span>
-            <select className="text" value={provider} onChange={(e) => setProvider(e.target.value as 'live' | 'scripted')}>
-              {runtime && (
-                <option value="live">
-                  Live — {runtimeTitle[runtime.provider]}{runtime.model ? ` · ${runtime.model}` : ''}
-                </option>
-              )}
-              <option value="scripted">Recorded script, no model</option>
-            </select>
-          </label>
-          <button className="btn primary" disabled={running || !sources?.some((s) => s.enabled && s.file)} onClick={runOnboarding}>
-            {running ? 'Job running…' : 'Run onboarding'}
-          </button>
-        </div>
-        {!sources?.some((s) => s.enabled && s.file) && <p className="muted">Upload at least one file first.</p>}
-        {finished && (
-          <div className="finding" style={{ marginTop: 12 }}>
-            Onboarding finished. <button className="btn small" onClick={onOpenProposals}>Go to Proposals</button>
-          </div>
-        )}
-      </section>
+          {adding === 'file' && (
+            <>
+              <label className="field" style={{ maxWidth: 260 }}>
+                <span>Kind</span>
+                <select className="text" value={kind} onChange={(e) => setKind(e.target.value as FileSourceKind)}>
+                  {fileKinds.map((k) => <option key={k} value={k}>{kindLabel[k]}</option>)}
+                </select>
+              </label>
+              <div
+                className={`dropzone ${dragOver ? 'over' : ''}`}
+                onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+                onDragLeave={() => setDragOver(false)}
+                onDrop={onDrop}
+              >
+                <p>Drag files here, or</p>
+                <label className="btn small" style={{ cursor: 'pointer' }}>
+                  Choose files…
+                  <input type="file" multiple style={{ display: 'none' }} disabled={busy} onChange={(e) => { void addFiles(e.target.files ?? []); e.target.value = ''; }} />
+                </label>
+                <p className="muted">Read as text. Binary or oversized files come back with a clear error.</p>
+              </div>
+              <h3 style={{ marginTop: 20 }}>Or paste text</h3>
+              <label className="field">
+                <span>Name</span>
+                <input className="text" value={pasteName} onChange={(e) => setPasteName(e.target.value)} placeholder="Refund policy notes" />
+              </label>
+              <label className="field">
+                <span>Text</span>
+                <textarea className="text" style={{ minHeight: 120 }} value={pasteContent} onChange={(e) => setPasteContent(e.target.value)} />
+              </label>
+              <button className="btn primary" disabled={busy || !pasteName.trim() || !pasteContent.trim()} onClick={addPasted}>Add pasted text</button>
+            </>
+          )}
+        </section>
+      )}
 
       {viewing && (
         <div className="lightbox" onClick={() => setViewing(null)} role="dialog" aria-label={viewing.source.title}>
