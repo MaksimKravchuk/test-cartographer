@@ -30,8 +30,10 @@ export function objectParents(entities: Pick<Entity, 'id' | 'relations'>[]): Rec
 // Takes a subject off every entity: off the actions that list it, off
 // transitions, permits and role conditions that keep another subject. What it
 // is the only subject of is a blocker, named so a person can change it first.
-export function removeRole(id: string, project: Pick<Project, 'agents'>, entities: Entity[]): { blockers: string[]; entities: Entity[] } {
+export function removeRole(id: string, project: Pick<Project, 'agents' | 'roles'>, entities: Entity[]): { blockers: string[]; entities: Entity[] } {
   const blockers = project.agents.filter((a) => a.role === id).map((a) => `agent “${a.title}”`);
+  // Another subject's sign-in reading this one's fields ({{roles.<id>.password}}) would get the placeholder as a value.
+  for (const r of project.roles) if (r.id !== id && JSON.stringify(r.login ?? {}).includes(`{{roles.${id}.`)) blockers.push(`sign-in of “${r.title}”`);
   const changed: Entity[] = [];
   for (const e of entities) {
     const without = (by: string[]) => by.filter((r) => r !== id);

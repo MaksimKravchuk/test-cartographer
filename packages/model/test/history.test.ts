@@ -37,8 +37,10 @@ test('removeRole strips a subject that shares the work and blocks where it acts 
     states: [{ id: 'open', title: 'Open', initial: true, match: {} }],
     transitions: [{ id: 't', title: 'Create it', from: '@new', to: 'open', action: 'create', by: ['admin'] }],
   });
-  const ok = removeRole('user', { agents: [] }, [shared]);
+  const ok = removeRole('user', { agents: [], roles: [] }, [shared]);
   assert.deepEqual(ok.blockers, []);
   assert.deepEqual(ok.entities[0].actions[0].by, ['admin']);
-  assert.deepEqual(removeRole('admin', { agents: [] }, [shared]).blockers, ['Task › Create it']);
+  assert.deepEqual(removeRole('admin', { agents: [], roles: [] }, [shared]).blockers, ['Task › Create it']);
+  const login = { action: 'auth.login', args: { password: '{{roles.user.password}}' } };
+  assert.deepEqual(removeRole('user', { agents: [], roles: [{ id: 'admin', title: 'Admin', kind: 'human', fields: [], login }] }, []).blockers, ['sign-in of “Admin”']);
 });
