@@ -40,6 +40,9 @@ test('lintModel: an action nobody performs, an action with nothing known, vague 
   assert.ok(msgs.some((m) => m.startsWith('action:order.refund: Nothing is known')));
   assert.ok(msgs.some((m) => m.startsWith('rule:order.r: “usually”')));
   assert.ok(!msgs.some((m) => m.startsWith('action:order.cancel')));
+  assert.ok(msgs.some((m) => m.startsWith('rule:order.r: No source backs')));
+  const sourced = Entity.parse({ ...e, rules: [{ ...e.rules[0], text: 'Refunds arrive within 7 days.', provenance: { source: 'agent', sources: ['wiki'] } }] });
+  assert.ok(!lintModel([sourced]).some((l) => l.ref === 'rule:order.r'));
 });
 
 test('action.by: an unknown role is caught by validation and by checkRoles', () => {
