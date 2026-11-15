@@ -519,7 +519,8 @@ export const Op = z.discriminatedUnion('op', [
 export type Op = z.infer<typeof Op>;
 
 export const Finding = z.object({
-  kind: z.enum(['gap', 'contradiction', 'question']),
+  // confirmation — a source says the same as the model: it fills the review matrix, it isn't a to-do.
+  kind: z.enum(['gap', 'contradiction', 'question', 'confirmation']),
   note: z.string(),
   refs: z.array(z.string()).default([]),
   evidence: z.array(z.string()).default([]),

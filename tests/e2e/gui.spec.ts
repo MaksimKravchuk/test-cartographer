@@ -55,6 +55,8 @@ test('a review shows by source which one contradicts the model', async ({ page }
     await page.getByText('By source').click();
     await expect(page.getByRole('table', { name: 'Review by source' }).getByText('✕').first()).toBeVisible({ timeout: 2_000 });
   }).toPass({ timeout: 30_000 });
+  // A confirmation fills its row too: the overview and the code agree on the expiry.
+  await expect(page.getByRole('table', { name: 'Review by source' }).getByRole('row', { name: /Action: Expire/ })).toContainText('✓');
   if (process.env.TC_SHOT) await page.screenshot({ path: process.env.TC_SHOT, fullPage: true });
 
   // The model screen lists the same contradiction in its "what to do next" queue, and its link opens the action.

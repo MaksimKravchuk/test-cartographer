@@ -30,7 +30,7 @@ const kindText: Record<string, string> = {
   variant: 'variant', state: 'state', action: 'action', transition: 'transition', permit: 'permit', scenario: 'scenario', rule: 'business rule',
   role: 'role', interface: 'interface', entity: 'entity', epic: 'epic', feature: 'feature', story: 'story',
 };
-const findingText = { gap: 'Gap', contradiction: 'Contradiction', question: 'Question' };
+const findingText = { gap: 'Gap', contradiction: 'Contradiction', question: 'Question', confirmation: 'Confirmed by a source' };
 const verdictText: Record<Verdict, string> = { accept: 'Accepted as a requirement', observe: 'Recorded as an observation', reject: 'Rejected' };
 
 const fieldText: Record<string, string> = {

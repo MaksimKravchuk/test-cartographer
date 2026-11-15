@@ -16,7 +16,11 @@ export type Disagreement = {
 };
 
 // Every finding agents reported, newest first, with its quotes and which side wins.
-export function disagreements(proposals: Proposal[], sources: Source[], usePriority: boolean): Disagreement[] {
+// Everything agents reported that needs a person: confirmations are left out (see allFindings).
+export const disagreements = (proposals: Proposal[], sources: Source[], usePriority: boolean): Disagreement[] =>
+  allFindings(proposals, sources, usePriority).filter((d) => d.finding.kind !== 'confirmation');
+
+export function allFindings(proposals: Proposal[], sources: Source[], usePriority: boolean): Disagreement[] {
   const byId = new Map(sources.map((s) => [s.id, s]));
   return [...proposals]
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
@@ -136,7 +140,7 @@ export type ReviewCell = 'confirms' | 'contradicts' | 'gap' | 'question';
 export type ReviewMarks = { requirements?: ReviewCell; code?: ReviewCell; app: boolean };
 export type ReviewRow = { entity: string; ref: string; title: string; cells: Record<string, ReviewCell>; marks: ReviewMarks };
 const rank: Record<ReviewCell, number> = { confirms: 0, question: 1, gap: 2, contradicts: 3 };
-const findingCell = { contradiction: 'contradicts', gap: 'gap', question: 'question' } as const;
+const findingCell = { contradiction: 'contradicts', gap: 'gap', question: 'question', confirmation: 'confirms' } as const;
 
 export function reviewMatrix(entities: Entity[], findings: Disagreement[], sources: Pick<Source, 'id' | 'kind'>[] = []): ReviewRow[] {
   const isCode = new Set(sources.filter((s) => s.kind === 'code').map((s) => s.id));

@@ -13,7 +13,7 @@ test('listOf: the agent is shown the item shape — fields, enums, required keys
   assert.deepEqual(required, ['ops']);
   assert.deepEqual(p.findings.default, []);
   assert.deepEqual(p.findings.items.required, ['kind', 'note']);
-  assert.deepEqual(p.findings.items.properties.kind.enum, ['gap', 'contradiction', 'question']);
+  assert.deepEqual(p.findings.items.properties.kind.enum, ['gap', 'contradiction', 'question', 'confirmation']);
   const ops = p.ops.items.oneOf;
   assert.deepEqual(ops.map((o: any) => o.properties.op.const), ['add', 'update', 'remove']);
   assert.deepEqual(ops.map((o: any) => o.required), [['op', 'kind', 'value'], ['op', 'kind', 'id', 'set'], ['op', 'kind', 'id']]);

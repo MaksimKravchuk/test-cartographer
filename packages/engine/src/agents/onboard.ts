@@ -51,7 +51,10 @@ const MODE_GOAL = {
 action and rule in model(), look for confirmation or contradiction in the sources; propose what the model is missing.
 Report each disagreement as a finding (kind=contradiction) whose refs name the element ("rule:<entity>.<id>",
 "action:<entity>.<id>") and whose evidence quotes every side; say in the note which side wins by priority and why.
-A rule found only in the code is behavior, not a requirement: propose it and say so in a finding (kind=gap).`,
+A rule found only in the code is behavior, not a requirement: propose it and say so in a finding (kind=gap).
+Cover every element, so the review fills a table of element × source: where a source says the same as the model,
+add a finding (kind=confirmation) with that element in refs and the quote as evidence; where you looked and found
+nothing, add a finding (kind=gap) whose note names the sources and files you searched.`,
 };
 
 const system = (p: { sourceList: string; contracts: string[]; mode: 'onboard' | 'review'; usePriority: boolean }) => `You are working for Test Cartographer: ${MODE_GOAL[p.mode]}
@@ -279,7 +282,7 @@ export async function onboard(ws: Workspace, agentId: string | undefined, opts: 
           backlog: baseBacklog,
           // What earlier runs left open: questions and gaps nobody has settled yet.
           openQuestions: (await ws.proposals()).flatMap((p) =>
-            p.findings.flatMap((f, i) => (f.kind !== 'contradiction' && !p.resolutions.some((r) => r.finding === i) ? [{ kind: f.kind, refs: f.refs, note: f.note }] : [])),
+            p.findings.flatMap((f, i) => ((f.kind === 'gap' || f.kind === 'question') && !p.resolutions.some((r) => r.finding === i) ? [{ kind: f.kind, refs: f.refs, note: f.note }] : [])),
           ),
         }),
     },
