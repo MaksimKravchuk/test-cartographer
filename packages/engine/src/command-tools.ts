@@ -62,6 +62,9 @@ export function runCommandTool(
         done({ text: `${why}\n${(stderr || stdout).trim().slice(-4000)}`, isError: true });
       },
     );
+    // A command that exits without reading stdin makes the write fail (EPIPE);
+    // its exit already reports the failure, so the stream error must not crash the server.
+    child.stdin?.on('error', () => {});
     child.stdin?.end(JSON.stringify(input ?? {}));
   });
 }

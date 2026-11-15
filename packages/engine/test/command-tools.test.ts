@@ -22,6 +22,11 @@ test('command tools: a script becomes an MCP tool — schema in, JSON on stdin, 
     const bad = (await client.callTool({ name: 'broken', arguments: {} })) as any;
     assert.equal(bad.isError, true);
     assert.match(bad.content[0].text, /exit 3\nno db/);
+
+    // Exits before reading a large input: a tool error, and the server keeps serving.
+    const early = (await client.callTool({ name: 'broken', arguments: { blob: 'x'.repeat(4 * 1024 * 1024) } })) as any;
+    assert.equal(early.isError, true);
+    assert.equal(((await client.callTool({ name: 'create_order', arguments: { status: 'new' } })) as any).isError, false);
   } finally {
     await client.close();
   }
