@@ -414,8 +414,8 @@ export function ModelView({ project, proposals, reloadToken, running, onResearch
             <button className="btn small" onClick={() => setSelected(null)}>Close</button>
           </div>
           {contradictions.map(({ p, f }, i) => (
-            <div key={i} className="finding" style={{ borderLeft: `3px solid ${f.kind === 'contradiction' ? 'var(--fail)' : 'var(--observed)'}`, marginTop: 8 }}>
-              <b>{f.kind === 'contradiction' ? 'Sources disagree' : f.kind === 'gap' ? 'Gap' : 'Question'}:</b> {f.note}
+            <div key={i} className="finding" style={{ borderLeft: `3px solid ${f.kind === 'contradiction' ? 'var(--fail)' : f.kind === 'confirmation' ? 'var(--pass)' : 'var(--observed)'}`, marginTop: 8 }}>
+              <b>{f.kind === 'contradiction' ? 'Sources disagree' : f.kind === 'gap' ? 'Gap' : f.kind === 'confirmation' ? 'Confirmed' : 'Question'}:</b> {f.note}
               {quotes(p, f.evidence).map((e) => (
                 <blockquote key={e!.id} className="source-quote" style={{ margin: "6px 0", overflowWrap: "anywhere" }}>“{e!.summary}” <span className="id">{e!.path ?? e!.source}</span></blockquote>
               ))}

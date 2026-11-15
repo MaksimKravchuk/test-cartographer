@@ -4,7 +4,7 @@ import { api, type ProposalState } from '../api.ts';
 
 type Props = { proposals: ProposalState[]; reloadToken: number; onChanged(): void; onError(m: string): void };
 
-const kindTitle = { contradiction: 'Sources disagree', gap: 'Gap', question: 'Question' } as const;
+const kindTitle = { contradiction: 'Sources disagree', gap: 'Gap', question: 'Question', confirmation: 'Confirmed' } as const;
 const cellMark: Record<ReviewCell, { mark: string; title: string; color: string }> = {
   confirms: { mark: '✓', title: 'confirms', color: 'var(--pass)' },
   contradicts: { mark: '✕', title: 'contradicts', color: 'var(--fail)' },

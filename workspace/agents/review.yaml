@@ -60,6 +60,10 @@ steps:
                 action: expire
               evidence: [e3, e4]
           findings:
+            - kind: confirmation
+              note: The product overview and the code agree that an unpaid order expires after 30 minutes.
+              refs: ["action:order.expire"]
+              evidence: [e3, e4]
             - kind: contradiction
               note: "Requirements (priority 1) say a buyer can cancel only until payment; the code (priority 2) lets the buyer cancel a paid or accepted standard order, with a refund. The requirement wins: this looks like a bug in the code."
               refs: ["action:order.cancel", "rule:order.buyer-cancels-until-paid"]

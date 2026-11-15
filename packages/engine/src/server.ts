@@ -10,7 +10,7 @@ import { dirname, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   AgentProvider, applyDecisions, applyProjectDecisions, Backlog, backlogCoverage, buildPlan, conflicts, coverage, Decision, Entity, objectParents, Project,
-  RevisionConflict, Resolution, disagreements, lintModel, reviewMatrix, FILE_SOURCE_KINDS, ToolCall, isFileSource, validateBacklog, validateEntity, validateProject, type ProjectState, type Workspace,
+  RevisionConflict, Resolution, allFindings, lintModel, reviewMatrix, FILE_SOURCE_KINDS, ToolCall, isFileSource, validateBacklog, validateEntity, validateProject, type ProjectState, type Workspace,
 } from '@tc/model';
 import { z } from 'zod';
 import { loadActions } from './actions-loader.ts';
@@ -406,8 +406,8 @@ export function createApp(initial: Workspace) {
   app.get('/api/report', async (c) => {
     const { sources, usePriority } = await ws.sourceRegistry();
     const entities = Object.values(await ws.catalog());
-    const found = disagreements(await ws.proposals(), sources, usePriority);
-    return c.json({ disagreements: found, lint: lintModel(entities), matrix: reviewMatrix(entities, found, sources), sources, usePriority });
+    const found = allFindings(await ws.proposals(), sources, usePriority);
+    return c.json({ disagreements: found.filter((d) => d.finding.kind !== 'confirmation'), lint: lintModel(entities), matrix: reviewMatrix(entities, found, sources), sources, usePriority });
   });
 
   app.post('/api/proposals/:id/findings/:index', async (c) => {

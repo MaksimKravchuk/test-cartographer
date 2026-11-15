@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { checkRoles, Entity, lintModel, Project, renderSpec, reviewMatrix, validateEntity } from '@tc/model';
+import { allFindings, checkRoles, disagreements, Entity, lintModel, Project, Proposal, renderSpec, reviewMatrix, validateEntity } from '@tc/model';
 
 const project = Project.parse({
   name: 'Shop',
@@ -75,6 +75,24 @@ test('reviewMatrix: provenance confirms, an open finding quoting a source overri
   // Marks: wiki is a requirement, code is code; a contradiction quoting the code shows under Code.
   const marks = reviewMatrix([e], [finding()], [{ id: 'wiki', kind: 'doc' }, { id: 'code', kind: 'code' }]).find((r) => r.ref === 'rule:order.until-paid')!.marks;
   assert.deepEqual(marks, { requirements: 'confirms', code: 'contradicts', app: false });
+  const confirmed = { ...finding(), finding: { ...finding().finding, kind: 'confirmation' as const, refs: ['action:order.cancel'] } };
+  assert.deepEqual(reviewMatrix([e], [confirmed]).find((r) => r.ref === 'action:order.cancel')!.cells, { code: 'confirms' }, 'a confirmation fills the cell');
+  const notFound = { ...finding(), quotes: [], finding: { ...finding().finding, kind: 'gap' as const, refs: ['action:order.cancel'], evidence: [], searched: ['wiki'] } };
+  assert.deepEqual(reviewMatrix([e], [notFound]).find((r) => r.ref === 'action:order.cancel')!.cells, { wiki: 'gap' }, 'a searched source with nothing found shows as a gap');
   const seen = Entity.parse({ ...e, rules: [{ ...e.rules[0], provenance: { source: 'agent', sources: [], seen: true } }] });
   assert.equal(reviewMatrix([seen], []).find((r) => r.ref === 'rule:order.until-paid')!.marks.app, true);
+});
+
+test('disagreements leave confirmations out; allFindings keeps them for the review table', () => {
+  const p = Proposal.parse({
+    id: 'p', entity: 'order', agent: 'reviewer', createdAt: '2026-01-01T00:00:00Z', baseRevision: 'r', rationale: 'r',
+    evidence: [{ id: 'e1', kind: 'source', summary: 'expires after 30 minutes', source: 'wiki' }],
+    findings: [
+      { kind: 'confirmation', note: 'wiki agrees', refs: ['action:order.expire'], evidence: ['e1'] },
+      { kind: 'question', note: 'when?', refs: [] },
+    ],
+  });
+  const sources = [{ id: 'wiki', kind: 'doc' as const, title: 'Wiki', priority: 1, enabled: true }] as never;
+  assert.deepEqual(disagreements([p], sources, true).map((d) => d.finding.kind), ['question']);
+  assert.deepEqual(allFindings([p], sources, true).map((d) => d.finding.kind), ['confirmation', 'question']);
 });
