@@ -16,15 +16,33 @@ const subscriptionEnv = () => {
   return env;
 };
 
+// Subagents get every tool of ours but the one that hands in the result.
+const helperPrompt = (h: Harness) =>
+  `${h.system}\n\nYou are a helper: the lead agent gave you one part of this work. Do that part with the tools you have, ` +
+  `hand in what you find with record() if there is one, and answer the lead with a short summary and the evidence ids you got. ` +
+  `Never call ${h.deliver} — only the lead finishes the run.`;
+
 export async function runClaude(h: Harness): Promise<void> {
+  const ours = h.toolNames.map((n) => `mcp__tc__${n}`);
   const q = query({
     prompt: h.prompt,
     options: {
       systemPrompt: h.system,
       model: h.runtime.model,
       effort: h.runtime.effort,
-      tools: [],
-      allowedTools: h.toolNames.map((n) => `mcp__tc__${n}`),
+      // Agent is Claude Code's own way to start a subagent; nothing else built in is let through.
+      tools: h.runtime.subagents ? ['Agent'] : [],
+      allowedTools: h.runtime.subagents ? [...ours, 'Agent'] : ours,
+      agents: h.runtime.subagents
+        ? {
+            helper: {
+              description: 'Works through one part of the job — one source, one object or one batch of checks — and reports back.',
+              prompt: helperPrompt(h),
+              tools: ours.filter((n) => n !== `mcp__tc__${h.deliver}`),
+              model: 'inherit',
+            },
+          }
+        : undefined,
       permissionMode: 'dontAsk',
       settingSources: [],
       strictMcpConfig: true,

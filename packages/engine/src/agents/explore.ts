@@ -5,7 +5,7 @@ import { chromium, type Page } from '@playwright/test';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { z } from 'zod';
 import {
-  checkRoles, dataContext, dataValues, Finding, Op, Proposal, redactFields, resolveRuntime, scrubSecrets, secretValues, toYaml, type Evidence, type Workspace,
+  checkRoles, dataContext, dataValues, Finding, Op, Proposal, redactFields, resolveRuntime, scrubSecrets, secretValues, toYaml, type Evidence, type RuntimeOverride, type Workspace,
 } from '@tc/model';
 import { McpPool, getPath, template } from '../mcp.ts';
 import { listOf, runAgent, type Tool } from './runtime.ts';
@@ -14,11 +14,14 @@ import { loadActions } from '../actions-loader.ts';
 export type ExploreOptions = {
   onLog?: (line: string) => void;
   provider?: 'scripted' | 'live';
+  // This run only, on top of the agent's own runtime (Ask agent's run settings).
+  runtime?: RuntimeOverride;
   headed?: boolean;
   signal?: AbortSignal;
 };
 
 // A real back-office page with refs runs to 10–15k characters.
+const Result = z.object({ rationale: z.string(), ops: listOf(Op).default([]), findings: listOf(Finding).default([]) });
 const MAX_TEXT = 20_000;
 const clip = (s: string) => (s.length > MAX_TEXT ? s.slice(0, MAX_TEXT) + '\n…(truncated)' : s);
 
@@ -52,7 +55,10 @@ ${p.contracts.length ? `- Available contracts: ${p.contracts.join(', ')}.` : ''}
 - snapshot() marks elements with [ref=…]. Pass a ref to click(), fill() or select() to reach what has no test id
   or accessible name — an icon-only menu button, an input whose label isn't tied to it. Refs go stale when the
   page changes: snapshot() again before using new ones.
-- When the exploration is done, call propose() exactly once.
+- Hand in what you find as you go: each time you've worked out part of the behavior, call record() with it, so
+  a person can start reviewing while you explore on. Never send the same operation or finding twice. When the
+  exploration is done, call propose() exactly once with whatever is left (empty ops and findings when record()
+  already has everything).
 ${p.data ? `
 Data a person attached to subjects (roles) and objects (entities) — logins, test values, notes. Use it where an
 action needs it. A secret shows only as its {{…}} reference: pass that reference to fill() as is and the engine
@@ -82,7 +88,7 @@ export async function explore(ws: Workspace, agentId: string, opts: ExploreOptio
   if (!agent.role || !agent.entity) throw new Error(`Explore agent “${agentId}” needs both a role and an entity (add them in cartographer.yaml)`);
   const role = project.roles.find((r) => r.id === agent.role)!;
   const iface = project.interfaces.find((i) => i.id === role.interface)!;
-  const { entity, revision } = await ws.entity(agent.entity);
+  const { entity } = await ws.entity(agent.entity);
   const catalog = await ws.catalog();
   // Fields of every role and entity: real values for the engine (sign-in,
   // fill), references in place of secrets for anything the model reads.
@@ -99,7 +105,7 @@ export async function explore(ws: Workspace, agentId: string, opts: ExploreOptio
   if (!entity.reader) throw new Error(`Entity “${entity.id}” has no reader yet — add one to its model before exploring it`);
   const reader = entity.reader;
 
-  const runtime = opts.provider === 'scripted' ? 'scripted' : resolveRuntime(project, agent) ?? 'scripted';
+  const runtime = opts.provider === 'scripted' ? 'scripted' : resolveRuntime({ runtime: resolveRuntime(project, agent) }, { runtime: opts.runtime }) ?? 'scripted';
 
   const proposalId = `${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}-${agent.id}`;
   const runTag = `explore-${proposalId}`;
@@ -159,6 +165,39 @@ export async function explore(ws: Workspace, agentId: string, opts: ExploreOptio
   };
   let key: string | undefined;
   let proposal: Proposal | undefined;
+  let last: Proposal | undefined;
+  let batches = 0;
+  // Validates and writes a proposal straight away, so the Inbox shows it
+  // while the agent works on. `batch` numbers a record() call.
+  const save = async ({ rationale, ops, findings }: { rationale: string; ops: unknown[]; findings: unknown[] }, batch?: number) => {
+    const parsedOps = z.array(Op).safeParse(ops);
+    if (!parsedOps.success) throw new Error(`ops do not match the schema: ${z.prettifyError(parsedOps.error)}`);
+    const parsedFindings = z.array(Finding).safeParse(findings);
+    if (!parsedFindings.success) throw new Error(`findings do not match the schema: ${z.prettifyError(parsedFindings.error)}`);
+    const known = new Set(evidence.map((x) => x.id));
+    const unknown = [...parsedOps.data, ...parsedFindings.data].flatMap((x) => x.evidence).filter((id) => !known.has(id));
+    if (unknown.length) throw new Error(`Unknown evidence: ${[...new Set(unknown)].join(', ')}. Available: ${[...known].join(', ')}`);
+    const badRoles = parsedOps.data.flatMap((op, i) => {
+      const problem = checkRoles(op, project.roles);
+      return problem ? [`op #${i}: ${problem}`] : [];
+    });
+    if (badRoles.length) throw new Error(badRoles.join('\n'));
+    const p = Proposal.parse({
+      id: batch ? `${proposalId}-${batch}` : proposalId,
+      entity: entity.id,
+      agent: agent.id,
+      role: role.id,
+      createdAt: new Date().toISOString(),
+      // Read now: a batch recorded earlier may have been accepted since.
+      baseRevision: (await ws.entity(entity.id)).revision,
+      rationale,
+      evidence,
+      ops: parsedOps.data,
+      findings: parsedFindings.data,
+    });
+    await ws.saveProposal(p);
+    return (last = p);
+  };
 
   const prepareTools = Object.entries(project.mcp).flatMap(([s, cfg]) => cfg.allow.prepare.map((t) => `${s}.${t}`));
 
@@ -316,40 +355,22 @@ export async function explore(ws: Workspace, agentId: string, opts: ExploreOptio
       },
     },
     {
+      name: 'record',
+      description:
+        'Save part of the result now, in the same shape as propose(): a person starts reviewing it while you go on. ' +
+        'Call it after each part of the behavior you have worked out; never repeat what you already recorded.',
+      input: Result,
+      run: async (input) => `proposal ${(await save(input, ++batches)).id} saved — go on, and call propose() at the end`,
+    },
+    {
       name: 'propose',
-      description: 'Finish the exploration: submit a proposal of model changes.',
-      input: z.object({
-        rationale: z.string(),
-        ops: listOf(Op),
-        findings: listOf(Finding).default([]),
-      }),
-      run: async ({ rationale, ops, findings }) => {
-        const parsedOps = z.array(Op).safeParse(ops);
-        if (!parsedOps.success) throw new Error(`ops do not match the schema: ${z.prettifyError(parsedOps.error)}`);
-        const parsedFindings = z.array(Finding).safeParse(findings);
-        if (!parsedFindings.success) throw new Error(`findings do not match the schema: ${z.prettifyError(parsedFindings.error)}`);
-        const known = new Set(evidence.map((x) => x.id));
-        const unknown = [...parsedOps.data, ...parsedFindings.data].flatMap((x) => x.evidence).filter((id) => !known.has(id));
-        if (unknown.length) throw new Error(`Unknown evidence: ${[...new Set(unknown)].join(', ')}. Available: ${[...known].join(', ')}`);
-        const badRoles = parsedOps.data.flatMap((op, i) => {
-          const problem = checkRoles(op, project.roles);
-          return problem ? [`op #${i}: ${problem}`] : [];
-        });
-        if (badRoles.length) throw new Error(badRoles.join('\n'));
-        proposal = Proposal.parse({
-          id: proposalId,
-          entity: entity.id,
-          agent: agent.id,
-          role: role.id,
-          createdAt: new Date().toISOString(),
-          baseRevision: revision,
-          rationale,
-          evidence,
-          ops: parsedOps.data,
-          findings: parsedFindings.data,
-        });
-        await ws.saveProposal(proposal);
-        return `proposal ${proposalId} saved`;
+      description: 'Finish the exploration: submit the rest of the proposed model changes (what record() has not saved yet).',
+      input: Result,
+      run: async (input) => {
+        // Everything may already be recorded; then propose only closes the run.
+        if (batches && !input.ops.length && !input.findings.length) proposal = last;
+        else proposal = await save(input);
+        return `proposal ${proposal!.id} saved`;
       },
     },
   ];

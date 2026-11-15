@@ -50,7 +50,8 @@ export async function runCodex(h: Harness): Promise<void> {
     config: {
       ...endpointConfig(h.runtime.baseUrl),
       developer_instructions: h.system,
-      features: Object.fromEntries(BUILTIN_TOOLS.map((f) => [f, false])),
+      // multi_agent: Codex's own subagents, which run with this same config (our tools only).
+      features: Object.fromEntries(BUILTIN_TOOLS.map((f) => [f, f === 'multi_agent' && !!h.runtime.subagents])),
       mcp_servers: {
         // `approve`: our tools run without asking — there is nobody to ask.
         tc: { url: h.bridge.url, bearer_token_env_var: TOKEN_ENV, default_tools_approval_mode: 'approve', tool_timeout_sec: 600 },
