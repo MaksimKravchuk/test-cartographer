@@ -85,7 +85,7 @@ export function ProjectSwitcher({ name, root, disabled, onManage, onError }: Pro
               {recent.map(item)}
             </>
           )}
-          <div className="row" style={{ padding: 8, gap: 6, borderTop: '1px solid var(--rule)' }}>
+          <div className="row" style={{ padding: 8, gap: 6, borderTop: '1px solid var(--line)' }}>
             <button
               className="btn small"
               onClick={() => {

@@ -238,7 +238,7 @@ export function ProposalsView(props: Props) {
   };
 
   const header = (
-    <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--rule)' }}>
+    <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--line)' }}>
       <div style={{ fontWeight: 600, marginBottom: 8 }}>Explore an interface</div>
       {exploreAgents.map((a) => {
         const runtime = resolveRuntime(project.project, a);
@@ -299,7 +299,7 @@ export function ProposalsView(props: Props) {
               {new Date(x.createdAt).toLocaleString('en-US', { dateStyle: 'short', timeStyle: 'short' })}, changes: {x.ops.length}
               {x.findings.length > 0 && `, findings: ${x.findings.length}`}
             </div>
-            <div style={{ fontSize: 12.5, marginTop: 2, color: x.status === 'pending' ? 'var(--proposed)' : 'var(--ink-3)' }}>
+            <div style={{ fontSize: 12.5, marginTop: 2, color: x.status === 'pending' ? 'var(--accent)' : 'var(--fg-3)' }}>
               {x.status === 'pending' ? 'Awaiting decision' : 'Decided'}
             </div>
           </button>
@@ -316,7 +316,7 @@ export function ProposalsView(props: Props) {
               {p.entity ? <>, entity: {props.entities.find((e) => e.id === p.entity)?.title ?? p.entity}</> : <>, project-level proposal</>}
               {p.role && <>, role: {project.project.roles.find((r) => r.id === p.role)?.title ?? p.role}</>}
               , {p.entity ? 'model' : 'backlog'} at proposal time: <span className="id">{p.baseRevision}</span>
-              {p.stale && p.status === 'pending' && <span style={{ color: 'var(--observed)' }}> — the {p.entity ? 'model' : 'backlog'} has changed since</span>}
+              {p.stale && p.status === 'pending' && <span style={{ color: 'var(--warn)' }}> — the {p.entity ? 'model' : 'backlog'} has changed since</span>}
             </div>
             <p className="rationale">{p.rationale}</p>
 
@@ -432,7 +432,7 @@ export function ProposalsView(props: Props) {
             {lightbox.path?.endsWith('.png') ? (
               <img src={fileUrl(lightbox.path)} alt={lightbox.summary} />
             ) : lightbox.path ? (
-              <iframe title={lightbox.id} src={fileUrl(lightbox.path)} style={{ width: 640, height: 420, border: 0, background: 'var(--sheet)' }} />
+              <iframe title={lightbox.id} src={fileUrl(lightbox.path)} style={{ width: 640, height: 420, border: 0, background: 'var(--surface)' }} />
             ) : (
               <div style={{ padding: 16 }}>{lightbox.url}</div>
             )}

@@ -206,7 +206,7 @@ export function OnboardingView({ project, job, running, reloadToken, onOpenPropo
                 <td className="muted"><span className="id">{where(s)}</span></td>
                 <td>
                   {checks[s.id] ? (
-                    <span style={{ color: checks[s.id].ok ? 'var(--pass)' : 'var(--fail)' }} title={checks[s.id].detail}>{checks[s.id].ok ? '✓' : '✗'} {checks[s.id].detail}</span>
+                    <span style={{ color: checks[s.id].ok ? 'var(--ok)' : 'var(--bad)' }} title={checks[s.id].detail}>{checks[s.id].ok ? '✓' : '✗'} {checks[s.id].detail}</span>
                   ) : <span className="muted">not checked</span>}
                 </td>
                 <td>

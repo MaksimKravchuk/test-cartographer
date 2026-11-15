@@ -66,11 +66,11 @@ function NextQueue({ queue, busy, onOpen, onSettle }: { queue: Queue; busy: bool
   const link = (ref: string, text: string) => (
     <a href="#" onClick={(e) => { e.preventDefault(); onOpen(ref); }}>{text}</a>
   );
-  const group = (title: string, items: ReactNode[]) =>
+  const group = (title: string, kind: 'gap' | 'question' | 'contradiction', items: ReactNode[]) =>
     items.length > 0 && (
-      <details open={items.length <= 5}>
+      <details open={items.length <= 5} className={kind}>
         <summary><b>{items.length}</b> {title}</summary>
-        <ul style={{ margin: '4px 0 8px' }}>{items}</ul>
+        <ul>{items}</ul>
       </details>
     );
   const finding = (d: Disagreement, settle: boolean) => (
@@ -80,17 +80,17 @@ function NextQueue({ queue, busy, onOpen, onSettle }: { queue: Queue; busy: bool
     </li>
   );
   return (
-    <section aria-label="What to do next">
+    <section aria-label="What to do next" className="queue">
       <h2>What to do next</h2>
-      {group('gaps in the model', queue.gaps.map((l, i) => <li key={i}>{link(l.ref, l.message)}</li>))}
-      {group('open questions', queue.questions.map((d) => finding(d, true)))}
-      {group('contradictions between sources (settle them on the Disagreements page)', queue.contradictions.map((d) => finding(d, false)))}
+      {group('gaps in the model', 'gap', queue.gaps.map((l, i) => <li key={i}>{link(l.ref, l.message)}</li>))}
+      {group('open questions', 'question', queue.questions.map((d) => finding(d, true)))}
+      {group('contradictions between sources (settle them on the Disagreements page)', 'contradiction', queue.contradictions.map((d) => finding(d, false)))}
       <p className="muted" style={{ margin: 0 }}>Answer a question here, or press “Review the model” to have an agent look into all of them.</p>
     </section>
   );
 }
 
-const sugg = { border: '1px dashed var(--proposed)', background: 'var(--proposed-wash)' };
+const sugg = { border: '1px dashed var(--accent)', background: 'var(--accent-weak)' };
 
 export function ModelView({ project, proposals, reloadToken, running, onResearch, onOpenEntity, onChanged, onError }: Props) {
   const [states, setStates] = useState<Record<string, EntityState>>({});
@@ -221,13 +221,13 @@ export function ModelView({ project, proposals, reloadToken, running, onResearch
               <button
                 key={a.id}
                 className={`chip ${on ? 'on' : ''}`}
-                style={{ textDecoration: a.status === 'rejected' ? 'line-through' : undefined, outline: on ? '2px solid var(--focus)' : undefined, fontStyle: a.status === 'observed' ? 'italic' : undefined }}
+                style={{ textDecoration: a.status === 'rejected' ? 'line-through' : undefined, outline: on ? '2px solid var(--accent)' : undefined, fontStyle: a.status === 'observed' ? 'italic' : undefined }}
                 title={a.status}
                 onClick={() => setSelected({ entity: entityId, action: a.id })}
               >
                 {a.title}
                 {rulesOf(s.entity, a.id).length > 0 && <span className="muted"> · {rulesOf(s.entity, a.id).length}</span>}
-                {conflicts && <span style={{ color: 'var(--fail)' }}> !</span>}
+                {conflicts && <span style={{ color: 'var(--bad)' }}> !</span>}
               </button>
             );
           })}
@@ -415,7 +415,7 @@ export function ModelView({ project, proposals, reloadToken, running, onResearch
             <button className="btn small" onClick={() => setSelected(null)}>Close</button>
           </div>
           {contradictions.map(({ p, f }, i) => (
-            <div key={i} className="finding" style={{ borderLeft: `3px solid ${f.kind === 'contradiction' ? 'var(--fail)' : f.kind === 'confirmation' ? 'var(--pass)' : 'var(--observed)'}`, marginTop: 8 }}>
+            <div key={i} className="finding" style={{ borderLeft: `3px solid ${f.kind === 'contradiction' ? 'var(--bad)' : f.kind === 'confirmation' ? 'var(--ok)' : 'var(--warn)'}`, marginTop: 8 }}>
               <b>{f.kind === 'contradiction' ? 'Sources disagree' : f.kind === 'gap' ? 'Gap' : f.kind === 'confirmation' ? 'Confirmed' : 'Question'}:</b> {f.note}
               {quotes(p, f.evidence).map((e) => (
                 <blockquote key={e!.id} className="source-quote" style={{ margin: "6px 0", overflowWrap: "anywhere" }}>“{e!.summary}” <span className="id">{e!.path ?? e!.source}</span></blockquote>
@@ -423,7 +423,7 @@ export function ModelView({ project, proposals, reloadToken, running, onResearch
             </div>
           ))}
           {rulesOf(sel.entity, selAction.id).map((r) => (
-            <div key={r.id} className="row" style={{ padding: '6px 0', borderBottom: '1px solid var(--rule)' }}>
+            <div key={r.id} className="row" style={{ padding: '6px 0', borderBottom: '1px solid var(--line)' }}>
               <span style={{ textDecoration: r.status === 'rejected' ? 'line-through' : undefined }}>{r.text}</span>
               <span className="muted">{r.status}{r.provenance?.sources.length ? ` · ${r.provenance.sources.join(', ')}` : ''}{r.requires.length ? '' : ' · text only'}</span>
               <span className="spacer" />

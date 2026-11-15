@@ -64,7 +64,7 @@ function StateNode({ data }: NodeProps<Node<StateData>>) {
       <div className="title">{s.title}</div>
       <div className="meta">
         <span className="id">{s.id}</span>
-        {data.ghost && <span className="flag" style={{ color: 'var(--proposed)' }}>proposed</span>}
+        {data.ghost && <span className="flag" style={{ color: 'var(--accent)' }}>proposed</span>}
         {s.variants && <span className="flag">{s.variants.length === 1 ? s.variants[0] : `${s.variants.length} variants`}</span>}
         {data.unreachable && <span className="flag warn">no setup</span>}
       </div>
@@ -78,14 +78,14 @@ function StateNode({ data }: NodeProps<Node<StateData>>) {
 // at a glance what the system does on its own.
 const stroke = (status: string, ghost: boolean, systemOnly: boolean) =>
   ghost || status === 'proposed'
-    ? { stroke: 'var(--proposed)', strokeDasharray: '5 4' }
+    ? { stroke: 'var(--accent)', strokeDasharray: '5 4' }
     : status === 'observed'
-      ? { stroke: 'var(--observed)', strokeDasharray: '7 5' }
+      ? { stroke: 'var(--warn)', strokeDasharray: '7 5' }
       : status === 'rejected'
-        ? { stroke: 'var(--ink-3)', strokeDasharray: '1.5 4' }
+        ? { stroke: 'var(--fg-3)', strokeDasharray: '1.5 4' }
         : systemOnly
-          ? { stroke: 'var(--ink-2)', strokeDasharray: '2 3' }
-          : { stroke: 'var(--ink)' };
+          ? { stroke: 'var(--fg-2)', strokeDasharray: '2 3' }
+          : { stroke: 'var(--fg)' };
 
 function TransitionEdge(props: EdgeProps<Edge<EdgeData>>) {
   const d = props.data!;
@@ -264,7 +264,7 @@ function Map(props: Props) {
         source: t.from,
         target: t.to,
         type: 'transition',
-        markerEnd: { type: MarkerType.ArrowClosed, width: 16, height: 16, color: ghost || t.status === 'proposed' ? 'var(--proposed)' : t.status === 'observed' ? 'var(--observed)' : systemOnly ? 'var(--ink-2)' : 'var(--ink)' },
+        markerEnd: { type: MarkerType.ArrowClosed, width: 16, height: 16, color: ghost || t.status === 'proposed' ? 'var(--accent)' : t.status === 'observed' ? 'var(--warn)' : systemOnly ? 'var(--fg-2)' : 'var(--fg)' },
         data: {
           transition: t,
           ghost,
@@ -347,13 +347,13 @@ function Map(props: Props) {
         <Controls showInteractive={false} position="bottom-right" />
       </ReactFlow>
       <div className="legend" aria-label="Legend">
-        <svg width="34" height="6"><line x1="0" y1="3" x2="34" y2="3" stroke="var(--ink)" strokeWidth="2" /></svg>
+        <svg width="34" height="6"><line x1="0" y1="3" x2="34" y2="3" stroke="var(--fg)" strokeWidth="2" /></svg>
         <span>Requirement — confirmed by a person</span>
-        <svg width="34" height="6"><line x1="0" y1="3" x2="34" y2="3" stroke="var(--observed)" strokeWidth="2" strokeDasharray="7 5" /></svg>
+        <svg width="34" height="6"><line x1="0" y1="3" x2="34" y2="3" stroke="var(--warn)" strokeWidth="2" strokeDasharray="7 5" /></svg>
         <span>Observation — not a requirement</span>
-        <svg width="34" height="6"><line x1="0" y1="3" x2="34" y2="3" stroke="var(--proposed)" strokeWidth="2" strokeDasharray="5 4" /></svg>
+        <svg width="34" height="6"><line x1="0" y1="3" x2="34" y2="3" stroke="var(--accent)" strokeWidth="2" strokeDasharray="5 4" /></svg>
         <span>Proposed by an agent</span>
-        <svg width="34" height="6"><line x1="0" y1="3" x2="34" y2="3" stroke="var(--ink-2)" strokeWidth="2" strokeDasharray="2 3" /></svg>
+        <svg width="34" height="6"><line x1="0" y1="3" x2="34" y2="3" stroke="var(--fg-2)" strokeWidth="2" strokeDasharray="2 3" /></svg>
         <span>⚙ System acts on its own — no person involved</span>
       </div>
     </div>

@@ -42,9 +42,9 @@ export function CoverageView({ state, project, running, onRun }: { state: Entity
       </p>
       <div className="totals">
         <div><b>{c.totals.scenarios}</b><span>scenarios in plan</span></div>
-        <div><b style={{ color: 'var(--pass)' }}>{c.totals.passed}</b><span>passed</span></div>
-        <div><b style={{ color: c.totals.failed ? 'var(--fail)' : undefined }}>{c.totals.failed}</b><span>failed</span></div>
-        <div><b style={{ color: c.totals.blocked ? 'var(--blocked)' : undefined }}>{c.totals.blocked}</b><span>blocked</span></div>
+        <div><b style={{ color: 'var(--ok)' }}>{c.totals.passed}</b><span>passed</span></div>
+        <div><b style={{ color: c.totals.failed ? 'var(--bad)' : undefined }}>{c.totals.failed}</b><span>failed</span></div>
+        <div><b style={{ color: c.totals.blocked ? 'var(--warn)' : undefined }}>{c.totals.blocked}</b><span>blocked</span></div>
         <div><b>{c.totals['not-run']}</b><span>not run</span></div>
         <div style={{ alignSelf: 'center' }}>
           <button className="btn primary" disabled={running} onClick={onRun}>{running ? 'Job running…' : 'Run tests'}</button>

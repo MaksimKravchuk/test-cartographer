@@ -422,7 +422,7 @@ function JourneyEditor(props: {
         <input className="text" value={j.description ?? ''} onChange={(e) => set({ description: e.target.value || undefined })} />
       </label>
       <div className="field" style={{ display: 'grid', gap: 6, marginBottom: 12 }}>
-        <span style={{ fontSize: 12, color: 'var(--ink-3)' }}>Path</span>
+        <span style={{ fontSize: 12, color: 'var(--fg-3)' }}>Path</span>
         <ol className="steps editable">
           {j.path.map((id, i) => {
             const t = entity.transitions.find((x) => x.id === id);
@@ -505,7 +505,7 @@ function RuleEditor(props: { rule: Rule; entity: Entity; project: ProjectState; 
         <textarea className="text prose" value={r.text} onChange={(e) => set({ text: e.target.value })} placeholder="A user must be signed in to create an order." />
       </label>
       <div className="field" style={{ display: 'grid', gap: 8, marginBottom: 12 }}>
-        <span style={{ fontSize: 12, color: 'var(--ink-3)' }}>Conditions — each one becomes negative scenarios</span>
+        <span style={{ fontSize: 12, color: 'var(--fg-3)' }}>Conditions — each one becomes negative scenarios</span>
         <label className="row">
           <input type="checkbox" checked={!!has('authenticated')} onChange={(e) => toggle('authenticated', e.target.checked)} />
           Only signed-in users

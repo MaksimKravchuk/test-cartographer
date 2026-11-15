@@ -60,9 +60,9 @@ export function BacklogView({ project, entities, reloadToken, onOpenEntity, onEr
 
       <div className="totals">
         <div><b>{coverage.totals.scenarios}</b><span>scenarios</span></div>
-        <div><b style={{ color: 'var(--pass)' }}>{coverage.totals.passed}</b><span>passed</span></div>
-        <div><b style={{ color: coverage.totals.failed ? 'var(--fail)' : undefined }}>{coverage.totals.failed}</b><span>failed</span></div>
-        <div><b style={{ color: coverage.totals.blocked ? 'var(--blocked)' : undefined }}>{coverage.totals.blocked}</b><span>blocked</span></div>
+        <div><b style={{ color: 'var(--ok)' }}>{coverage.totals.passed}</b><span>passed</span></div>
+        <div><b style={{ color: coverage.totals.failed ? 'var(--bad)' : undefined }}>{coverage.totals.failed}</b><span>failed</span></div>
+        <div><b style={{ color: coverage.totals.blocked ? 'var(--warn)' : undefined }}>{coverage.totals.blocked}</b><span>blocked</span></div>
         <div><b>{coverage.totals['not-run']}</b><span>not run</span></div>
       </div>
 

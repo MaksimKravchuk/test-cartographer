@@ -369,7 +369,7 @@ function Relations({ entity, state, onChange }: { entity: Entity; state: EntityS
             />
             {target && entity.variants.length > 0 && (
               <div className="field" style={{ display: 'grid', gap: 4, marginBottom: 12 }}>
-                <span style={{ fontSize: 12, color: 'var(--ink-3)' }}>Variant pairs</span>
+                <span style={{ fontSize: 12, color: 'var(--fg-3)' }}>Variant pairs</span>
                 {entity.variants.map((v) => (
                   <div key={v.id} className="row">
                     <span style={{ width: 90 }}>{v.title}</span>

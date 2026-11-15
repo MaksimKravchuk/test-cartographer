@@ -20,7 +20,7 @@ export function OverviewView({ project, entities, onOpen, onOpenOnboarding, onOp
       <h1>{project.project.name}</h1>
       <p className="lede">
         {entities.length} {entities.length === 1 ? 'entity' : 'entities'}, {all.scenarios} scenarios: {all.passed} passed
-        {all.failed > 0 && <>, <span style={{ color: 'var(--fail)' }}>{all.failed} failed</span></>}.{' '}
+        {all.failed > 0 && <>, <span style={{ color: 'var(--bad)' }}>{all.failed} failed</span></>}.{' '}
         <button className="btn link" onClick={onOpenObjects}>Open the objects map</button>
       </p>
 
@@ -66,7 +66,7 @@ export function OverviewView({ project, entities, onOpen, onOpenOnboarding, onOp
                   <div className="bar"><i style={{ width: `${pct}%` }} /></div>
                   <span>
                     {t.passed}/{t.scenarios} passed
-                    {t.failed > 0 && <b style={{ color: 'var(--fail)' }}>, {t.failed} failed</b>}
+                    {t.failed > 0 && <b style={{ color: 'var(--bad)' }}>, {t.failed} failed</b>}
                     {t.blocked > 0 && <>, {t.blocked} blocked</>}
                   </span>
                 </div>

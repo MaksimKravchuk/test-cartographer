@@ -6,10 +6,10 @@ type Props = { proposals: ProposalState[]; reloadToken: number; onChanged(): voi
 
 const kindTitle = { contradiction: 'Sources disagree', gap: 'Gap', question: 'Question', confirmation: 'Confirmed' } as const;
 const cellMark: Record<ReviewCell, { mark: string; title: string; color: string }> = {
-  confirms: { mark: '✓', title: 'confirms', color: 'var(--pass)' },
-  contradicts: { mark: '✕', title: 'contradicts', color: 'var(--fail)' },
-  gap: { mark: '…', title: 'gap', color: 'var(--observed)' },
-  question: { mark: '?', title: 'question', color: 'var(--observed)' },
+  confirms: { mark: '✓', title: 'confirms', color: 'var(--ok)' },
+  contradicts: { mark: '✕', title: 'contradicts', color: 'var(--bad)' },
+  gap: { mark: '…', title: 'gap', color: 'var(--warn)' },
+  question: { mark: '?', title: 'question', color: 'var(--warn)' },
 };
 const verdictTitle: Record<Resolution['verdict'], string> = { bug: 'Bug in the product', outdated: 'Requirements are outdated', fine: 'Not a problem' };
 
@@ -82,7 +82,7 @@ export function ReportView({ proposals, reloadToken, onChanged, onError }: Props
                       const c = r.marks[k];
                       return <td key={k} title={c ? `${k} ${cellMark[c].title}` : `${k}: nothing`} style={{ color: c ? cellMark[c].color : undefined, fontWeight: 600 }}>{c ? cellMark[c].mark : ''}</td>;
                     })}
-                    <td title={r.marks.app ? 'seen in the running app' : 'not checked in the app'} style={{ color: 'var(--pass)', fontWeight: 600 }}>{r.marks.app ? '✓' : ''}</td>
+                    <td title={r.marks.app ? 'seen in the running app' : 'not checked in the app'} style={{ color: 'var(--ok)', fontWeight: 600 }}>{r.marks.app ? '✓' : ''}</td>
                     {cols.map((s) => {
                       const c = r.cells[s.id];
                       return <td key={s.id} title={c ? `${s.title} ${cellMark[c].title}` : `${s.title} says nothing`} style={{ color: c ? cellMark[c].color : undefined }}>{c ? cellMark[c].mark : ''}</td>;
@@ -96,7 +96,7 @@ export function ReportView({ proposals, reloadToken, onChanged, onError }: Props
       )}
       {list.length === 0 && <p className="muted">Nothing open. Run “Review the model” on the Model page to check it against the sources.</p>}
       {list.map((d) => (
-        <section key={`${d.proposal}-${d.index}`} className="finding" style={{ borderLeft: `3px solid ${d.finding.kind === 'contradiction' ? 'var(--fail)' : 'var(--observed)'}`, marginTop: 12 }}>
+        <section key={`${d.proposal}-${d.index}`} className="finding" style={{ borderLeft: `3px solid ${d.finding.kind === 'contradiction' ? 'var(--bad)' : 'var(--warn)'}`, marginTop: 12 }}>
           <div className="row">
             <b>{kindTitle[d.finding.kind]}</b>
             {d.finding.refs.map((r) => <span key={r} className="id">{r}</span>)}
@@ -108,12 +108,12 @@ export function ReportView({ proposals, reloadToken, onChanged, onError }: Props
             {d.quotes.map((q) => (
               <div
                 key={q.evidence.id}
-                style={{ padding: 8, borderRadius: 6, border: '1px solid var(--rule)', background: q.source && q.source.id === d.winner ? 'var(--pass-wash)' : 'var(--sheet)' }}
+                style={{ padding: 8, borderRadius: 6, border: '1px solid var(--line)', background: q.source && q.source.id === d.winner ? 'var(--ok-weak)' : 'var(--surface)' }}
               >
                 <div className="row" style={{ gap: 6, fontSize: 12 }}>
                   <b>{title(q.evidence.source)}</b>
                   {q.source && data.usePriority && <span className="muted">priority {q.source.priority}</span>}
-                  {q.source && q.source.id === d.winner && <span style={{ color: 'var(--pass)' }}>stands</span>}
+                  {q.source && q.source.id === d.winner && <span style={{ color: 'var(--ok)' }}>stands</span>}
                 </div>
                 <blockquote className="source-quote" style={{ margin: "6px 0 0", overflowWrap: "anywhere" }}>“{q.evidence.summary}”</blockquote>
                 {q.evidence.path && <div className="id">{q.evidence.path}</div>}

@@ -76,7 +76,7 @@ export function OptionalMultiField({ label, options, value, onChange }: { label:
   const all = !value;
   return (
     <div className="field" style={{ display: 'grid', gap: 4, marginBottom: 12 }}>
-      <span style={{ fontSize: 12, color: 'var(--ink-3)' }}>{label}</span>
+      <span style={{ fontSize: 12, color: 'var(--fg-3)' }}>{label}</span>
       <div className="checks">
         <label>
           <input type="checkbox" checked={all} onChange={() => onChange(all ? options.map(([v]) => v) : undefined)} />
@@ -107,7 +107,7 @@ export function VariantsField({ entity, value, onChange }: { entity: Entity; val
 export function RoleMultiSelect({ label, roles, value, onChange }: { label: string; roles: [string, string][]; value: string[]; onChange(v: string[]): void }) {
   return (
     <div className="field" style={{ display: 'grid', gap: 4, marginBottom: 12 }}>
-      <span style={{ fontSize: 12, color: 'var(--ink-3)' }}>{label}</span>
+      <span style={{ fontSize: 12, color: 'var(--fg-3)' }}>{label}</span>
       <div className="checks">
         {roles.map(([id, title]) => (
           <label key={id}>
@@ -159,7 +159,7 @@ export function Lines({ label, value, onChange }: { label: string; value: string
   return (
     <label className="field">
       <span>{label}</span>
-      <textarea className="text" style={{ fontFamily: 'var(--font)', fontSize: 13 }} value={text} onChange={(e) => setText(e.target.value)} onBlur={() => onChange(text.split('\n').map((l) => l.trim()).filter(Boolean))} />
+      <textarea className="text" style={{ fontFamily: 'var(--sans)', fontSize: 13 }} value={text} onChange={(e) => setText(e.target.value)} onBlur={() => onChange(text.split('\n').map((l) => l.trim()).filter(Boolean))} />
     </label>
   );
 }
@@ -233,7 +233,7 @@ export function EffectsEditor({ entity, state, effects, onChange }: { entity: En
     <section>
       <h3>Expected effects</h3>
       {effects.map((e, i) => (
-        <div key={i} style={{ borderLeft: '2px solid var(--rule)', paddingLeft: 10, marginBottom: 10 }}>
+        <div key={i} style={{ borderLeft: '2px solid var(--line)', paddingLeft: 10, marginBottom: 10 }}>
           <Text label="Description" value={e.description} onChange={(description) => setEffect(i, { description })} />
           {entity.relations.length > 0 && (
             <Select
