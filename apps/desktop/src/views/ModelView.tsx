@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import type { Action, Decision, Entity, Op, Role, Rule } from '@tc/model';
+import { useEffect, useState, type ReactNode } from 'react';
+import type { Action, Decision, Disagreement, Entity, Lint, Op, Role, Rule } from '@tc/model';
 import { api, type EntityState, type ProjectState, type ProposalState } from '../api.ts';
 
 // The model as a person thinks about it: who acts (subjects), on what
@@ -55,6 +55,40 @@ function Decide({ busy, noObserve, onDecide }: { busy: boolean; noObserve?: bool
   );
 }
 
+type Queue = { gaps: Lint[]; questions: Disagreement[]; contradictions: Disagreement[] };
+
+// What to do next: gaps the model checks find on their own, questions agents left
+// open, and contradictions between sources. A person settles each one or asks an agent.
+function NextQueue({ queue, busy, onOpen, onSettle }: { queue: Queue; busy: boolean; onOpen(ref: string): void; onSettle(d: Disagreement): void }) {
+  const total = queue.gaps.length + queue.questions.length + queue.contradictions.length;
+  if (!total) return null;
+  const link = (ref: string, text: string) => (
+    <a href="#" onClick={(e) => { e.preventDefault(); onOpen(ref); }}>{text}</a>
+  );
+  const group = (title: string, items: ReactNode[]) =>
+    items.length > 0 && (
+      <details open={items.length <= 5}>
+        <summary><b>{items.length}</b> {title}</summary>
+        <ul style={{ margin: '4px 0 8px' }}>{items}</ul>
+      </details>
+    );
+  const finding = (d: Disagreement, settle: boolean) => (
+    <li key={`${d.proposal}-${d.index}`}>
+      {d.finding.refs[0] ? link(d.finding.refs[0], d.finding.note) : d.finding.note}
+      {settle && <> <button className="btn small" disabled={busy} title="Answered: take it off the list" onClick={() => onSettle(d)}>Done</button></>}
+    </li>
+  );
+  return (
+    <section aria-label="What to do next">
+      <h2>What to do next</h2>
+      {group('gaps in the model', queue.gaps.map((l, i) => <li key={i}>{link(l.ref, l.message)}</li>))}
+      {group('open questions', queue.questions.map((d) => finding(d, true)))}
+      {group('contradictions between sources (settle them on the Disagreements page)', queue.contradictions.map((d) => finding(d, false)))}
+      <p className="muted" style={{ margin: 0 }}>Answer a question here, or press “Review the model” to have an agent look into all of them.</p>
+    </section>
+  );
+}
+
 const sugg = { border: '1px dashed var(--proposed)', background: 'var(--proposed-wash)' };
 
 export function ModelView({ project, proposals, reloadToken, running, onResearch, onOpenEntity, onChanged, onError }: Props) {
@@ -65,6 +99,7 @@ export function ModelView({ project, proposals, reloadToken, running, onResearch
   const [newEntity, setNewEntity] = useState('');
   const [adding, setAdding] = useState<{ role: string; entity: string; title: string } | null>(null);
   const [ruleText, setRuleText] = useState('');
+  const [queue, setQueue] = useState<Queue>({ gaps: [], questions: [], contradictions: [] });
 
   const roles = project.project.roles;
   const ids = project.entities;
@@ -73,6 +108,30 @@ export function ModelView({ project, proposals, reloadToken, running, onResearch
       .then((list) => setStates(Object.fromEntries(list.map((s) => [s.entity.id, s]))))
       .catch((e) => onError((e as Error).message));
   }, [ids.join(), reloadToken]);
+  useEffect(() => {
+    api.report()
+      .then((r) => {
+        const open = r.disagreements.filter((d) => !d.resolution);
+        setQueue({ gaps: r.lint, questions: open.filter((d) => d.finding.kind !== 'contradiction'), contradictions: open.filter((d) => d.finding.kind === 'contradiction') });
+      })
+      .catch((e) => onError((e as Error).message));
+  }, [reloadToken, proposals]);
+
+  // "action:order.cancel" → select that action; a rule or transition → its action; anything else → the object's page.
+  const openRef = (ref: string) => {
+    const m = /^(\w+):([\w-]+)\.([\w-]+)$/.exec(ref);
+    const e = m && states[m[2]]?.entity;
+    if (!m || !e) return;
+    const [, kind, entity, id] = m;
+    const action =
+      kind === 'action' ? id
+      : kind === 'rule' ? (e.rules.find((r) => r.id === id)?.action ?? e.transitions.find((t) => t.id === e.rules.find((r) => r.id === id)?.transition)?.action)
+      : kind === 'transition' ? e.transitions.find((t) => t.id === id)?.action
+      : kind === 'permit' ? e.permits.find((t) => t.id === id)?.action
+      : undefined;
+    if (action) setSelected({ entity, action });
+    else onOpenEntity(entity);
+  };
 
   const pending = proposals.filter((p) => p.status === 'pending');
   const open = (p: ProposalState, i: number) => !p.decisions.some((d) => d.op === i);
@@ -260,6 +319,8 @@ export function ModelView({ project, proposals, reloadToken, running, onResearch
         Their findings appear here with a dashed border: ✓ true, ≈ that's how it works but not a requirement, ✕ strike out.
         {otherOpen > 0 && <> {otherOpen} more findings (states, transitions, backlog) are on the Proposals page.</>}
       </p>
+
+      <NextQueue queue={queue} busy={busy} onOpen={openRef} onSettle={(d) => act(() => api.resolve(d.proposal, d.index, 'fine'))} />
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16 }}>
         <section>

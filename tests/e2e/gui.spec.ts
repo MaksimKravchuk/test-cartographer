@@ -56,4 +56,12 @@ test('a review shows by source which one contradicts the model', async ({ page }
     await expect(page.getByRole('table', { name: 'Review by source' }).getByText('✕').first()).toBeVisible({ timeout: 2_000 });
   }).toPass({ timeout: 30_000 });
   if (process.env.TC_SHOT) await page.screenshot({ path: process.env.TC_SHOT, fullPage: true });
+
+  // The model screen lists the same contradiction in its "what to do next" queue, and its link opens the action.
+  await page.getByRole('navigation', { name: 'Sections' }).getByRole('button', { name: /^Model/ }).click();
+  const next = page.getByRole('region', { name: 'What to do next' });
+  await expect(next).toContainText(/contradictions between sources/);
+  await next.getByRole('link', { name: /Requirements \(priority 1\)/ }).click();
+  await expect(page.getByRole('heading', { name: /→ Cancel/ })).toBeVisible();
+  if (process.env.TC_SHOT2) await page.screenshot({ path: process.env.TC_SHOT2, fullPage: true });
 });
