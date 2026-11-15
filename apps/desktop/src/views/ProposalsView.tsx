@@ -17,7 +17,7 @@ type Props = {
 
 type Verdict = Decision['verdict'];
 
-const emptyEntity = { variants: [], states: [], actions: [], transitions: [], permits: [], scenarios: [], rules: [] } as unknown as Entity;
+const emptyEntity = { variants: [], states: [], actions: [], transitions: [], permits: [], scenarios: [], rules: [], invariants: [] } as unknown as Entity;
 
 // Project-level ops (see schema.ts ProjectOpKind) patch the project or the
 // backlog instead of one entity's own collections.
