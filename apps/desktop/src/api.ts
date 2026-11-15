@@ -49,6 +49,8 @@ export type ProposalState = Proposal & { stale: boolean; conflicts: { op: number
 
 // lines/size only for uploaded files; code and MCP sources have no text of their own.
 export type SourceInfo = Source & { lines?: number; size?: number };
+// What is at a folder path (see inspectFolder in the engine).
+export type FolderInfo = { path: string; exists: boolean; dir: boolean; empty: boolean; project?: string; parent: string; parentExists: boolean; home: string; children: string[] };
 export type SourceCheck = { id: string; ok: boolean; detail: string };
 
 export type BacklogState = { backlog: Backlog; revision: string; coverage: BacklogCoverage; issues: Issue[] };
@@ -103,8 +105,9 @@ export const api = {
   saveProject: (project: Project) => call('/api/project', { method: 'PUT', body: JSON.stringify({ project }) }),
   projects: () => call<Projects>('/api/projects'),
   openProject: (root: string) => call<{ root: string }>('/api/projects/open', { method: 'POST', body: JSON.stringify({ root }) }),
-  createProject: (root: string, name: string) =>
-    call<{ root: string }>('/api/projects/create', { method: 'POST', body: JSON.stringify({ root, name }) }),
+  createProject: (root: string, name: string, options: { baseUrl?: string; code?: string; provider?: AgentProvider } = {}) =>
+    call<{ root: string }>('/api/projects/create', { method: 'POST', body: JSON.stringify({ root, name, ...options }) }),
+  folder: (path: string) => call<FolderInfo>(`/api/folders?path=${encodeURIComponent(path)}`),
   pinProject: (root: string, pinned: boolean) => call('/api/projects/pin', { method: 'POST', body: JSON.stringify({ root, pinned }) }),
   forgetProject: (root: string) => call('/api/projects/forget', { method: 'POST', body: JSON.stringify({ root }) }),
   trashProject: (root: string) => call<{ trashedTo: string }>('/api/projects/trash', { method: 'POST', body: JSON.stringify({ root }) }),

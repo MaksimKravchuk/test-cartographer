@@ -132,10 +132,18 @@ export function ModelView({ project, proposals, reloadToken, running, onOpenEnti
   }, [reloadToken, proposals]);
 
   // "action:order.cancel" → select that action; a rule or transition → its action; anything else → the object's page.
+  // A link can be clicked before its object has loaded: keep it and open it once it has.
+  const [wantRef, setWantRef] = useState<string | null>(null);
   const openRef = (ref: string) => {
+    if (!showRef(ref)) setWantRef(ref);
+  };
+  useEffect(() => {
+    if (wantRef && showRef(wantRef)) setWantRef(null);
+  }, [states, wantRef]);
+  const showRef = (ref: string) => {
     const m = /^(\w+):([\w-]+)\.([\w-]+)$/.exec(ref);
     const e = m && states[m[2]]?.entity;
-    if (!m || !e) return;
+    if (!m || !e) return false;
     const [, kind, entity, id] = m;
     const action =
       kind === 'action' ? id
@@ -145,6 +153,7 @@ export function ModelView({ project, proposals, reloadToken, running, onOpenEnti
       : undefined;
     setFocus(entity);
     setSelected(action ? { entity, action } : null);
+    return true;
   };
 
   const pending = proposals.filter((p) => p.status === 'pending');

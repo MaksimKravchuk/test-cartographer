@@ -2,12 +2,12 @@
 // projects, creates new ones from a template and makes sure generated tests
 // and the action library can import the engine from any folder on disk.
 import { existsSync } from 'node:fs';
-import { cp, mkdir, readFile, rename, rm, symlink, writeFile } from 'node:fs/promises';
+import { cp, mkdir, readdir, readFile, rename, rm, stat, symlink, writeFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { homedir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { Entity, Project, toYaml, Workspace } from '@tc/model';
+import { type AgentProvider, Entity, Project, toYaml, Workspace } from '@tc/model';
 
 const home = () => process.env.TC_HOME ?? join(homedir(), '.test-cartographer');
 const registry = () => join(home(), 'projects.json');
@@ -96,7 +96,7 @@ export async function ensureEngineLink(ws: Workspace): Promise<void> {
 }
 
 export async function openProject(root: string): Promise<Workspace> {
-  const ws = new Workspace(resolve(root));
+  const ws = new Workspace(resolve(expandHome(root)));
   if (!existsSync(ws.path('cartographer.yaml'))) throw new Error(`${ws.root} is not a Test Cartographer project: cartographer.yaml is missing`);
   await ws.project(); // validates
   await ensureEngineLink(ws);
@@ -121,12 +121,44 @@ export default defineActions({
 });
 `;
 
-export async function createProject(root: string, name: string): Promise<Workspace> {
-  const ws = new Workspace(resolve(root));
+// Paths typed by a person: `~/x` means their home folder.
+export const expandHome = (p: string) => (p === '~' ? homedir() : p.startsWith('~/') || p.startsWith('~\\') ? join(homedir(), p.slice(2)) : p);
+
+// What is at a folder path, so the project form can say what will happen
+// before anyone presses a button: a project to open, an empty folder to create
+// one in, a folder still to be made, or nothing usable.
+export async function inspectFolder(input: string) {
+  const path = resolve(expandHome(input.trim() || '~'));
+  const st = await stat(path).catch(() => null);
+  const dir = !!st?.isDirectory();
+  const entries = dir ? await readdir(path, { withFileTypes: true }).catch(() => []) : [];
+  const visible = entries.filter((e) => !e.name.startsWith('.'));
+  let project: string | undefined;
+  if (dir && existsSync(join(path, 'cartographer.yaml'))) project = await new Workspace(path).project().then((p) => p.name, () => basename(path));
+  const parent = dirname(path);
+  return {
+    path,
+    exists: !!st,
+    dir,
+    empty: dir && visible.length === 0,
+    project,
+    parent,
+    parentExists: parent === path || existsSync(parent),
+    home: homedir(),
+    // shortcut: first 200 subfolders only, enough to browse; add paging if someone keeps thousands of folders in one place.
+    children: visible.filter((e) => e.isDirectory()).map((e) => e.name).sort((a, b) => a.localeCompare(b)).slice(0, 200),
+  };
+}
+
+export type NewProjectOptions = { baseUrl?: string; code?: string; provider?: AgentProvider };
+
+export async function createProject(root: string, name: string, options: NewProjectOptions = {}): Promise<Workspace> {
+  const ws = new Workspace(resolve(expandHome(root)));
   if (existsSync(ws.path('cartographer.yaml'))) throw new Error(`${ws.root} already contains a project`);
   const project = Project.parse({
     name,
-    interfaces: [{ id: 'web', title: 'Web app', baseUrl: 'http://localhost:3000' }],
+    interfaces: [{ id: 'web', title: 'Web app', baseUrl: options.baseUrl ?? 'http://localhost:3000' }],
+    ...(options.provider ? { runtime: { provider: options.provider } } : {}),
     roles: [
       { id: 'guest', title: 'Guest', kind: 'human', interface: 'web' },
       {
@@ -148,6 +180,7 @@ export async function createProject(root: string, name: string): Promise<Workspa
   await writeFile(ws.path('actions', 'index.ts'), actionsTemplate);
   await writeFile(ws.path('package.json'), JSON.stringify({ name: name.toLowerCase().replace(/[^a-z0-9]+/g, '-'), private: true, type: 'module' }, null, 2) + '\n');
   await writeFile(ws.path('.gitignore'), 'node_modules/\nruns/\ngenerated/\nexport/\n');
+  if (options.code) await ws.addLinkedSource({ kind: 'code', path: resolve(expandHome(options.code)) });
   return openProject(ws.root);
 }
 

@@ -104,3 +104,27 @@ describe('input checks', () => {
     assert.equal((await app.request('/api/agents/nobody/run', json('POST', { provider: 'scripted' }))).status, 404);
   });
 });
+
+// Last: creating a project switches the engine to it.
+describe('project form', () => {
+  test('GET /api/folders tells a project, an empty folder and a folder still to be made apart', async () => {
+    const here = await get(`/api/folders?path=${encodeURIComponent(ws.root)}`);
+    assert.equal(here.project, 'Demo Shop');
+    const empty = await mkdtemp(join(tmpdir(), 'tc-new-'));
+    const blank = await get(`/api/folders?path=${encodeURIComponent(empty)}`);
+    assert.deepEqual([blank.dir, blank.empty, blank.project], [true, true, undefined]);
+    const later = await get(`/api/folders?path=${encodeURIComponent(join(empty, 'shop-tests'))}`);
+    assert.deepEqual([later.exists, later.parentExists], [false, true]);
+  });
+
+  test('POST /api/projects/create takes the app URL, a code folder and an agent', async () => {
+    const root = join(await mkdtemp(join(tmpdir(), 'tc-new-')), 'shop-tests');
+    const res = await app.request('/api/projects/create', json('POST', { root, name: 'Shop', baseUrl: 'http://localhost:4400', code: ws.root, provider: 'codex' }));
+    assert.equal(res.status, 200);
+    const p = await new Workspace(root).project();
+    assert.equal(p.interfaces[0].baseUrl, 'http://localhost:4400');
+    assert.equal(p.runtime?.provider, 'codex');
+    const sources = await new Workspace(root).sources();
+    assert.deepEqual(sources.map((s) => [s.kind, s.kind === 'code' && s.path]), [['code', ws.root]]);
+  });
+});

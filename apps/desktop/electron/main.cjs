@@ -1,6 +1,6 @@
 // macOS app shell. The engine is a separate Node process (browser
 // scenarios, MCP, export); the window is only a GUI over its local API.
-const { app, BrowserWindow, dialog, shell } = require('electron');
+const { app, BrowserWindow, dialog, ipcMain, shell } = require('electron');
 const { spawn } = require('node:child_process');
 const fs = require('node:fs');
 const net = require('node:net');
@@ -131,7 +131,7 @@ function createWindow() {
     minHeight: 640,
     titleBarStyle: 'hiddenInset',
     backgroundColor: '#e6ecea',
-    webPreferences: { contextIsolation: true, sandbox: true },
+    webPreferences: { contextIsolation: true, sandbox: true, preload: path.join(__dirname, 'preload.cjs') },
   });
   win.webContents.setWindowOpenHandler(({ url: target }) => {
     void shell.openExternal(target);
@@ -142,6 +142,16 @@ function createWindow() {
 
 // The first launch downloads a browser, so the window says what's happening meanwhile.
 const starting = `data:text/html,${encodeURIComponent('<body style="font:15px system-ui;display:grid;place-items:center;height:90vh;color:#334">Starting Test Cartographer… The first launch also downloads the browser tests run in.</body>')}`;
+
+// The project form's "Choose…": a native folder dialog; null when cancelled.
+ipcMain.handle('pick-folder', async (event, start) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  const { canceled, filePaths } = await dialog.showOpenDialog(win, {
+    properties: ['openDirectory', 'createDirectory'],
+    defaultPath: typeof start === 'string' && start ? start : app.getPath('documents'),
+  });
+  return canceled ? null : filePaths[0];
+});
 
 app.whenReady().then(async () => {
   try {
