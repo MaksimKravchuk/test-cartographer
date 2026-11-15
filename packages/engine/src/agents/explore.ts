@@ -205,6 +205,7 @@ export async function explore(ws: Workspace, agentId: string, opts: ExploreOptio
   };
 
   const prepareTools = Object.entries(project.mcp).flatMap(([s, cfg]) => cfg.allow.prepare.map((t) => `${s}.${t}`));
+  const triggerTools = Object.entries(project.mcp).flatMap(([s, cfg]) => cfg.allow.trigger.map((t) => `${s}.${t}`));
 
   const tools: Tool[] = [
     {
@@ -231,9 +232,18 @@ export async function explore(ws: Workspace, agentId: string, opts: ExploreOptio
         const result = await mcp.call(tool, { ...args, tag: runTag }, 'prepare');
         const k = getPath(result, entity.key);
         if (k !== undefined) key = String(k);
-        return JSON.stringify(result, null, 2);
+        return scrub(JSON.stringify(result, null, 2));
       },
     },
+    ...(triggerTools.length
+      ? [{
+          name: 'trigger',
+          description: 'Make the system act now through an allowed tool: run a background job, advance a test clock. Returns the result (JSON).',
+          input: z.object({ tool: z.string().describe(`One of: ${triggerTools.join(', ')}`), args: z.record(z.string(), z.unknown()).default({}) }),
+          run: async ({ tool, args }: { tool: string; args: Record<string, unknown> }) =>
+            scrub(JSON.stringify(await mcp.call(tool, args, 'trigger'), null, 2)),
+        }]
+      : []),
     {
       name: 'read',
       description: 'Read the actual state of an instance via the model\'s read tool. Saved as evidence.',
