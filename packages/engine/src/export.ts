@@ -19,7 +19,10 @@ export async function exportMarkdown(ws: Workspace): Promise<string[]> {
 // The product specification (see renderSpec) as workspace/export/spec.md.
 export async function specMarkdown(ws: Workspace): Promise<string> {
   const { sources, usePriority } = await ws.sourceRegistry();
-  return renderSpec(await ws.project(), Object.values(await ws.catalog()), disagreements(await ws.proposals(), sources, usePriority), sources);
+  const project = await ws.project();
+  const catalog = await ws.catalog();
+  const entities = Object.values(catalog);
+  return renderSpec(project, entities, disagreements(await ws.proposals(), sources, usePriority), sources, entities.map((e) => buildPlan(e, project, catalog)));
 }
 
 export async function exportSpec(ws: Workspace): Promise<string> {

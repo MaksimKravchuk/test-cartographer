@@ -96,3 +96,12 @@ test('disagreements leave confirmations out; allFindings keeps them for the revi
   assert.deepEqual(disagreements([p], sources, true).map((d) => d.finding.kind), ['question']);
   assert.deepEqual(allFindings([p], sources, true).map((d) => d.finding.kind), ['confirmation', 'question']);
 });
+
+test('renderSpec with plans: a rule names its tests; what no test checks is listed', () => {
+  const plan = (rules: string[]) => [{ entity: 'order', scenarios: [{ id: 'order/until-paid', kind: 'rule', target: 'x', rules, blocked: null }] }] as never;
+  assert.match(renderSpec(project, [order], [], [], plan(['until-paid'])), /- Rule: A buyer can cancel only until payment\. — tests: `order\/until-paid`/);
+  const md = renderSpec(project, [order], [], [], plan([]));
+  assert.match(md, /until payment\. _\(no test\)_/);
+  assert.match(md, /## Not checked by any test\n\n- Order: rule “A buyer can cancel only until payment\.”/);
+  assert.doesNotMatch(renderSpec(project, [order], [], []), /Not checked/);
+});

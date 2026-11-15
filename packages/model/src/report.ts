@@ -1,4 +1,5 @@
 import { isActive } from './reach.ts';
+import type { Plan, Scenario } from './plan.ts';
 import type { Entity, Evidence, Finding, Project, Proposal, Resolution, Source } from './schema.ts';
 
 export type Quote = { evidence: Evidence; source?: Source };
@@ -53,8 +54,18 @@ const roleTitle = (project: Project, id: string) => project.roles.find((r) => r.
 // The product's specification, from what people have confirmed or observed:
 // subjects, objects, and for every action who performs it and its rules with
 // their sources. Open disagreements are listed at the end of each object.
-export function renderSpec(project: Project, entities: Entity[], findings: Disagreement[], sources: Source[]): string {
+// With `plans`, each transition and rule names the test scenarios that check it, and
+// what no test checks is listed at the end.
+export function renderSpec(project: Project, entities: Entity[], findings: Disagreement[], sources: Source[], plans?: Plan[]): string {
   const title = (id: string) => sources.find((s) => s.id === id)?.title ?? id;
+  const untested: string[] = [];
+  const tests = (entity: Entity, label: string, match: (s: Scenario) => boolean) => {
+    if (!plans) return '';
+    const ids = (plans.find((p) => p.entity === entity.id)?.scenarios ?? []).filter((s) => !s.blocked && match(s)).map((s) => `\`${s.id}\``);
+    if (ids.length) return ` — tests: ${ids.join(', ')}`;
+    untested.push(`- ${entity.title}: ${label}`);
+    return ' _(no test)_';
+  };
   const lines = [`# ${project.name} — specification`, ''];
   lines.push('## Subjects', '');
   for (const r of project.roles) lines.push(`- **${r.title}** — ${r.kind === 'system' ? 'background jobs and integrations' : 'a person'}`);
@@ -72,12 +83,15 @@ export function renderSpec(project: Project, entities: Entity[], findings: Disag
       const observed = a.status === 'observed' ? ' _(observed, not a requirement)_' : '';
       lines.push(`### ${[...by].map((id) => roleTitle(project, id)).join(', ') || 'Nobody yet'} → ${a.title}${observed}`, '');
       const ts = e.transitions.filter((t) => t.action === a.id && isActive(t));
-      for (const t of ts) lines.push(`- Moves ${e.title.toLowerCase()} from ${t.from === '@new' ? '(new)' : (e.states.find((s) => s.id === t.from)?.title ?? t.from)} to ${e.states.find((s) => s.id === t.to)?.title ?? t.to}`);
+      for (const t of ts) {
+        const move = `${a.title}: ${t.from === '@new' ? '(new)' : (e.states.find((s) => s.id === t.from)?.title ?? t.from)} → ${e.states.find((s) => s.id === t.to)?.title ?? t.to}`;
+        lines.push(`- Moves ${e.title.toLowerCase()} from ${t.from === '@new' ? '(new)' : (e.states.find((s) => s.id === t.from)?.title ?? t.from)} to ${e.states.find((s) => s.id === t.to)?.title ?? t.to}${tests(e, move, (s) => s.kind === 'transition' && s.target === t.id)}`);
+      }
       const tIds = new Set(ts.map((t) => t.id));
       const rules = e.rules.filter((r) => isActive(r) && (r.action === a.id || (r.transition && tIds.has(r.transition))));
       for (const r of rules) {
         const src = r.provenance?.sources.length ? ` — ${r.provenance.sources.map(title).join(', ')}` : '';
-        lines.push(`- Rule: ${r.text}${r.status === 'observed' ? ' _(observed)_' : ''}${src}`);
+        lines.push(`- Rule: ${r.text}${r.status === 'observed' ? ' _(observed)_' : ''}${src}${tests(e, `rule “${r.text}”`, (s) => s.rules.includes(r.id) || (s.kind === 'rule' && s.target === r.id))}`);
       }
       if (!ts.length && !rules.length) lines.push('- No rules yet.');
       lines.push('');
@@ -95,6 +109,7 @@ export function renderSpec(project: Project, entities: Entity[], findings: Disag
       lines.push('');
     }
   }
+  if (plans) lines.push('## Not checked by any test', '', ...(untested.length ? untested : ['Every transition and rule has a test.']), '');
   return lines.join('\n');
 }
 
