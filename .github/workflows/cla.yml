@@ -26,4 +26,5 @@ jobs:
           path-to-signatures: signatures/cla.json
           # Signatures are committed to their own branch so main stays clean.
           branch: cla-signatures
-          allowlist: MaksimKravchuk,MVkravchuk,bot*
+          # Claude: commits Claude Code makes on behalf of the maintainer (author "Claude <noreply@anthropic.com>").
+          allowlist: MaksimKravchuk,MVkravchuk,Claude,bot*
