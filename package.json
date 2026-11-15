@@ -11,7 +11,7 @@
     "test": "pnpm test:unit && pnpm test:component && pnpm test:integration",
     "test:unit": "node --test \"packages/*/test/*.test.ts\"",
     "test:component": "pnpm --filter @tc/desktop test",
-    "test:integration": "node --test --test-concurrency=1 --test-timeout=300000 \"packages/*/test/integration/*.test.ts\"",
+    "test:integration": "node --test --test-concurrency=1 --test-timeout=300000 --test-force-exit \"packages/*/test/integration/*.test.ts\"",
     "test:e2e": "pnpm --filter @tc/desktop build && playwright test -c tests/e2e/playwright.config.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p apps/desktop/tsconfig.json",
     "demo": "node demo/shop/server.ts",
