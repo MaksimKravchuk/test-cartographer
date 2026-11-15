@@ -9,9 +9,14 @@ permissions:
   contents: read
 
 jobs:
-  # Fast checks: types, the demo model, unit and component tests.
+  # Fast checks: types, the demo model, unit and component tests — on every OS.
   check:
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -25,9 +30,14 @@ jobs:
       - run: pnpm test:unit
       - run: pnpm test:component
 
-  # Engine API, CLI, MCP and scripted agents against the demo shop (needs a browser).
+  # Engine API, CLI, MCP and scripted agents against the demo shop (needs a browser) — on every OS.
   integration:
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -39,9 +49,31 @@ jobs:
       - run: pnpm exec playwright install --with-deps chromium
       - run: pnpm test:integration
 
+  # The web GUI served by the engine, in a browser, on Windows and macOS
+  # (Linux runs it in e2e below, with the Electron shell and the full run).
+  gui:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm --filter @tc/desktop build
+      - run: pnpm exec playwright test -c tests/e2e/playwright.config.ts gui.spec.ts pipeline.spec.ts
+
   # The GUI in a browser, the Electron shell, and a full test run against the demo shop.
   e2e:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4

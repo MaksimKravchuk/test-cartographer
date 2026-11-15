@@ -91,7 +91,8 @@ export async function ensureEngineLink(ws: Workspace): Promise<void> {
   }
   const target = ws.path('node_modules', '@tc', 'engine');
   await mkdir(dirname(target), { recursive: true });
-  if (!existsSync(target)) await symlink(enginePackage, target, 'dir');
+  // A junction needs no admin rights on Windows; elsewhere the type is ignored.
+  if (!existsSync(target)) await symlink(enginePackage, target, 'junction');
 }
 
 export async function openProject(root: string): Promise<Workspace> {

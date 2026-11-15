@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { spawn } from 'node:child_process';
 import { parseArgs } from 'node:util';
 import { resolve } from 'node:path';
 import { AgentProvider, backlogCoverage, buildPlan, coverage, type Totals, Workspace } from '@tc/model';
@@ -21,7 +22,7 @@ const usage = `Test Cartographer
   tc runtimes              sign-in state of the runtimes agents run in: Claude Code, Codex, Copilot, Cursor
   tc runtimes test <provider> [--model m]  short end-to-end run: sign-in, MCP bridge, tool calls
   tc runtimes login cursor sign in to Cursor in the browser
-  tc serve [--port 4317]   local engine API for the GUI
+  tc serve [--port 4317] [--open]  local engine API and the web GUI (--open: in your browser)
 
   --ws <path>              workspace (default: ./workspace or TC_WORKSPACE)`;
 
@@ -34,12 +35,19 @@ const { values, positionals } = parseArgs({
     help: { type: 'boolean', short: 'h' },
     scripted: { type: 'boolean' },
     model: { type: 'string' },
+    open: { type: 'boolean' },
   },
 });
 
 const ws = new Workspace(resolve(values.ws ?? process.env.TC_WORKSPACE ?? 'workspace'));
 const [cmd, arg] = positionals;
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
+
+// The default browser on macOS, Windows and Linux.
+function openInBrowser(url: string) {
+  const [command, args] = process.platform === 'darwin' ? ['open', [url]] : process.platform === 'win32' ? ['cmd', ['/c', 'start', '', url]] : ['xdg-open', [url]];
+  spawn(command, args, { stdio: 'ignore', detached: true }).on('error', () => console.log(`Open ${url} in your browser.`)).unref();
+}
 
 async function entities(only?: string) {
   const ids = only ? [only] : await ws.entityIds();
@@ -183,7 +191,8 @@ switch (cmd) {
   }
   case 'serve': {
     const { serve } = await import('./server.ts');
-    await serve(ws, Number(values.port ?? 4317));
+    const url = await serve(ws, Number(values.port ?? 4317));
+    if (values.open) openInBrowser(url);
     break;
   }
   default:

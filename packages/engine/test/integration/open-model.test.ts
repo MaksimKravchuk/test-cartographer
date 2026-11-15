@@ -37,7 +37,7 @@ before(async () => {
   [ws, shop, model] = await Promise.all([copyWorkspace(), startShop(), startReplayModel()]);
   const yaml = join(ws.root, 'cartographer.yaml');
   const text = await readFile(yaml, 'utf8');
-  await writeFile(yaml, text.replace(/runtime:\n(  .*\n)+/, `runtime:\n  provider: codex\n  model: replay\n  baseUrl: ${model.url}\n  maxSteps: 60\n`));
+  await writeFile(yaml, text.replace(/runtime:\r?\n(  .*\r?\n)+/, `runtime:\n  provider: codex\n  model: replay\n  baseUrl: ${model.url}\n  maxSteps: 60\n`));
   app = createApp(new Workspace(ws.root));
 });
 after(async () => {

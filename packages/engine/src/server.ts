@@ -535,7 +535,6 @@ export function createApp(initial: Workspace) {
   );
 
   // The built GUI (apps/desktop/dist), if present.
-  const dist = resolve(dirname(fileURLToPath(import.meta.url)), '../../../apps/desktop/dist');
   if (existsSync(dist)) {
     app.use('/*', serveStatic({ root: relative(process.cwd(), dist) }));
     app.get('*', async (c) => c.html(await readFile(resolve(dist, 'index.html'), 'utf8')));
@@ -552,11 +551,16 @@ export class HttpError extends Error {
   }
 }
 
-export function serve(ws: Workspace, port: number): Promise<void> {
+const dist = resolve(dirname(fileURLToPath(import.meta.url)), '../../../apps/desktop/dist');
+
+// Resolves with the URL it serves on.
+export function serve(ws: Workspace, port: number): Promise<string> {
   return new Promise((ok) => {
     serveHttp({ fetch: createApp(ws).fetch, port, hostname: '127.0.0.1' }, (info) => {
-      console.log(`Test Cartographer engine: http://127.0.0.1:${info.port}  (workspace ${ws.root})`);
-      ok();
+      const url = `http://127.0.0.1:${info.port}`;
+      console.log(`Test Cartographer engine: ${url}  (workspace ${ws.root})`);
+      if (!existsSync(dist)) console.log('No built GUI here yet: run `pnpm start` (it builds it) or `pnpm --filter @tc/desktop build`.');
+      ok(url);
     });
   });
 }
