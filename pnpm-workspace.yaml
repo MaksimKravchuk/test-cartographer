@@ -3,6 +3,7 @@ packages:
   - apps/*
   - demo/*
   - workspace
+  - examples/*
 allowBuilds:
   electron: true
   electron-winstaller: false

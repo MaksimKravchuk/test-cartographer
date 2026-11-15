@@ -1,0 +1,357 @@
+id: 2026-11-15-12-23-26-reader-explorer
+entity: task
+agent: reader-explorer
+role: reader
+createdAt: 2026-11-15T12:29:45.208Z
+baseRevision: d2dd1149faf0
+rationale: |-
+  Explored the Task entity as a user with a Read only share, in a project shared Read only while active (project 18, tasks 16 open / 17 done / 18 in the trash) and while archived (project 43, tasks 19 open / 20 done), plus a baseline task of my own (task 21) to see which verbs the app offers when it is allowed.
+
+  What the app offers / refuses to a Read only share:
+  - Viewing works everywhere: list, table, kanban and gantt views show both open and done tasks, and the task detail view opens (e5, e6, e8, e12, e13, e24, e26). The detail view carries no action buttons at all, the "done" checkbox is disabled, the description is not editable and there is no comment box — compare the same user's own task, which gets Mark task done!, Add Labels, Assign, Move, Duplicate, Delete, comments etc. (e34).
+  - Every Task Page keyboard shortcut (t = done, Delete = delete, s = favorite) does nothing; read() shows task 16 still open afterwards (e27, e28, e29, e30).
+  - One task verb IS offered and then refused by the server: "Add to Favorites" next to each task in the list. In the active project the answer is "Forbidden" (e11); in the archived project the answer is "The project is archived and can therefore only be accessed read only. This is also true for all tasks associated with this project." (e25). The button stays unchanged in both cases.
+  - In the trash the project's deleted task is not listed ("There are no tasks in the trash.") and Empty trash is disabled (e10), but opening the deleted task by its own link still shows a page saying "This task is in the trash. owner deleted it just now." and "Deleted permanently in 30 days" (e9) — no Restore and no Delete forever.
+  - Project actions: no project settings menu is offered for the shared project, either in the sidebar or on the projects overview (e5, e36) — only "Mark this project as favorite". The Edit / Archive / Delete project dialogs are nevertheless reachable by their direct links and are fully filled in; Save and Archive answer "Forbidden" and nothing changes (e15, e16, e17, e20), and the Delete confirmation leaves the project in place (e21, e22).
+
+  I propose the favourite verb as a new action (it is a task verb the model does not name yet) with a rule about it needing more than a Read only share, a rule describing that a Read only share is offered no task actions at all, a rule for the archived-project refusal message, and a permit for the deletion notice a Read only share can still open by link. Everything the role simply cannot do is left out of the model and recorded as findings instead.
+evidence:
+  - id: e1
+    kind: screenshot
+    summary: Home page as reader
+    path: evidence/2026-11-15-12-23-26-reader-explorer/e1.png
+    url: http://localhost:3456/
+  - id: e2
+    kind: probe
+    summary: 'read 16: {"status":"open"}'
+    path: evidence/2026-11-15-12-23-26-reader-explorer/e2.json
+  - id: e3
+    kind: probe
+    summary: 'read 17: {"status":"done"}'
+    path: evidence/2026-11-15-12-23-26-reader-explorer/e3.json
+  - id: e4
+    kind: probe
+    summary: 'read 18: {"status":"trashed"}'
+    path: evidence/2026-11-15-12-23-26-reader-explorer/e4.json
+  - id: e5
+    kind: screenshot
+    summary: Project 18 as reader
+    path: evidence/2026-11-15-12-23-26-reader-explorer/e5.png
+    url: http://localhost:3456/projects/18/89
+  - id: e6
+    kind: screenshot
+    summary: Open task 16 detail as reader
+    path: evidence/2026-11-15-12-23-26-reader-explorer/e6.png
+    url: http://localhost:3456/tasks/16
+  - id: e7
+    kind: screenshot
+    summary: After clicking description area on task 16
+    path: evidence/2026-11-15-12-23-26-reader-explorer/e7.png
+    url: http://localhost:3456/tasks/16
+  - id: e8
+    kind: screenshot
+    summary: Done task 17 detail as reader
+    path: evidence/2026-11-15-12-23-26-reader-explorer/e8.png
+    url: http://localhost:3456/tasks/17
+  - id: e9
+    kind: screenshot
+    summary: Trashed task 18 opened by direct URL as reader
+    path: evidence/2026-11-15-12-23-26-reader-explorer/e9.png
+    url: http://localhost:3456/tasks/18
+  - id: e10
+    kind: screenshot
+    summary: Trash page as reader
+    path: evidence/2026-11-15-12-23-26-reader-explorer/e10.png
+    url: http://localhost:3456/trash/tasks
+  - id: e11
+    kind: screenshot
+    summary: After clicking Add to Favorites on open task 16 in read-only project
+    path: evidence/2026-11-15-12-23-26-reader-explorer/e11.png
+    url: http://localhost:3456/projects/18/89
+  - id: e12
+    kind: screenshot
+    summary: Kanban view of read-only project 18
+    path: evidence/2026-11-15-12-23-26-reader-explorer/e12.png
+    url: http://localhost:3456/projects/18/92
+  - id: e13
+    kind: screenshot
+    summary: Table view of read-only project 18
+    path: evidence/2026-11-15-12-23-26-reader-explorer/e13.png
+    url: http://localhost:3456/projects/18/91
+  - id: e14
+    kind: screenshot
+    summary: Gantt view of read-only project 18
+    path: evidence/2026-11-15-12-23-26-reader-explorer/e14.png
+    url: http://localhost:3456/projects/18/90
+  - id: e15
+    kind: screenshot
+    summary: Project 18 edit settings page opened directly as reader
+    path: evidence/2026-11-15-12-23-26-reader-explorer/e15.png
+    url: http://localhost:3456/projects/18/settings/edit
+  - id: e16
+    kind: screenshot
+    summary: Result of reader saving project title change
+    path: evidence/2026-11-15-12-23-26-reader-explorer/e16.png
+    url: http://localhost:3456/projects/18/settings/edit
+  - id: e17
+    kind: screenshot
+    summary: Archive project dialog for read-only project 18
+    path: evidence/2026-11-15-12-23-26-reader-explorer/e17.png
+    url: http://localhost:3456/projects/18/settings/archive
+  - id: e18
+    kind: screenshot
+    summary: Result of reader trying to archive project 18
+    path: evidence/2026-11-15-12-23-26-reader-explorer/e18.png
+    url: http://localhost:3456/projects/18/90
+  - id: e19
+    kind: screenshot
+    summary: Project 18 list view after reader attempted archive — checking for archived banner
+    path: evidence/2026-11-15-12-23-26-reader-explorer/e19.png
+    url: http://localhost:3456/projects/18/89
+  - id: e20
+    kind: screenshot
+    summary: Toast after reader clicks Do it! on Archive this project
+    path: evidence/2026-11-15-12-23-26-reader-explorer/e20.png
+    url: http://localhost:3456/projects/18/89
+  - id: e21
+    kind: screenshot
+    summary: Toast after reader confirms Delete project 18
+    path: evidence/2026-11-15-12-23-26-reader-explorer/e21.png
+    url: http://localhost:3456/projects/18/settings/delete
+  - id: e22
+    kind: screenshot
+    summary: Second look for toast after delete attempt
+    path: evidence/2026-11-15-12-23-26-reader-explorer/e22.png
+    url: http://localhost:3456/projects/18/settings/delete
+  - id: e23
+    kind: probe
+    summary: 'read 19: {"status":"open"}'
+    path: evidence/2026-11-15-12-23-26-reader-explorer/e23.json
+  - id: e24
+    kind: screenshot
+    summary: Archived read-only project 43 as reader
+    path: evidence/2026-11-15-12-23-26-reader-explorer/e24.png
+    url: http://localhost:3456/projects/43/189
+  - id: e25
+    kind: screenshot
+    summary: Server answer to Add to Favorites on a task in an archived read-only project
+    path: evidence/2026-11-15-12-23-26-reader-explorer/e25.png
+    url: http://localhost:3456/projects/43/189
+  - id: e26
+    kind: screenshot
+    summary: Task 19 detail (open task in archived read-only project)
+    path: evidence/2026-11-15-12-23-26-reader-explorer/e26.png
+    url: http://localhost:3456/tasks/19
+  - id: e27
+    kind: screenshot
+    summary: Keyboard shortcuts dialog on task detail page
+    path: evidence/2026-11-15-12-23-26-reader-explorer/e27.png
+    url: http://localhost:3456/tasks/19
+  - id: e28
+    kind: screenshot
+    summary: Pressed 't' (mark done) on open task 16 as reader
+    path: evidence/2026-11-15-12-23-26-reader-explorer/e28.png
+    url: http://localhost:3456/tasks/16
+  - id: e29
+    kind: screenshot
+    summary: After pressing Delete and 's' on task 16 as reader
+    path: evidence/2026-11-15-12-23-26-reader-explorer/e29.png
+    url: http://localhost:3456/tasks/16
+  - id: e30
+    kind: probe
+    summary: 'read 16: {"status":"open"}'
+    path: evidence/2026-11-15-12-23-26-reader-explorer/e30.json
+  - id: e31
+    kind: screenshot
+    summary: Quick action bar opened
+    path: evidence/2026-11-15-12-23-26-reader-explorer/e31.png
+    url: http://localhost:3456/tasks/16
+  - id: e32
+    kind: screenshot
+    summary: Quick actions New task mode with text typed
+    path: evidence/2026-11-15-12-23-26-reader-explorer/e32.png
+    url: http://localhost:3456/tasks/16
+  - id: e33
+    kind: screenshot
+    summary: State after filling quick-add with project magic prefix
+    path: evidence/2026-11-15-12-23-26-reader-explorer/e33.png
+    url: http://localhost:3456/tasks/16
+  - id: e34
+    kind: screenshot
+    summary: Server answer to reader creating a task in the read-only project via quick actions
+    path: evidence/2026-11-15-12-23-26-reader-explorer/e34.png
+    url: http://localhost:3456/tasks/21
+  - id: e35
+    kind: screenshot
+    summary: Move dialog on reader's own task — searching for the read-only project
+    path: evidence/2026-11-15-12-23-26-reader-explorer/e35.png
+    url: http://localhost:3456/tasks/21
+  - id: e36
+    kind: screenshot
+    summary: Projects overview page as reader (looking for per-project action menus)
+    path: evidence/2026-11-15-12-23-26-reader-explorer/e36.png
+    url: http://localhost:3456/projects
+  - id: e37
+    kind: screenshot
+    summary: After clicking Mark this project as favorite on read-only project 18
+    path: evidence/2026-11-15-12-23-26-reader-explorer/e37.png
+    url: http://localhost:3456/projects
+ops:
+  - op: add
+    kind: action
+    value:
+      id: favorite
+      title: Add the task to your favorites
+      kind: command
+      run: task.favorite
+    evidence:
+      - e11
+      - e25
+      - e34
+  - op: add
+    kind: rule
+    value:
+      id: favorite_needs_more_than_read_only
+      title: Favouriting a task is offered to a Read only share but refused
+      text: Every task in a project list carries an "Add to Favorites" button, also for someone whose share on the project is Read only. Pressing it answers with the error "Forbidden" and the task is not added to the favorites.
+      action: favorite
+      requires: []
+    evidence:
+      - e11
+      - e5
+  - op: add
+    kind: rule
+    value:
+      id: read_only_offers_no_task_actions
+      title: A Read only share is offered no task actions
+      text: "On a task in a project shared Read only nothing can be acted on: the done checkbox in the list, table and kanban views is disabled, the task detail view shows no action buttons (no Mark task done, Assign, Labels, Move, Duplicate, Delete), the title and description cannot be edited, there is no comment box, and the keyboard shortcuts of the task page (mark done, delete, favourite) do nothing. The same user's own task shows the full set of those buttons."
+      action: read
+      requires: []
+    evidence:
+      - e6
+      - e8
+      - e13
+      - e28
+      - e29
+      - e30
+      - e34
+  - op: add
+    kind: rule
+    value:
+      id: archived_project_refuses_task_changes_with_message
+      title: Changing a task of an archived project is refused with an archived-project message
+      text: A project that is archived shows the notice "This project is archived. It is not possible to create new or edit tasks for it." above its task list, and an attempt to change one of its tasks is answered with "The project is archived and can therefore only be accessed read only. This is also true for all tasks associated with this project." Its tasks stay readable.
+      action: update
+      requires: []
+    evidence:
+      - e24
+      - e25
+      - e26
+  - op: add
+    kind: permit
+    value:
+      id: view_deleted_task_notice
+      title: Open a deleted task by its link and see the deletion notice
+      action: view_trash
+      by:
+        - reader
+      states:
+        - in_trash
+      effects:
+        - description: The page says the task is in the trash, who deleted it and how long ago, and that it will be deleted permanently in 30 days. No title, description, Restore or Delete forever is shown.
+    evidence:
+      - e9
+      - e4
+findings:
+  - kind: confirmation
+    note: 'A Read only share can open and read a task in both the open and the done state: the task appears in the list, table, kanban and gantt views of the shared project and its detail view opens with title, number, breadcrumb, Done badge and creation/completion times. This matches the existing permit "read" for the reader.'
+    refs:
+      - read
+      - task_access_follows_project
+    evidence:
+      - e5
+      - e6
+      - e8
+      - e13
+  - kind: contradiction
+    note: 'The web app offers a task verb to a Read only share that the server then refuses: every task row has an "Add to Favorites" button. In the active shared project the server answers "Forbidden" (shown twice), in the archived shared project it answers "The project is archived and can therefore only be accessed read only...". The model has no favourite action at all, so this verb (and its refusal for a Read only share) is not described anywhere; I proposed the action and a rule, a person should decide whether offering the button is intended.'
+    refs:
+      - read_only_cannot_change
+    evidence:
+      - e11
+      - e25
+    searched:
+      - task detail view of tasks 16/17/19
+      - list, table, kanban, gantt views of projects 18 and 43
+      - Task Page keyboard shortcuts
+  - kind: question
+    note: A Read only share cannot see the project's deleted task in the trash (the trash says "There are no tasks in the trash." and Empty trash is disabled), yet opening that same deleted task by its own link still shows a page telling who deleted it, how long ago, and that it will be deleted permanently in 30 days. Is this leak of the deletion notice to a Read only share intended? I proposed a separate permit for it rather than widening the existing view_trash permit, because the task genuinely is not listed in the trash.
+    refs:
+      - view_trash
+      - restore_needs_write
+    evidence:
+      - e9
+      - e10
+      - e4
+  - kind: contradiction
+    note: 'Project actions a Read only share must not have are hidden from the menus but still reachable by their direct links, with the forms fully enabled: /projects/<id>/settings/edit opens the Edit This Project dialog with an editable title and Save (Save answers "Forbidden", the title stays), /projects/<id>/settings/archive opens the archive confirmation (Do it! answers "Forbidden", the project stays active), /projects/<id>/settings/delete opens the delete confirmation (after Do it! the dialog stays open and the project remains in the sidebar). This is about the related Project entity, so I did not propose model operations for it.'
+    refs:
+      - project
+    evidence:
+      - e15
+      - e16
+      - e17
+      - e20
+      - e21
+      - e22
+  - kind: confirmation
+    note: "No project action is offered to a Read only share through the interface itself: the shared project has no \"Open project settings menu\" button in the sidebar nor on the projects overview (only \"Mark this project as favorite\"), while the user's own Inbox has one; the shared project's list view has no \"Add a task\" field and its kanban view has no bucket or card creation controls."
+    evidence:
+      - e5
+      - e12
+      - e36
+  - kind: question
+    note: 'The model relates a Task to a project that "requires: active", but a Read only share can read tasks of an archived project without any limitation (task list and detail view of project 43 and tasks 19/20). Should the Task model describe the archived-project case as a variant/condition rather than assume an active project?'
+    refs:
+      - task_access_follows_project
+    evidence:
+      - e24
+      - e26
+      - e23
+  - kind: question
+    note: The Task Page keyboard shortcuts documented in the app's own Keyboard Shortcuts dialog (t mark done / undone, Delete delete this task, s favourite, m move, a assign, e edit description) produce no reaction at all for a Read only share — no change and no error message — so no server answer could be recorded for those verbs; read() of task 16 afterwards still shows it open. It cannot be told from the interface whether the request was never sent or silently refused.
+    evidence:
+      - e27
+      - e28
+      - e29
+      - e30
+  - kind: question
+    note: 'The server answer to a Read only share confirming "Delete this project" could not be captured: after Do it! the dialog stayed open and the project remained listed, but the toast had already disappeared by the time of the next snapshot. Edit and Archive under the same conditions both answered "Forbidden".'
+    evidence:
+      - e21
+      - e22
+      - e16
+      - e20
+status: decided
+decisions:
+  - op: 0
+    verdict: accept
+  - op: 1
+    verdict: observe
+  - op: 2
+    verdict: accept
+  - op: 3
+    verdict: accept
+  - op: 4
+    verdict: observe
+    note: Looks like a leak of who deleted it; not a requirement
+decidedAt: 2026-11-15T12:35:45.487Z
+resolutions:
+  - finding: 1
+    verdict: bug
+    note: Add to Favorites is offered to a Read only share and refused with Forbidden.
+    at: 2026-11-15T12:50:05.094Z
+  - finding: 3
+    verdict: bug
+    note: Edit/Archive/Delete dialogs open by URL for a Read only share; the server refuses with 403, so only a UI defect.
+    at: 2026-11-15T12:50:05.122Z

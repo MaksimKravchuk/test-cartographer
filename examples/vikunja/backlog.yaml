@@ -1,0 +1,401 @@
+epics:
+  - id: projects_and_tasks
+    title: Projects and tasks
+    description: Creating, editing and organising projects and the tasks inside them.
+    status: confirmed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding
+      evidence:
+        - e3
+      sources:
+        - help-projects
+  - id: sharing
+    title: Sharing and permissions
+    description: Giving users, teams and link shares access to a project at Read, Read & Write or Admin level.
+    status: confirmed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding
+      evidence:
+        - e7
+      sources:
+        - help-permissions
+  - id: trash
+    title: Trash and recovery
+    description: Deleted tasks and projects stay in the trash for 30 days and can be restored or deleted forever.
+    status: confirmed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding
+      evidence:
+        - e14
+      sources:
+        - help-trash
+features:
+  - id: project_lifecycle
+    title: Project lifecycle
+    description: Create a project, change its settings, archive and unarchive it, duplicate it.
+    epic: projects_and_tasks
+    actions:
+      - project.create
+      - project.update
+      - project.archive
+      - project.unarchive
+      - project.duplicate
+    status: confirmed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding
+      evidence:
+        - e3
+        - e18
+      sources:
+        - help-projects
+  - id: project_hierarchy
+    title: Project hierarchy
+    description: Place a project under another project or move it back to the top level.
+    epic: projects_and_tasks
+    actions:
+      - project.move
+    status: confirmed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding
+      evidence:
+        - e3
+      sources:
+        - help-projects
+  - id: task_lifecycle
+    title: Task lifecycle
+    description: Create a task, edit it, mark it done and reopen it, move it to another project, duplicate it.
+    epic: projects_and_tasks
+    actions:
+      - task.create
+      - task.update
+      - task.mark_done
+      - task.reopen
+      - task.move
+      - task.duplicate
+    status: confirmed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding
+      evidence:
+        - e4
+        - e17
+      sources:
+        - help-tasks
+  - id: task_assignees
+    title: Task assignees
+    description: Assign and un-assign the users responsible for a task.
+    epic: projects_and_tasks
+    actions:
+      - task.assign
+      - task.unassign
+    status: confirmed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding
+      evidence:
+        - e19
+      sources:
+        - help-tasks
+  - id: project_sharing
+    title: Project sharing
+    description: Share a project with a user, a team or a link, and change or revoke what they may do.
+    epic: sharing
+    actions:
+      - project.share_user
+      - project.share_team
+      - project.change_share_permission
+      - project.create_link_share
+      - project.delete_link_share
+      - project.view_shares
+    status: confirmed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-12-38-13-review
+      evidence:
+        - e96
+        - e3
+      sources:
+        - help-sharing
+  - id: trash_and_restore
+    title: Trash and restore
+    description: Move projects and tasks to the trash, restore them within 30 days, or delete them forever.
+    epic: trash
+    actions:
+      - project.trash
+      - project.restore
+      - project.delete_permanently
+      - project.purge_expired
+      - project.view_trash
+      - task.trash
+      - task.restore
+      - task.delete_permanently
+      - task.purge_expired
+      - task.view_trash
+    status: confirmed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-12-38-13-review
+      evidence:
+        - e95
+        - e24
+      sources:
+        - help-trash
+  - id: favorites
+    title: Favorites
+    description: Mark a project or a task as a favorite so it shows up at the top of the sidebar.
+    epic: projects_and_tasks
+    actions:
+      - project.favorite
+      - task.favorite
+    status: confirmed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-12-38-13-review
+      evidence:
+        - e16
+        - e100
+      sources:
+        - help-projects
+        - help-tasks
+stories:
+  - id: delete_project_needs_admin
+    title: Only a project admin can move a project to the trash
+    text: As someone sharing a project, I want deletion restricted to admins so that a writer cannot remove the whole project.
+    acceptance:
+      - A user with Admin permission on the project can delete it and the project, its sub-projects and their tasks move to the trash
+      - A user with Read & Write permission is not able to delete the project
+      - A user with Read only permission is not able to delete the project
+    feature: trash_and_restore
+    epic: trash
+    covers:
+      - transition:project.trash
+      - rule:project.delete_needs_admin
+      - rule:project.delete_takes_sub_projects
+    status: confirmed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding
+      evidence:
+        - e15
+      sources:
+        - help-trash
+  - id: reader_cannot_change_anything
+    title: A Read only share can view but not change
+    text: As a project owner, I want a Read only share to be able to look at everything without being able to change it.
+    acceptance:
+      - A user with Read only permission can open the project and its tasks
+      - A user with Read only permission cannot change the project settings
+      - A user with Read only permission cannot create, update or delete a task in the project
+    feature: project_sharing
+    epic: sharing
+    covers:
+      - rule:project.read_only_cannot_change
+      - rule:task.read_only_cannot_change
+      - permit:project.read
+      - permit:task.read
+    status: confirmed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding
+      evidence:
+        - e16
+      sources:
+        - help-permissions
+  - id: task_done_toggle
+    title: Mark a task done and reopen it
+    text: As a user with Read & Write permission, I want to mark a task as completed and undo that.
+    acceptance:
+      - Pressing Done on an open task marks it as completed
+      - Pressing Done again on a completed task reopens it
+    feature: task_lifecycle
+    epic: projects_and_tasks
+    covers:
+      - transition:task.mark_done
+      - transition:task.reopen
+    status: confirmed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding
+      evidence:
+        - e17
+      sources:
+        - help-tasks
+  - id: archived_project_read_only
+    title: An archived project is read-only
+    text: As a project admin, I want to archive a finished project so that nobody changes it any more, and be able to bring it back.
+    acceptance:
+      - Archiving a project hides it from the main working views
+      - No changes can be made in an archived project
+      - The project can be unarchived from the same menu and becomes editable again
+    feature: project_lifecycle
+    epic: projects_and_tasks
+    covers:
+      - transition:project.archive
+      - transition:project.unarchive
+      - rule:project.archived_is_read_only
+    status: confirmed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding
+      evidence:
+        - e18
+      sources:
+        - help-projects
+  - id: task_trash_and_restore
+    title: A deleted task can be restored for 30 days
+    text: As a user with Read & Write permission, I want a deleted task to be recoverable so that an accidental delete is not final.
+    acceptance:
+      - Deleting a task moves it to the trash and the message offers Undo
+      - A user with Read & Write permission sees the task in the trash and can restore it into its project
+      - After 30 days in the trash the task is gone permanently
+    feature: trash_and_restore
+    epic: trash
+    covers:
+      - transition:task.trash_open
+      - transition:task.restore
+      - transition:task.purge_expired
+      - rule:task.delete_needs_write
+      - rule:task.restore_needs_write
+    status: confirmed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding
+      evidence:
+        - e21
+        - e14
+      sources:
+        - help-trash
+  - id: permanent_delete_needs_admin
+    title: Deleting forever is for admins only
+    text: As a project admin, I want only admins to be able to empty the trash so that a writer cannot destroy recoverable items.
+    acceptance:
+      - A user with Admin permission can delete a trashed task or project forever
+      - A user with Read & Write permission who can restore a task is not shown the Delete forever button
+      - Emptying the trash only removes items the user is allowed to delete permanently
+    feature: trash_and_restore
+    epic: trash
+    covers:
+      - transition:task.delete_permanently
+      - transition:project.delete_permanently
+      - rule:task.permanent_delete_needs_admin
+      - rule:project.permanent_delete_needs_admin
+    status: confirmed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding
+      evidence:
+        - e20
+      sources:
+        - help-trash
+  - id: assignee_needs_project_access
+    title: Only users with access can be assigned
+    text: As a user with Read & Write permission, I want to assign the people responsible for a task.
+    acceptance:
+      - A user who already has access to the project can be assigned to a task
+      - A user without access to the project cannot be assigned to a task
+    feature: task_assignees
+    epic: projects_and_tasks
+    covers:
+      - permit:task.assign
+      - permit:task.unassign
+      - rule:task.assignee_needs_project_access
+    status: confirmed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding
+      evidence:
+        - e19
+      sources:
+        - help-tasks
+  - id: link_share_has_no_trash
+    title: Link share recipients have no trash
+    text: As a project owner, I want someone using a link share to be unable to reach the trash.
+    acceptance:
+      - Someone using a link share has no trash in the sidebar and cannot open it
+      - Someone using a link share cannot delete a trashed task or project forever
+    feature: trash_and_restore
+    epic: trash
+    covers:
+      - rule:project.link_share_has_no_trash
+      - rule:task.permanent_delete_needs_admin
+    status: confirmed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding
+      evidence:
+        - e10
+      sources:
+        - help-trash
+  - id: done_bucket_toggles_done
+    title: Moving a task into the done bucket marks it done
+    text: As a user with Read & Write permission, I want dragging a task into the done bucket to mark it as completed, and dragging it out to reopen it.
+    acceptance:
+      - Moving a task into the done bucket of a Kanban view marks the task as done
+      - Moving it back out of the done bucket marks the task as not done
+      - The bucket picker in the task detail view has the same effect as dragging the task on the board
+    feature: task_lifecycle
+    epic: projects_and_tasks
+    covers:
+      - rule:task.done_bucket_marks_done
+      - transition:task.mark_done
+      - transition:task.reopen
+    status: confirmed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-12-38-13-review
+      evidence:
+        - e47
+        - e76
+      sources:
+        - help-tasks
+        - vikunja-models
+  - id: empty_trash_scope
+    title: Emptying the trash only removes what you may remove
+    text: As a project admin, I want Empty trash to be limited to the tab I am on and to the items I am allowed to delete forever.
+    acceptance:
+      - Emptying the Tasks tab does not touch the Projects tab
+      - The dialog says how many items will be deleted and, when other people moved items to the trash, offers a checked option to also delete those
+      - Unchecking that option deletes only the items the user moved to the trash themselves
+      - Items the user is not allowed to delete permanently are not removed
+    feature: trash_and_restore
+    epic: trash
+    covers:
+      - rule:task.empty_trash_scope
+      - rule:task.permanent_delete_needs_admin
+      - rule:project.permanent_delete_needs_admin
+    status: confirmed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-12-38-13-review
+      evidence:
+        - e38
+        - e39
+        - e83
+      sources:
+        - help-trash
+        - vikunja-models

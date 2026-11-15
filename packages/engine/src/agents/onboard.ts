@@ -4,7 +4,7 @@
 // never touches a running app: everything it knows comes from what was
 // uploaded, and every operation must cite an exact quote from it.
 import { z } from 'zod';
-import { checkRoles, Finding, isFileSource, Op, Proposal, redactFields, resolveRuntime, type AgentSpec, type Evidence, type Workspace } from '@tc/model';
+import { checkRoles, Finding, isFileSource, Op, Proposal, type Provenance, redactFields, resolveRuntime, type AgentSpec, type Evidence, type Workspace } from '@tc/model';
 import { readFile, stat } from 'node:fs/promises';
 import { listOf, runAgent, type Tool } from './runtime.ts';
 import { McpPool } from '../mcp.ts';
@@ -48,7 +48,7 @@ function findLines(source: string, quote: string): { from: number; to: number } 
 const MODE_GOAL = {
   onboard: 'read everything known about the product — docs, tracker exports, contracts, notes, the code, systems behind MCP — and propose the SOAR model plus the backlog.',
   review: `review the model a person already has against everything known about the product. For every subject, object,
-action and rule in model(), look for confirmation or contradiction in the sources; propose what the model is missing.
+action and rule in model({ entity }), look for confirmation or contradiction in the sources; propose what the model is missing.
 Report each disagreement as a finding (kind=contradiction) whose refs name the element ("rule:<entity>.<id>",
 "action:<entity>.<id>") and whose evidence quotes every side; say in the note which side wins by priority and why.
 An element with status "planned" is required but not built yet: code that lacks it is not a contradiction.
@@ -79,7 +79,7 @@ Rules:
 - Call sources() first and read what's relevant from every source before proposing anything. In a code folder,
   start from the file list and read what implements the model's actions (routes, handlers, domain logic); skip tests,
   generated files and assets.
-- Call model() first and don't propose what it already has — use op=update for a field that changed, never
+- Call model() first, then model({ entity }) for each entity it lists, and don't propose what it already has — use op=update for a field that changed, never
   op=add for something that already exists.
 - Name things with the words in model().glossary: a synonym there is the same thing as its term, not a new one.
 - Every operation needs at least one quote: call quote({ source, text, path? }) with the exact text (path: the
@@ -278,18 +278,33 @@ export async function onboard(ws: Workspace, agentId: string | undefined, opts: 
     },
     {
       name: 'model',
-      description: 'The current model: project roles/interfaces, every entity, and the backlog. Secret field values show as their {{…}} reference.',
-      input: z.object({}),
-      run: async () =>
-        JSON.stringify({
+      description:
+        'The current model: project roles/interfaces, an index of the entities, the backlog and open questions; model({ entity }) gives one entity in full. ' +
+        'Secret field values show as their {{…}} reference.',
+      input: z.object({ entity: z.string().optional() }),
+      run: async ({ entity }) => {
+        // Provenance is kept to who added it and which sources back it: proposal and evidence ids are most of an entity's size.
+        const compact = (v: unknown): unknown =>
+          Array.isArray(v) ? v.map(compact)
+          : v && typeof v === 'object'
+            ? Object.fromEntries(Object.entries(v).map(([k, x]) => [k, k === 'provenance' ? { source: (x as Provenance).source, sources: (x as Provenance).sources, seen: (x as Provenance).seen } : compact(x)]))
+            : v;
+        const entities = Object.fromEntries(redactFields('entities', Object.values(await ws.catalog()), process.env).map((e) => [e.id, compact(e)]));
+        if (entity) {
+          if (!entities[entity]) throw new Error(`No entity “${entity}”: there are ${Object.keys(entities).join(', ') || 'none'}`);
+          return JSON.stringify(entities[entity]);
+        }
+        // One call per entity keeps every result readable: the whole Vikunja model was 68 KB and the runtime cut it to a preview.
+        return JSON.stringify({
           project: { roles: redactFields('roles', project.roles, process.env), interfaces: project.interfaces, glossary: project.glossary },
-          entities: Object.fromEntries(redactFields('entities', Object.values(await ws.catalog()), process.env).map((e) => [e.id, e])),
+          entities: Object.values(entities).map((e: any) => ({ id: e.id, title: e.title, description: e.description, states: e.states.map((x: any) => x.id), actions: e.actions.map((x: any) => x.id), rules: e.rules.length })),
           backlog: baseBacklog,
           // What earlier runs left open: questions and gaps nobody has settled yet.
           openQuestions: (await ws.proposals()).flatMap((p) =>
             p.findings.flatMap((f, i) => ((f.kind === 'gap' || f.kind === 'question') && !p.resolutions.some((r) => r.finding === i) ? [{ kind: f.kind, refs: f.refs, note: f.note }] : [])),
           ),
-        }),
+        });
+      },
     },
     {
       name: 'quote',

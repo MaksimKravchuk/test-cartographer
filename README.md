@@ -39,7 +39,7 @@ Engine CLI — `pnpm tc <command>`:
 
 ![The knowledge loop on the demo shop: sources, a review by an agent, disagreements, the specification and the tests](docs/media/loop.gif)
 
-New here? The [quickstart](docs/quickstart.md) walks this loop on the bundled demo shop in about 5 minutes, with or without an agent.
+New here? The [quickstart](docs/quickstart.md) walks this loop on the bundled demo shop in about 5 minutes, with or without an agent. On a real product, the [Vikunja case study](docs/case-studies/vikunja.md) runs it on an open-source to-do app: from five help pages to 217 Playwright tests and 9 findings in the product.
 
 The app is built around one loop. A person and agents keep adding to the same model of the product until it describes the system well enough to test it:
 

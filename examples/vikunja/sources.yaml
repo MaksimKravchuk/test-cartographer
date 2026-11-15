@@ -1,0 +1,45 @@
+usePriority: true
+sources:
+  - id: help-permissions
+    title: Vikunja help — Permissions
+    kind: doc
+    file: permissions.mdx
+    priority: 1
+    enabled: true
+    addedAt: 2026-11-15T11:50:00.000Z
+  - id: help-sharing
+    title: Vikunja help — Sharing & Teams
+    kind: doc
+    file: sharing-and-teams.mdx
+    priority: 1
+    enabled: true
+    addedAt: 2026-11-15T11:50:00.000Z
+  - id: help-projects
+    title: Vikunja help — Projects
+    kind: doc
+    file: projects.mdx
+    priority: 1
+    enabled: true
+    addedAt: 2026-11-15T11:50:00.000Z
+  - id: help-tasks
+    title: Vikunja help — Tasks
+    kind: doc
+    file: tasks.mdx
+    priority: 1
+    enabled: true
+    addedAt: 2026-11-15T11:50:00.000Z
+  - id: help-trash
+    title: Vikunja help — Trash
+    kind: doc
+    file: trash.mdx
+    priority: 1
+    enabled: true
+    addedAt: 2026-11-15T11:50:00.000Z
+  # Only the permission and domain layer: pkg/models holds every CanRead/CanUpdate/CanDelete check.
+  - id: vikunja-models
+    title: Vikunja code — pkg/models (v2.8.0)
+    kind: code
+    path: .testbed/vikunja/pkg/models
+    priority: 2
+    enabled: true
+    addedAt: 2026-11-15T11:50:00.000Z
