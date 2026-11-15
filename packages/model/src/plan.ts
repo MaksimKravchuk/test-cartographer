@@ -134,7 +134,8 @@ function permitScenario(entity: Entity, variant: string, p: Permit, role: string
 // type (a person's verdict on a proposal), and index.ts re-exports both
 // modules with `export *`; two exports named `Decision` would collide.
 export type AccessDecision = 'allowed' | 'undecided' | 'denied';
-export type AccessCell = { role: string; action: string; state: string; decision: AccessDecision; by: string | null };
+// `attributes`: the parameters the action changes that the role may not change (set only when there are some).
+export type AccessCell = { role: string; action: string; state: string; decision: AccessDecision; by: string | null; attributes?: string[] };
 
 // Not decided yet, or required but not built: neither is allowed nor denied in a test.
 const pendingStatus = new Set(['observed', 'proposed', 'planned']);
@@ -144,7 +145,16 @@ function decideCell(entity: Entity, variant: string, role: string, action: strin
   const matchesP = (p: Permit) => p.action === action && p.by.includes(role) && appliesTo(p, variant) && (p.states ? p.states.includes(state) : true);
   const decided = entity.transitions.find((t) => isActive(t) && matchesT(t)) ?? entity.permits.find((p) => isActive(p) && matchesP(p));
   if (decided) return { role, action, state, decision: 'allowed', by: decided.id };
+  // Parameter rights: a role that may not change what the action changes must be refused,
+  // even while a permit for it is only proposed. One that may change all of it isn't denied
+  // just because no permit says in which states yet: that stays for a person to decide.
+  const changed = (entity.actions.find((a) => a.id === action)?.changes ?? [])
+    .map((id) => entity.attributes.find((a) => a.id === id))
+    .filter((a) => a && isActive(a) && a.by !== undefined);
+  const forbidden = changed.filter((a) => !a!.by!.includes(role)).map((a) => a!.id);
+  if (forbidden.length) return { role, action, state, decision: 'denied', by: null, attributes: forbidden };
   const pending =
+    changed.length > 0 ||
     entity.transitions.some((t) => pendingStatus.has(t.status) && matchesT(t)) ||
     entity.permits.some((p) => pendingStatus.has(p.status) && matchesP(p));
   return { role, action, state, decision: pending ? 'undecided' : 'denied', by: null };
@@ -163,6 +173,9 @@ export function accessMatrix(entity: Entity, project: Project, variant: string):
   return cells;
 }
 
+const mayNotChange = (entity: Entity, cell: AccessCell) =>
+  cell.attributes ? ` (may not change ${cell.attributes.map((id) => entity.attributes.find((a) => a.id === id)?.title ?? id).join(', ')})` : '';
+
 function denyScenario(entity: Entity, variant: string, cell: AccessCell, project: Project, ctx: ArrangeContext, rules: string[]): Scenario {
   const action = entity.actions.find((a) => a.id === cell.action)!;
   const state = cell.state === NEW ? undefined : entity.states.find((s) => s.id === cell.state);
@@ -173,7 +186,7 @@ function denyScenario(entity: Entity, variant: string, cell: AccessCell, project
     kind: 'deny' as const,
     entity: entity.id,
     variant,
-    title: `Denied: ${roleTitle(project, cell.role)} can't “${action.title}” in ${stateTitle}`,
+    title: `Denied: ${roleTitle(project, cell.role)} can't “${action.title}” in ${stateTitle}${mayNotChange(entity, cell)}`,
     target: `${cell.action}@${cell.state}`,
     role: cell.role,
     rules,

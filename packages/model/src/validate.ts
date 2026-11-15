@@ -83,6 +83,9 @@ export function validateEntity(entity: Entity, project: Project, actions?: Set<s
     const p = `attributes.${a.id}`;
     for (const r of a.by ?? []) if (!roles.has(r)) err(p, `Unknown subject “${r}”`);
     if (a.type === 'enum' && !a.values?.length) warn(p, 'An enum without values: list what the field can hold');
+    // Rights become tests only through an action that changes the parameter and can be run.
+    if (a.status === 'confirmed' && a.by && !entity.actions.some((x) => x.run && x.changes?.includes(a.id)))
+      warn(p, `No action that can be run changes ${a.title}, so who may change it isn't tested`);
   }
   // A state probe on an enum attribute must use one of its values.
   for (const s of entity.states)
