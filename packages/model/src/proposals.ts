@@ -14,6 +14,8 @@ import {
   type ElementKind,
   type Op,
   type Proposal,
+  type Finding,
+  type Term,
 } from './schema.ts';
 
 export type Conflict = { op: number; message: string };
@@ -272,4 +274,30 @@ export function applyProjectDecisions(
     }
   }
   return { project: Project.parse(project), backlog: Backlog.parse(backlog), created };
+}
+
+// The glossary with `synonym` filed under `term`: joins the entry either word
+// already has, merging in a second entry when each word has its own.
+export function addSynonym(glossary: Term[], term: string, synonym: string): Term[] {
+  const key = (w: string) => w.trim().toLowerCase();
+  const has = (t: Term, w: string) => [t.term, ...t.synonyms].some((x) => key(x) === key(w));
+  const home = glossary.find((t) => has(t, term)) ?? glossary.find((t) => has(t, synonym));
+  if (!home) return [...glossary, { term: term.trim(), definition: '', synonyms: [synonym.trim()] }];
+  const other = glossary.find((t) => t !== home && has(t, synonym));
+  const merged = { ...home, synonyms: [...home.synonyms] };
+  for (const w of [term, synonym, ...(other ? [other.term, ...other.synonyms] : [])]) if (!has(merged, w)) merged.synonyms.push(w.trim());
+  return glossary.flatMap((t) => (t === home ? [merged] : t === other ? [] : [t]));
+}
+
+// A question's synonym pair: the one the agent gave, or, for questions asked
+// before agents could give one, read from the wording ("Is Location the same
+// thing as Place?", "Should 'List' go in the glossary as a synonym of Project?").
+export function findingSynonym(f: Pick<Finding, 'kind' | 'note' | 'synonym'>): Finding['synonym'] {
+  if (f.synonym || f.kind !== 'question') return f.synonym;
+  const w = `['"‘“]?([\\w][\\w -]*?)['"’”]?`;
+  const same = new RegExp(`\\bIs (?:an? |the )?${w} the same(?: thing)? as (?:an? |the )?${w}\\?`, 'i').exec(f.note);
+  if (same) return { term: same[1], synonym: same[2] };
+  // Unquoted, the synonym is the one word before "go in the glossary": "Should cart go …" is “cart”, not “Should cart”.
+  const syn = new RegExp(`(?:['"‘“]([\\w][\\w -]*?)['"’”]|\\b([\\w-]+)) (?:go )?in(?:to)? the glossary as (?:a )?synonym (?:of|for) (?:an? |the )?${w}[?.]`, 'i').exec(f.note);
+  return syn ? { term: syn[3], synonym: syn[1] ?? syn[2] } : undefined;
 }

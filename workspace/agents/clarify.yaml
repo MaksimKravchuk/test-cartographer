@@ -1,0 +1,29 @@
+# Deterministic script for "Need more context" (provider=scripted): digs into
+# a question about cancelling and hands back two single-topic ones with the
+# requirement quoted, in place of the bundled original.
+steps:
+  - say: Reading the current model and the sources.
+    call: model
+  - call: sources
+  - say: What the requirement says about cancelling.
+    call: quote
+    input:
+      source: product-overview
+      text: A buyer can cancel an order only until it has been paid.
+  - call: propose
+    input:
+      rationale: The original asked two things at once; the product overview answers part of it.
+      entities:
+        order:
+          findings:
+            - kind: confirmation
+              note: The product overview says a buyer can cancel an order only until it has been paid.
+              refs: ["action:order.cancel"]
+              evidence: [e1]
+            - kind: question
+              note: >-
+                The product overview says a buyer can cancel only until payment (quoted). After payment, who
+                may still cancel the order?
+              refs: ["action:order.cancel"]
+              evidence: [e1]
+              options: [Nobody, Support only, The buyer, with a refund]

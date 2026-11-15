@@ -71,7 +71,7 @@ await hold(2);
 await click(page.getByRole('region', { name: 'Actions' }).getByRole('button', { name: /^Cancel/ }).first());
 await caption('Each rule comes with quotes: Requirement · Observed · Planned · Strike out');
 // The agent's rule on Cancel, quoted from the product overview.
-const accept = page.getByRole('region', { name: 'Rules' }).getByRole('button', { name: 'Requirement' }).first();
+const accept = page.getByRole('region', { name: 'Rules' }).getByRole('button', { name: 'Accept as requirement' }).first();
 await accept.scrollIntoViewIfNeeded();
 await hold(3);
 await click(accept);

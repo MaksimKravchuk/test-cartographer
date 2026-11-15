@@ -19,6 +19,16 @@ test('the overview shows the demo project and its entities', async ({ page }) =>
   await expect(view(page, 'Map')).toContainText('3');
 });
 
+test('the glossary is under Model and lists the project words', async ({ page }) => {
+  await page.goto('/');
+  await place(page, 'Model').click();
+  await view(page, 'Glossary').click();
+  await expect(page.getByRole('heading', { name: 'Glossary', level: 1 })).toBeVisible();
+  await expect(page.getByLabel('Term').first()).toHaveValue('Order');
+  await expect(page.getByLabel('Also called').first()).toHaveValue('purchase');
+  if (process.env.TC_SHOT3) await page.screenshot({ path: process.env.TC_SHOT3, fullPage: true });
+});
+
 test('an entity opens with its map, scenarios and coverage', async ({ page }) => {
   await openOverview(page);
   await page.getByRole('button', { name: /^Order/ }).first().click();
@@ -88,7 +98,7 @@ test('a review shows by source which one contradicts the model', async ({ page }
   // The agent's rule sits on the action itself, with its quote and the verdicts in words.
   const rules = page.getByRole('region', { name: 'Rules' });
   await expect(rules.getByText('proposed').first()).toBeVisible();
-  await expect(rules.getByRole('button', { name: 'Requirement' }).first()).toBeEnabled();
+  await expect(rules.getByRole('button', { name: 'Accept as requirement' }).first()).toBeEnabled();
   if (process.env.TC_SHOT2) await page.screenshot({ path: process.env.TC_SHOT2, fullPage: true });
 });
 

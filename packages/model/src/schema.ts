@@ -176,7 +176,7 @@ export type AgentSpec = z.infer<typeof AgentSpec>;
 // ref: what it is in the model, as `entity` or `kind:entity.id` (e.g. `action:order.cancel`).
 export const Term = z.object({
   term: z.string().min(1),
-  definition: z.string().min(1),
+  definition: z.string().default(''),
   synonyms: z.array(z.string()).default([]),
   ref: z.string().optional(),
 });
@@ -605,12 +605,17 @@ export type Op = z.infer<typeof Op>;
 
 export const Finding = z.object({
   // confirmation — a source says the same as the model: it fills the review matrix, it isn't a to-do.
-  kind: z.enum(['gap', 'contradiction', 'question', 'confirmation']),
+  // source — a source couldn't be read, or looks incomplete: a problem with the inputs, not the product.
+  kind: z.enum(['gap', 'contradiction', 'question', 'confirmation', 'source']),
   note: z.string(),
   refs: z.array(z.string()).default([]),
   evidence: z.array(z.string()).default([]),
   // For a "not found" gap: the sources searched without finding it.
   searched: z.array(z.string()).optional(),
+  // For a question whether two names mean the same thing: answering yes adds the synonym to the glossary.
+  synonym: z.object({ term: z.string().min(1), synonym: z.string().min(1) }).optional(),
+  // A question's own answers, when yes/no doesn't fit; a person may still answer in words.
+  options: z.array(z.string().min(1)).max(6).optional(),
 });
 export type Finding = z.infer<typeof Finding>;
 
@@ -626,7 +631,10 @@ export type Decision = z.infer<typeof Decision>;
 
 export const Resolution = z.object({
   finding: z.number().int().nonnegative(),
-  verdict: z.enum(['bug', 'outdated', 'fine']),
+  // contradiction / gap: bug, outdated, fine. question: yes, no, answered (the
+  // answer is in note). source: fixed (read it again next run), excluded (left out on purpose).
+  // any kind: clarified — a person asked for more context and an agent replaced it with new findings (note says which).
+  verdict: z.enum(['bug', 'outdated', 'fine', 'yes', 'no', 'answered', 'fixed', 'excluded', 'clarified']),
   note: z.string().optional(),
   at: z.string(),
 });
@@ -646,9 +654,7 @@ export const Proposal = z.object({
   status: z.enum(['pending', 'decided']).default('pending'),
   decisions: z.array(Decision).default([]),
   decidedAt: z.string().optional(),
-  // A person's answer to a finding (by index), from the Disagreements page:
-  // bug — the product is wrong, the stronger source stands; outdated — the
-  // stronger source is out of date; fine — not a problem.
+  // A person's answer to a finding (by index), from the Inbox: see Resolution.
   resolutions: z.array(Resolution).default([]),
 });
 export type Proposal = z.infer<typeof Proposal>;
