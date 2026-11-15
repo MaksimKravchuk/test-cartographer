@@ -32,6 +32,18 @@ Engine CLI — `pnpm tc <command>`:
 | `onboard [agent] [--scripted]` | the onboarding agent reads the knowledge sources and proposes roles, entities, the model, and the backlog |
 | `backlog` | epics → features → stories, with totals and unmapped stories |
 
+## The knowledge loop
+
+The app is built around one loop. A person and agents keep adding to the same model of the product until it describes the system well enough to test it:
+
+1. **Sources** — list everything known about the product: uploaded docs and tracker exports, code folders, systems behind MCP (Confluence, Jira). Give each a priority (requirements outrank code by default) and press **Check access**.
+2. **Model** — subjects (roles), objects (entities), and a matrix of who performs which action on what. Click an action to see and write its rules in plain words; a rule doesn't need a transition or conditions to be useful.
+3. **Agents research** — **Run first research** proposes a model from the sources; **Review the model** checks the existing one, quoting the docs and the code (`file#Lx-Ly`), and proposes what's missing. Findings appear in place on the Model page with ✓ (true), ≈ (that's how it works, but not a requirement) and ✕ (strike out — agents won't propose it again). Each op can be decided on its own.
+4. **Disagreements** — every contradiction, gap and question, with the quotes from each side and the side that stands by priority. Settle it as *Bug in the product*, *Requirements are outdated* or *Not a problem*.
+5. **Specification** — the confirmed model as one Markdown document (`export/spec.md`): subjects, objects, every action with who performs it and its rules with sources, open questions and known defects. Tests are generated from the same model.
+
+You can enter the loop anywhere: write the model by hand, start with research, or ask for a review of what you have. `workspace/agents/review.yaml` is a scripted review of the demo shop that finds the real disagreement between `product-overview.md` and `demo/shop/domain.ts` on cancelling a paid order.
+
 ## Projects, entities, scenarios
 
 The app is organized as **project → entities → scenarios**.
@@ -152,11 +164,13 @@ Agents don't call model APIs and nothing is billed per token: they run inside a 
 
 ### Onboarding
 
-A person uploads what they already know about the system under test — product docs, a tracker export, API contracts, notes — as knowledge sources: `workspace/sources.yaml` lists them (id, title, kind: `doc` / `backlog` / `contract` / `note`), the files themselves live in `workspace/sources/`. The GUI's Onboarding view adds them by file picker, drag-and-drop, or pasted text, and shows a **Run onboarding** button; removing a source moves it to `sources/.trash`, like an entity.
+A person uploads what they already know about the system under test — product docs, a tracker export, API contracts, notes — as knowledge sources: `workspace/sources.yaml` lists them (id, title, kind: `doc` / `backlog` / `contract` / `note`), the files themselves live in `workspace/sources/`. The GUI's Sources page adds them by file picker, drag-and-drop, or pasted text, and shows a **Run onboarding** button; removing a source moves it to `sources/.trash`, like an entity.
 
 The onboarding agent (`tc onboard [agent] [--scripted]`) reads every source and proposes the first model: roles, entities (new ones too), actions, states, transitions, permits, rules, and the backlog. Every operation cites an exact quote: `quote({ source, text })` refuses text that isn't actually in that source, so the agent can't cite what isn't there. When a source and the model (or two sources) disagree, or a tracker story doesn't map to anything in the model yet, it writes a finding (`contradiction`, `gap`) instead of guessing.
 
 The result is reviewed like any proposal, split by scope: one **project-level** proposal for roles, interfaces, new entities, and backlog items, plus one proposal per entity for its own states/actions/transitions/permits/rules. An entity-level proposal for an entity that isn't accepted yet waits — it can only be decided once the project proposal has created that entity. Accepted operations keep `provenance.sources`, the ids of the knowledge sources that back them.
+
+**Sources page.** Besides uploaded files, a source can be a **code folder** (`kind: code`, `path` — absolute, `~/…` or relative to the workspace) or a system behind an **MCP server** (`kind: mcp`, `read` — an allowed read tool from `mcp.*.allow.read` with its args, e.g. a Confluence or Jira MCP server). Every source has a `priority` (1 is the strongest; requirements default to 1, code to 2) and can be switched off with `enabled: false`; `usePriority: false` at the top of `sources.yaml` turns priorities off, so every disagreement goes to a person. **Check access** proves each enabled source can be read the way agents will read it — the file, the folder (files counted, skipping `node_modules`, `.git`, build output), or one call to the read tool — and shows the counts so a missing page or folder is noticed. Onboarding still reads uploaded files only; code and MCP sources are for the research agent that comes next.
 
 Onboarding runs `scripted` — a deterministic replay from `workspace/agents/onboarding.yaml`, no model call — or `live`, the same distinction as an explorer.
 

@@ -17,7 +17,7 @@ export type Coverage = {
   journeys: { id: string; title: string; role: string; steps: number; cells: Record<string, Cell | null> }[];
   // A rule's cell combines its own (entity-state) scenarios, the deny scenarios
   // it's tagged onto (roles/authenticated conditions), and the transition's own positive scenarios.
-  rules: { id: string; title: string; text: string; transition: string; cells: Record<string, Cell | null> }[];
+  rules: { id: string; title: string; text: string; transition?: string; cells: Record<string, Cell | null> }[];
   states: { id: string; title: string; cells: Record<string, StateCell> }[];
   roles: { role: string; total: number; passed: number }[];
   totals: Record<CellStatus, number> & { scenarios: number };

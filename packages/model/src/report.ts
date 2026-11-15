@@ -1,0 +1,127 @@
+import { isActive } from './reach.ts';
+import type { Entity, Evidence, Finding, Project, Proposal, Resolution, Source } from './schema.ts';
+
+export type Quote = { evidence: Evidence; source?: Source };
+export type Disagreement = {
+  proposal: string;
+  entity?: string;
+  index: number;
+  finding: Finding;
+  quotes: Quote[];
+  // The source whose word stands: the strongest priority among the quotes,
+  // when priorities are on and exactly one source holds it.
+  winner?: string;
+  resolution?: Resolution;
+  createdAt: string;
+};
+
+// Every finding agents reported, newest first, with its quotes and which side wins.
+export function disagreements(proposals: Proposal[], sources: Source[], usePriority: boolean): Disagreement[] {
+  const byId = new Map(sources.map((s) => [s.id, s]));
+  return [...proposals]
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+    .flatMap((p) =>
+      p.findings.map((finding, index) => {
+        const quotes = finding.evidence
+          .map((id) => p.evidence.find((e) => e.id === id))
+          .filter((e): e is Evidence => !!e)
+          .map((evidence) => ({ evidence, source: evidence.source ? byId.get(evidence.source) : undefined }));
+        const ranked = quotes.filter((q) => q.source).map((q) => q.source!);
+        const best = Math.min(...ranked.map((s) => s.priority));
+        const top = [...new Set(ranked.filter((s) => s.priority === best).map((s) => s.id))];
+        const spread = new Set(ranked.map((s) => s.priority)).size > 1;
+        return {
+          proposal: p.id,
+          entity: p.entity,
+          index,
+          finding,
+          quotes,
+          winner: usePriority && spread && top.length === 1 ? top[0] : undefined,
+          resolution: p.resolutions.find((r) => r.finding === index),
+          createdAt: p.createdAt,
+        };
+      }),
+    );
+}
+
+const roleTitle = (project: Project, id: string) => project.roles.find((r) => r.id === id)?.title ?? id;
+
+// The product's specification, from what people have confirmed or observed:
+// subjects, objects, and for every action who performs it and its rules with
+// their sources. Open disagreements are listed at the end of each object.
+export function renderSpec(project: Project, entities: Entity[], findings: Disagreement[], sources: Source[]): string {
+  const title = (id: string) => sources.find((s) => s.id === id)?.title ?? id;
+  const lines = [`# ${project.name} — specification`, ''];
+  lines.push('## Subjects', '');
+  for (const r of project.roles) lines.push(`- **${r.title}** — ${r.kind === 'system' ? 'background jobs and integrations' : 'a person'}`);
+  lines.push('', '## Objects', '');
+  for (const e of entities) lines.push(`- **${e.title}**${e.description ? ` — ${e.description}` : ''}`);
+  for (const e of entities) {
+    lines.push('', `## ${e.title}`, '');
+    if (e.description) lines.push(e.description, '');
+    const states = e.states.filter(isActive);
+    if (states.length) lines.push(`States: ${states.map((s) => s.title).join(' · ')}`, '');
+    for (const a of e.actions.filter(isActive)) {
+      const by = new Set(a.by ?? []);
+      for (const t of e.transitions) if (t.action === a.id && isActive(t)) t.by.forEach((x) => by.add(x));
+      for (const p of e.permits) if (p.action === a.id && isActive(p)) p.by.forEach((x) => by.add(x));
+      const observed = a.status === 'observed' ? ' _(observed, not a requirement)_' : '';
+      lines.push(`### ${[...by].map((id) => roleTitle(project, id)).join(', ') || 'Nobody yet'} → ${a.title}${observed}`, '');
+      const ts = e.transitions.filter((t) => t.action === a.id && isActive(t));
+      for (const t of ts) lines.push(`- Moves ${e.title.toLowerCase()} from ${t.from === '@new' ? '(new)' : (e.states.find((s) => s.id === t.from)?.title ?? t.from)} to ${e.states.find((s) => s.id === t.to)?.title ?? t.to}`);
+      const tIds = new Set(ts.map((t) => t.id));
+      const rules = e.rules.filter((r) => isActive(r) && (r.action === a.id || (r.transition && tIds.has(r.transition))));
+      for (const r of rules) {
+        const src = r.provenance?.sources.length ? ` — ${r.provenance.sources.map(title).join(', ')}` : '';
+        lines.push(`- Rule: ${r.text}${r.status === 'observed' ? ' _(observed)_' : ''}${src}`);
+      }
+      if (!ts.length && !rules.length) lines.push('- No rules yet.');
+      lines.push('');
+    }
+    const open = findings.filter((f) => f.entity === e.id && !f.resolution);
+    if (open.length) {
+      lines.push('### Open questions', '');
+      for (const f of open) lines.push(`- ${f.finding.kind === 'contradiction' ? 'Disagreement' : f.finding.kind === 'gap' ? 'Gap' : 'Question'}: ${f.finding.note}`);
+      lines.push('');
+    }
+    const settled = findings.filter((f) => f.entity === e.id && f.resolution?.verdict === 'bug');
+    if (settled.length) {
+      lines.push('### Known defects', '');
+      for (const f of settled) lines.push(`- ${f.finding.note}${f.resolution?.note ? ` (${f.resolution.note})` : ''}`);
+      lines.push('');
+    }
+  }
+  return lines.join('\n');
+}
+
+export type Lint = { entity: string; ref: string; message: string };
+const VAGUE = /\b(usually|normally|typically|may|might|should|generally|often|sometimes|as needed|etc)\b/i;
+
+// What makes the model hard to test, without running an agent: actions
+// nobody performs or with nothing said about them, rules in vague words,
+// states nothing leads to or nothing leaves (except terminal ones).
+export function lintModel(entities: Entity[]): Lint[] {
+  const out: Lint[] = [];
+  for (const e of entities) {
+    const transitions = e.transitions.filter(isActive);
+    for (const a of e.actions.filter(isActive)) {
+      const ts = transitions.filter((t) => t.action === a.id);
+      const by = (a.by?.length ?? 0) + ts.length + e.permits.filter((p) => isActive(p) && p.action === a.id).length;
+      if (!by) out.push({ entity: e.id, ref: `action:${e.id}.${a.id}`, message: `Nobody performs “${a.title}”` });
+      const ids = new Set(ts.map((t) => t.id));
+      const rules = e.rules.filter((r) => isActive(r) && (r.action === a.id || (r.transition && ids.has(r.transition))));
+      if (!ts.length && !rules.length) out.push({ entity: e.id, ref: `action:${e.id}.${a.id}`, message: `Nothing is known about “${a.title}”: no rules and no state change` });
+    }
+    for (const r of e.rules.filter(isActive)) {
+      const m = VAGUE.exec(r.text);
+      if (m) out.push({ entity: e.id, ref: `rule:${e.id}.${r.id}`, message: `“${m[0]}” can't be tested: say exactly when it holds — “${r.text}”` });
+    }
+    for (const s of e.states.filter(isActive)) {
+      const into = s.initial || s.setup.length > 0 || transitions.some((t) => t.to === s.id);
+      const out_ = s.terminal || transitions.some((t) => t.from === s.id);
+      if (!into) out.push({ entity: e.id, ref: `state:${e.id}.${s.id}`, message: `Nothing leads to “${s.title}”` });
+      if (!out_) out.push({ entity: e.id, ref: `state:${e.id}.${s.id}`, message: `Nothing leaves “${s.title}”, and it isn't marked terminal` });
+    }
+  }
+  return out;
+}
