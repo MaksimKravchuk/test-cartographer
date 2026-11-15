@@ -1,8 +1,9 @@
 import { createHash } from 'node:crypto';
-import { mkdir, readdir, readFile, rename, writeFile } from 'node:fs/promises';
+import { appendFile, mkdir, readdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { basename, extname, join } from 'node:path';
 import YAML from 'yaml';
+import { diffEntity, diffProject, HistoryEntry, stamp, type Author } from './history.ts';
 import { Backlog, Entity, Project, Proposal, RunReport, Source, SourceRegistry, isFileSource, type ScenarioResult, type FileSourceKind, type ToolCall } from './schema.ts';
 
 // A workspace is a plain folder that is easy to keep in git:
@@ -13,6 +14,7 @@ import { Backlog, Entity, Project, Proposal, RunReport, Source, SourceRegistry, 
 //   sources/*             the source files themselves — docs, tracker exports, contracts, notes
 //   backlog.yaml          epics/features/stories: a view over the model, not a second one
 //   proposals/*.yaml      agent proposals and the decisions on them
+//   history.jsonl         who added, changed or removed each model element, and when (history.ts)
 //   actions/*.ts          action library for Playwright
 //   evidence/             screenshots and snapshots collected by agents
 //   generated/            compiled tests
@@ -51,30 +53,61 @@ export class Workspace {
     return { entity: Entity.parse(YAML.parse(text)), revision: revision(text) };
   }
 
-  // Saves the model if its revision hasn't changed since it was read.
-  async saveEntity(entity: Entity, expectedRevision?: string): Promise<string> {
+  // Saves the model if its revision hasn't changed since it was read, and logs what changed and who changed it.
+  async saveEntity(entity: Entity, expectedRevision?: string, by: Author = HUMAN): Promise<string> {
     const file = this.path('entities', `${entity.id}.yaml`);
-    if (expectedRevision && existsSync(file)) {
-      const current = revision(await readFile(file, 'utf8'));
+    const text = await readFile(file, 'utf8').catch(() => null);
+    if (expectedRevision && text !== null) {
+      const current = revision(text);
       if (current !== expectedRevision)
         throw new RevisionConflict(`Model “${entity.id}” has changed (revision ${current}, expected ${expectedRevision})`);
     }
     await mkdir(this.path('entities'), { recursive: true });
-    return revision(await writeChangedKeys(file, Entity.parse(entity), (v) => Entity.parse(v)));
+    const next = Entity.parse(entity);
+    const saved = revision(await writeChangedKeys(file, next, (v) => Entity.parse(v)));
+    await this.log(diffEntity(text === null ? null : Entity.parse(YAML.parse(text)), next), by);
+    return saved;
   }
 
   // Removing an entity moves its files to entities/.trash, so nothing is lost by a misclick.
-  async trashEntity(id: string): Promise<void> {
+  async trashEntity(id: string, by: Author = HUMAN): Promise<void> {
+    const { entity } = await this.entity(id);
     const stamp = new Date().toISOString().replace(/[:.]/g, '-');
     await mkdir(this.path('entities', '.trash'), { recursive: true });
     await rename(this.path('entities', `${id}.yaml`), this.path('entities', '.trash', `${id}-${stamp}.yaml`));
     if (existsSync(this.path('entities', `${id}.layout.json`)))
       await rename(this.path('entities', `${id}.layout.json`), this.path('entities', '.trash', `${id}-${stamp}.layout.json`));
+    await this.log(diffEntity(entity, null), by);
   }
 
   // Comments and formatting on every key the save doesn't change survive (see writeChangedKeys).
-  async saveProject(project: Project): Promise<void> {
-    await writeChangedKeys(this.path('cartographer.yaml'), Project.parse(project), (v) => Project.parse(v));
+  async saveProject(project: Project, by: Author = HUMAN): Promise<void> {
+    const before = await this.project().catch(() => null);
+    const next = Project.parse(project);
+    await writeChangedKeys(this.path('cartographer.yaml'), next, (v) => Project.parse(v));
+    await this.log(diffProject(before, next), by);
+  }
+
+  // ── History ───────────────────────────────────────────────────────────
+  private async log(changes: Parameters<typeof stamp>[0], by: Author) {
+    if (changes.length) await appendFile(this.path('history.jsonl'), stamp(changes, by).map((e) => JSON.stringify(e) + '\n').join(''));
+  }
+
+  // The change log, oldest first; `ref` narrows it to one element (an entity's
+  // ref also brings everything inside it). A line that doesn't parse is skipped.
+  async history(ref?: string): Promise<HistoryEntry[]> {
+    const text = await readFile(this.path('history.jsonl'), 'utf8').catch(() => '');
+    const all = text.split('\n').flatMap((line) => {
+      try {
+        const r = HistoryEntry.safeParse(JSON.parse(line));
+        return r.success ? [r.data] : [];
+      } catch {
+        return [];
+      }
+    });
+    if (!ref) return all;
+    const inside = ref.startsWith('entity:') ? `:${ref.slice(7)}.` : null;
+    return all.filter((e) => e.ref === ref || (inside && e.ref.includes(inside)));
   }
 
   // ── Knowledge sources ─────────────────────────────────────────────────
@@ -237,6 +270,8 @@ export class Workspace {
     return merged;
   }
 }
+
+const HUMAN: Author = { kind: 'human' };
 
 export class RevisionConflict extends Error {}
 

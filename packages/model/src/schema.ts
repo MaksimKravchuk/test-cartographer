@@ -97,6 +97,8 @@ export const AgentProvider = z.enum(['claude', 'codex', 'copilot', 'cursor']);
 export type AgentProvider = z.infer<typeof AgentProvider>;
 export const Effort = z.enum(['low', 'medium', 'high', 'xhigh', 'max']);
 export type Effort = z.infer<typeof Effort>;
+// Runtimes whose subagents stay on our tools. Cursor's and Copilot's bring their own (files, shell).
+export const SUBAGENTS: AgentProvider[] = ['claude', 'codex'];
 
 export const Runtime = z.object({
   provider: AgentProvider,
@@ -105,6 +107,9 @@ export const Runtime = z.object({
   effort: Effort.optional(),
   // Tool calls per run.
   maxSteps: z.number().int().positive().default(60),
+  // Let the agent hand parts of the work to subagents of its own (Claude Code
+  // and Codex). They share the run's tools and its step budget.
+  subagents: z.boolean().optional(),
   // Codex only: an OpenAI-compatible endpoint (Responses API) serving any
   // model, such as an open-weight one in Ollama, LM Studio or vLLM, in place
   // of a ChatGPT subscription.
@@ -119,8 +124,29 @@ export const RuntimeOverride = z.object({
   model: z.string().optional(),
   effort: Effort.optional(),
   maxSteps: z.number().int().positive().optional(),
+  subagents: z.boolean().optional(),
 });
 export type RuntimeOverride = z.infer<typeof RuntimeOverride>;
+
+// What one agent run used, as its runtime reports it: a running total, sent
+// again as it grows. The engine logs it as `📊 <json>` and the Agent tab reads the last one.
+export type AgentUsage = {
+  model?: string;
+  // Input counts every prompt token, cached ones included; cacheRead/cacheWrite are parts of it.
+  input: number;
+  output: number;
+  cacheRead?: number;
+  cacheWrite?: number;
+  // API-price equivalent in USD — subscriptions don't bill per token. `estimated`:
+  // the runtime gave no cost, so it comes from the genai-prices table.
+  costUsd?: number;
+  estimated?: boolean;
+  // GitHub Copilot bills premium requests instead.
+  premiumRequests?: number;
+  // How full the context window is now, when the runtime says.
+  context?: { used: number; window?: number };
+  seconds?: number;
+};
 
 export const AgentSpec = z.object({
   id: Id,
@@ -182,6 +208,7 @@ export function resolveRuntime(project: Pick<Project, 'runtime'>, agent?: Pick<A
     model: o.model ?? (provider === base?.provider ? base.model : undefined),
     effort: o.effort ?? base?.effort,
     maxSteps: o.maxSteps ?? base?.maxSteps ?? 60,
+    subagents: o.subagents ?? base?.subagents,
     baseUrl: provider === base?.provider ? base.baseUrl : undefined,
   };
 }

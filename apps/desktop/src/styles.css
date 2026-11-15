@@ -1001,3 +1001,42 @@ table.grid :is(th, td):first-child { padding-left: 0; }
 .lc-node-title .tag { font-size: 11px; font-weight: 400; color: var(--accent); }
 .lc-branch { display: grid; grid-template-columns: 52px 1fr; gap: var(--s2); }
 .lc-branch .k { color: var(--fg-3); text-transform: uppercase; font-size: 10px; letter-spacing: 0.04em; padding-top: 3px; }
+/* ── Model: actions × subjects, origin and history ─────────────── */
+.act-table-wrap { overflow-x: auto; }
+.act-table { border-collapse: collapse; min-width: 100%; }
+.act-table th, .act-table td { padding: var(--s1) var(--s2); border-bottom: 1px solid var(--line); text-align: left; font-weight: normal; }
+.act-table thead th { font-size: 12px; color: var(--fg-2); font-weight: 500; white-space: nowrap; }
+.act-table .who { text-align: center; width: 1%; min-width: 88px; }
+.act-table td.who input { width: 16px; height: 16px; cursor: pointer; accent-color: var(--fg); }
+.act-table td.who input:disabled { cursor: not-allowed; }
+.act-table tr.proposed { background: var(--accent-weak); color: var(--accent); }
+.act-table tr.on th[scope='row'] { box-shadow: inset 2px 0 0 var(--fg); }
+.act-table .row-x { width: 1%; white-space: nowrap; text-align: right; }
+.act-table .nobody { font-size: 12px; }
+.act-add { padding: var(--s3) 0 0; max-width: 420px; }
+.link-btn { border: 0; background: none; padding: 0; color: inherit; font: inherit; font-weight: 500; cursor: pointer; text-align: left; }
+.link-btn:hover { text-decoration: underline; text-underline-offset: 3px; }
+.origin { margin: var(--s1) 0 0; font-size: 12px; color: var(--fg-3); }
+.rule-origin { padding: var(--s2) var(--s4) 0; margin: 0; }
+.ehead input.rename { font-size: 20px; font-weight: 600; max-width: 420px; }
+.history { margin: var(--s4) 0; max-width: 960px; }
+.history h3 { margin: 0 0 var(--s2); font-size: 13px; }
+.history ol { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--s2); }
+.history li { display: grid; grid-template-columns: 112px minmax(0, 1fr); gap: var(--s3); font-size: 12.5px; }
+.history .when { font: 500 11px var(--mono); color: var(--fg-3); padding-top: 2px; }
+.history .changes { display: grid; color: var(--fg-2); overflow-wrap: anywhere; }
+.rule-history { padding: var(--s2) var(--s4); border-top: 1px solid var(--line); font-size: 12.5px; }
+.rule-history summary { cursor: pointer; color: var(--fg-2); }
+.act-table tr.proposed-h td { background: var(--accent-weak); color: var(--fg-2); font-size: 12.5px; border-top: 1px dashed var(--accent-line); }
+.act-table .proposed-bar { display: flex; align-items: center; gap: var(--s2); flex-wrap: wrap; }
+/* ── Agent place ─────────────────────────────────────────── */
+.run-tasks { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: var(--s2); max-width: 1100px; }
+.run-task { display: flex; gap: var(--s2); align-items: flex-start; border: 1px solid var(--line); border-radius: var(--r2); background: var(--surface); padding: var(--s3); cursor: pointer; }
+.run-task:has(input:checked) { border-color: var(--fg); }
+.run-task span, .run-check span { display: grid; gap: var(--s1); }
+.run-check { display: flex; gap: var(--s2); align-items: flex-start; max-width: 1100px; }
+.run-page .agent-fields { max-width: 1100px; }
+.run-found { max-width: 900px; }
+.run-usage { display: flex; flex-wrap: wrap; gap: var(--s2) var(--s5); margin: 0 0 var(--s3); }
+.run-usage dt { font-size: 12px; color: var(--fg-3); }
+.run-usage dd { margin: 0; font-variant-numeric: tabular-nums; }

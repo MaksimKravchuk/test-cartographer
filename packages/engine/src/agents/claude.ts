@@ -16,15 +16,33 @@ const subscriptionEnv = () => {
   return env;
 };
 
+// Subagents get every tool of ours but the one that hands in the result.
+const helperPrompt = (h: Harness) =>
+  `${h.system}\n\nYou are a helper: the lead agent gave you one part of this work. Do that part with the tools you have, ` +
+  `hand in what you find with record() if there is one, and answer the lead with a short summary and the evidence ids you got. ` +
+  `Never call ${h.deliver} — only the lead finishes the run.`;
+
 export async function runClaude(h: Harness): Promise<void> {
+  const ours = h.toolNames.map((n) => `mcp__tc__${n}`);
   const q = query({
     prompt: h.prompt,
     options: {
       systemPrompt: h.system,
       model: h.runtime.model,
       effort: h.runtime.effort,
-      tools: [],
-      allowedTools: h.toolNames.map((n) => `mcp__tc__${n}`),
+      // Agent is Claude Code's own way to start a subagent; nothing else built in is let through.
+      tools: h.runtime.subagents ? ['Agent'] : [],
+      allowedTools: h.runtime.subagents ? [...ours, 'Agent'] : ours,
+      agents: h.runtime.subagents
+        ? {
+            helper: {
+              description: 'Works through one part of the job — one source, one object or one batch of checks — and reports back.',
+              prompt: helperPrompt(h),
+              tools: ours.filter((n) => n !== `mcp__tc__${h.deliver}`),
+              model: 'inherit',
+            },
+          }
+        : undefined,
       permissionMode: 'dontAsk',
       settingSources: [],
       strictMcpConfig: true,
@@ -37,10 +55,31 @@ export async function runClaude(h: Harness): Promise<void> {
       abortController: h.abort,
     },
   });
+  // Until the result's exact totals: one entry per API call (its blocks repeat the same usage).
+  const calls = new Map<string, { input: number; output: number; cacheRead: number; cacheWrite: number }>();
+  let context: { used: number; window?: number } | undefined;
   for await (const m of q) {
-    if (m.type === 'assistant')
+    if (m.type === 'assistant') {
       for (const b of m.message.content) if (b.type === 'text' && b.text.trim()) h.onText(b.text.trim());
+      // The lead's latest prompt is what its context holds now; subagents have their own.
+      const u = m.message.usage;
+      if (u) {
+        const prompt = u.input_tokens + (u.cache_read_input_tokens ?? 0) + (u.cache_creation_input_tokens ?? 0);
+        calls.set(m.message.id, { input: prompt, output: u.output_tokens, cacheRead: u.cache_read_input_tokens ?? 0, cacheWrite: u.cache_creation_input_tokens ?? 0 });
+        if (!m.parent_tool_use_id) context = { ...context, used: prompt };
+        const all = [...calls.values()];
+        const sum = (k: 'input' | 'output' | 'cacheRead' | 'cacheWrite') => all.reduce((n, c) => n + c[k], 0);
+        h.onUsage({ model: m.message.model, input: sum('input'), output: sum('output'), cacheRead: sum('cacheRead'), cacheWrite: sum('cacheWrite'), context });
+      }
+    }
     if (m.type === 'result') {
+      // modelUsage covers subagents too; Anthropic counts cached tokens apart from input_tokens.
+      const all = Object.entries(m.modelUsage);
+      const sum = (f: (u: (typeof all)[number][1]) => number) => all.reduce((n, [, u]) => n + f(u), 0);
+      const cacheRead = sum((u) => u.cacheReadInputTokens);
+      const cacheWrite = sum((u) => u.cacheCreationInputTokens);
+      const main = all.find(([id]) => id === h.runtime.model) ?? all[0];
+      h.onUsage({ model: main?.[0], input: sum((u) => u.inputTokens) + cacheRead + cacheWrite, output: sum((u) => u.outputTokens), cacheRead, cacheWrite, costUsd: m.total_cost_usd, context: context && main ? { ...context, window: main[1].contextWindow } : context });
       if (m.subtype !== 'success') throw new Error(`Claude Code stopped (${m.subtype}): ${m.errors.join('; ') || 'no details'}`);
       if (m.is_error) throw new Error(`Claude Code: ${m.result}`);
     }

@@ -9,7 +9,7 @@ import { readFile } from 'node:fs/promises';
 import { dirname, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
-  AgentProvider, applyDecisions, applyProjectDecisions, Backlog, backlogCoverage, buildPlan, conflicts, coverage, Decision, Entity, objectParents, Project,
+  AgentProvider, RuntimeOverride, applyDecisions, applyProjectDecisions, removeRole, Backlog, backlogCoverage, buildPlan, conflicts, coverage, Decision, Entity, objectParents, Project,
   RevisionConflict, Resolution, allFindings, lintModel, reviewMatrix, FILE_SOURCE_KINDS, ToolCall, isFileSource, validateBacklog, validateEntity, validateProject, type ProjectState, type Workspace,
 } from '@tc/model';
 import { z } from 'zod';
@@ -29,6 +29,9 @@ type Event =
   | { type: 'project'; root: string };
 
 // The engine serves one project at a time; the GUI can switch it.
+// How an agent run is started: scripted or live, and run settings for this run only.
+const RunBody = z.object({ provider: z.enum(['live', 'scripted']).default('live'), runtime: RuntimeOverride.optional() });
+
 export function createApp(initial: Workspace) {
   let ws = initial;
   const app = new Hono();
@@ -240,6 +243,24 @@ export function createApp(initial: Workspace) {
     return c.json({ ok: true });
   });
 
+  // Removing a subject also takes it off every action that lists it. Where it
+  // is the only one left — a transition, a permit, a rule's role condition,
+  // an explore agent — the removal stops and says where, so nothing is
+  // silently widened to "anybody" or left without an actor.
+  app.delete('/api/roles/:id', async (c) => {
+    const id = c.req.param('id');
+    const project = await ws.project();
+    if (!project.roles.some((r) => r.id === id)) throw new HttpError(404, `No subject “${id}”`);
+    if (project.roles.length === 1) throw new HttpError(409, 'A project needs at least one subject');
+    const { blockers, entities } = removeRole(id, project, Object.values(await ws.catalog()));
+    if (blockers.length) throw new HttpError(409, `Still used by ${blockers.join(', ')}. Change those first.`);
+    for (const e of entities) await ws.saveEntity(e);
+    await ws.saveProject({ ...project, roles: project.roles.filter((r) => r.id !== id) });
+    return c.json({ ok: true, changed: entities.map((e) => e.id) });
+  });
+
+  app.get('/api/history', async (c) => c.json({ entries: await ws.history(c.req.query('ref') || undefined) }));
+
   app.get('/api/entities/:id', async (c) => c.json(await entityState(c.req.param('id'))));
 
   app.put('/api/entities/:id', async (c) => {
@@ -370,6 +391,8 @@ export function createApp(initial: Workspace) {
     const again = decisions.find((d) => already.has(d.op));
     if (again) throw new HttpError(409, `Operation #${again.op} has already been decided`);
     const all = [...proposal.decisions, ...decisions];
+    // What a person accepts from a proposal goes into the history as the agent's.
+    const by = { kind: 'agent' as const, agent: proposal.agent, proposal: proposal.id };
     const settled = proposal.ops.every((_, i) => all.some((d) => d.op === i))
       ? { status: 'decided' as const, decisions: all, decidedAt: new Date().toISOString() }
       : { decisions: all };
@@ -382,16 +405,16 @@ export function createApp(initial: Workspace) {
       // Most project-level proposals only touch the backlog or add entities —
       // don't rewrite cartographer.yaml (and disturb its comments/mtime) unless
       // an applied op actually changed roles or interfaces.
-      if (JSON.stringify(nextProject) !== JSON.stringify(project)) await ws.saveProject(nextProject);
+      if (JSON.stringify(nextProject) !== JSON.stringify(project)) await ws.saveProject(nextProject, by);
       await ws.saveBacklog(nextBacklog, backlogRevision || undefined);
-      for (const e of created) await ws.saveEntity(e);
+      for (const e of created) await ws.saveEntity(e, undefined, by);
       // applyProjectDecisions only validates an accepted `entity` update (it
       // doesn't have the entity file) — merge its fields into that file here.
       for (const d of decisions) {
         const op = proposal.ops[d.op];
         if (op?.kind === 'entity' && op.op === 'update' && d.verdict === 'accept') {
           const { entity, revision } = await ws.entity(op.id);
-          await ws.saveEntity(Entity.parse({ ...entity, ...op.set }), revision);
+          await ws.saveEntity(Entity.parse({ ...entity, ...op.set }), revision, by);
         }
       }
       await ws.saveProposal({ ...proposal, ...settled });
@@ -402,7 +425,7 @@ export function createApp(initial: Workspace) {
       throw new HttpError(409, `Entity “${proposal.entity}” doesn't exist yet — accept it in the project proposal first`);
     const { entity, revision } = await ws.entity(proposal.entity);
     const next = applyDecisions(entity, proposal, decisions, await ws.project());
-    await ws.saveEntity(next, revision);
+    await ws.saveEntity(next, revision, by);
     await ws.saveProposal({ ...proposal, ...settled });
     return c.json(await entityState(proposal.entity));
   });
@@ -441,10 +464,10 @@ export function createApp(initial: Workspace) {
   });
 
   app.post('/api/agents/:id/explore', async (c) => {
-    const { provider } = z.object({ provider: z.enum(['live', 'scripted']).default('live') }).parse(await c.req.json().catch(() => ({})));
+    const { provider, runtime } = RunBody.parse(await c.req.json().catch(() => ({})));
     const agent = c.req.param('id');
     const job = startJob(`explore:${agent}`, async (log, signal) => {
-      const p = await explore(ws, agent, { onLog: log, provider, signal });
+      const p = await explore(ws, agent, { onLog: log, provider, runtime, signal });
       return { proposal: p.id, ops: p.ops.length, findings: p.findings.length };
     });
     return c.json({ job });
@@ -452,19 +475,19 @@ export function createApp(initial: Workspace) {
 
   // Dispatches by the agent's own kind — explore keeps the alias above for callers who already know it's an explorer.
   app.post('/api/agents/:id/run', async (c) => {
-    const { provider } = z.object({ provider: z.enum(['live', 'scripted']).default('live') }).parse(await c.req.json().catch(() => ({})));
+    const { provider, runtime } = RunBody.parse(await c.req.json().catch(() => ({})));
     const id = c.req.param('id');
     const agent = (await ws.project()).agents.find((a) => a.id === id);
     if (!agent) throw new HttpError(404, `Agent “${id}” is not defined in cartographer.yaml`);
     if (agent.kind === 'onboard') {
       const job = startJob(`onboard:${id}`, async (log, signal) => {
-        const proposals = await onboard(ws, id, { onLog: log, provider, signal });
+        const proposals = await onboard(ws, id, { onLog: log, provider, runtime, signal });
         return { proposals: proposals.map((p) => p.id), ops: proposals.reduce((n, p) => n + p.ops.length, 0), findings: proposals.reduce((n, p) => n + p.findings.length, 0) };
       });
       return c.json({ job });
     }
     const job = startJob(`explore:${id}`, async (log, signal) => {
-      const p = await explore(ws, id, { onLog: log, provider, signal });
+      const p = await explore(ws, id, { onLog: log, provider, runtime, signal });
       return { proposal: p.id, ops: p.ops.length, findings: p.findings.length };
     });
     return c.json({ job });
@@ -472,11 +495,9 @@ export function createApp(initial: Workspace) {
 
   // The configured onboarding agent (or the built-in default, if none is set up yet).
   app.post('/api/onboarding/run', async (c) => {
-    const { provider, mode } = z
-      .object({ provider: z.enum(['live', 'scripted']).default('live'), mode: z.enum(['onboard', 'review']).default('onboard') })
-      .parse(await c.req.json().catch(() => ({})));
+    const { provider, mode, runtime } = RunBody.extend({ mode: z.enum(['onboard', 'review']).default('onboard') }).parse(await c.req.json().catch(() => ({})));
     const job = startJob(mode === 'review' ? 'onboard:review' : 'onboard', async (log, signal) => {
-      const proposals = await onboard(ws, undefined, { onLog: log, provider, signal, mode });
+      const proposals = await onboard(ws, undefined, { onLog: log, provider, runtime, signal, mode });
       return { proposals: proposals.map((p) => p.id), ops: proposals.reduce((n, p) => n + p.ops.length, 0), findings: proposals.reduce((n, p) => n + p.findings.length, 0) };
     });
     return c.json({ job });

@@ -9,7 +9,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import YAML from 'yaml';
 import { z } from 'zod';
-import { template, type AgentProvider, type Runtime } from '@tc/model';
+import { calcPrice } from '@pydantic/genai-prices';
+import { SUBAGENTS, template, type AgentProvider, type AgentUsage, type Runtime } from '@tc/model';
 import { openBridge, type BridgeResult, type Harness, type RuntimeStatus } from './bridge.ts';
 import { claudeStatus, runClaude } from './claude.ts';
 import { codexStatus, runCodex } from './codex.ts';
@@ -61,6 +62,21 @@ export type AgentRun = {
 const WRAP_UP = 5;
 const DELIVERY_TRIES = 5;
 const OVERRUNS = 3;
+
+// Fills in what the runtime left out from the genai-prices table (bundled,
+// no network): an API-price estimate and the model's context window.
+// shortcut: the run's default model is unknown when none is set (Codex, Cursor), so no estimate then.
+export function withPrices(u: AgentUsage): AgentUsage {
+  if (!u.model || (u.costUsd !== undefined && u.context?.window)) return u;
+  const tokens = { input_tokens: u.input, output_tokens: u.output, cache_read_tokens: u.cacheRead, cache_write_tokens: u.cacheWrite };
+  const price = calcPrice(tokens, u.model);
+  if (!price) return u;
+  return {
+    ...u,
+    ...(u.costUsd === undefined && { costUsd: price.total_price, estimated: true }),
+    ...(u.context && !u.context.window && { context: { ...u.context, window: price.model.context_window } }),
+  };
+}
 
 const Script = z.object({
   steps: z.array(z.object({ say: z.string().optional(), call: z.string(), input: z.record(z.string(), z.unknown()).default({}) })),
@@ -127,7 +143,7 @@ export async function runAgent(run: AgentRun): Promise<void> {
     return;
   }
 
-  const runtime = run.runtime;
+  const runtime = { ...run.runtime, subagents: !!run.runtime.subagents && SUBAGENTS.includes(run.runtime.provider) };
   const bridge = await openBridge(
     run.tools.map((t) => {
       const { $schema: _, ...inputSchema } = z.toJSONSchema(t.input, { io: 'input' }) as Record<string, unknown>;
@@ -138,10 +154,20 @@ export async function runAgent(run: AgentRun): Promise<void> {
   const cwd = await mkdtemp(join(tmpdir(), 'tc-agent-'));
   const onAbort = () => abort.abort();
   run.signal?.addEventListener('abort', onAbort);
-  run.onLog(`▶ ${runtimes[runtime.provider].title}${runtime.model ? ` · ${runtime.model}` : ''}${runtime.effort ? ` · effort ${runtime.effort}` : ''}`);
+  run.onLog(`▶ ${runtimes[runtime.provider].title}${runtime.model ? ` · ${runtime.model}` : ''}${runtime.effort ? ` · effort ${runtime.effort}` : ''}${runtime.subagents ? ' · subagents' : ''}`);
   try {
-    const system = `${run.system}\n\nThis run has a budget of ${limit} tool calls; ${run.deliver} doesn't count against it.`;
-    const harness = { system, prompt: run.prompt, runtime, toolNames: run.tools.map((t) => t.name), bridge, cwd, abort, onText: (t: string) => run.onLog(`💬 ${t}`) };
+    const delegation = runtime.subagents
+      ? `\n\nYou may hand separate parts of the work (a source, an object, a batch of checks) to subagents; they share this budget. Only you call ${run.deliver}: tell every subagent not to.`
+      : '';
+    const system = `${run.system}\n\nThis run has a budget of ${limit} tool calls; ${run.deliver} doesn't count against it.${delegation}`;
+    const t0 = Date.now();
+    let lastUsage = '';
+    const onUsage = (u: AgentUsage) => {
+      const line = JSON.stringify(withPrices(u));
+      if (line !== lastUsage) run.onLog(`📊 ${line.slice(0, -1)},"seconds":${Math.round((Date.now() - t0) / 1000)}}`);
+      lastUsage = line;
+    };
+    const harness = { system, prompt: run.prompt, runtime, toolNames: run.tools.map((t) => t.name), deliver: run.deliver, bridge, cwd, abort, onText: (t: string) => run.onLog(`💬 ${t}`), onUsage };
     await runtimes[runtime.provider].run(harness);
   } catch (e) {
     if (run.signal?.aborted) throw stopped();

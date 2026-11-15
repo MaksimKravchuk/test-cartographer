@@ -50,7 +50,8 @@ export async function runCodex(h: Harness): Promise<void> {
     config: {
       ...endpointConfig(h.runtime.baseUrl),
       developer_instructions: h.system,
-      features: Object.fromEntries(BUILTIN_TOOLS.map((f) => [f, false])),
+      // multi_agent: Codex's own subagents, which run with this same config (our tools only).
+      features: Object.fromEntries(BUILTIN_TOOLS.map((f) => [f, f === 'multi_agent' && !!h.runtime.subagents])),
       mcp_servers: {
         // `approve`: our tools run without asking — there is nobody to ask.
         tc: { url: h.bridge.url, bearer_token_env_var: TOKEN_ENV, default_tools_approval_mode: 'approve', tool_timeout_sec: 600 },
@@ -74,6 +75,10 @@ export async function runCodex(h: Harness): Promise<void> {
       throw new Error(`Codex tried to use a built-in tool (${e.item.type}) — stopped the run`);
     }
     if (e.type === 'item.completed' && e.item.type === 'agent_message' && e.item.text.trim()) h.onText(e.item.text.trim());
+    if (e.type === 'turn.completed') {
+      const u = e.usage;
+      h.onUsage({ model: h.runtime.model, input: u.input_tokens, output: u.output_tokens, cacheRead: u.cached_input_tokens, cacheWrite: u.cache_write_input_tokens });
+    }
     if (e.type === 'turn.failed') throw new Error(`Codex: ${e.error.message}`);
     if (e.type === 'error') throw new Error(`Codex: ${e.message}`);
   }

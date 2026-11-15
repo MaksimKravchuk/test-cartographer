@@ -1,4 +1,4 @@
-import type { AgentProvider, Backlog, BacklogCoverage, Coverage, Decision, Entity, Field, Issue, Plan, Project, Proposal, ScenarioResult, FileSourceKind, Source, Status, Disagreement, Lint, Resolution, ReviewRow } from '@tc/model';
+import type { AgentProvider, Backlog, BacklogCoverage, Coverage, Decision, Entity, Field, Issue, Plan, Project, Proposal, ScenarioResult, FileSourceKind, Source, Status, Disagreement, Lint, Resolution, ReviewRow, RuntimeOverride, HistoryEntry } from '@tc/model';
 
 export type EntityState = {
   entity: Entity;
@@ -116,6 +116,9 @@ export const api = {
   createEntity: (input: { id: string; title: string; description?: string; partOf?: string }) =>
     call<EntityState>('/api/entities', { method: 'POST', body: JSON.stringify(input) }),
   deleteEntity: (id: string) => call(`/api/entities/${id}`, { method: 'DELETE' }),
+  removeRole: (id: string) => call(`/api/roles/${id}`, { method: 'DELETE' }),
+  // ref — role:<id>, entity:<id> (with everything in it) or <kind>:<entity>.<id>; none — the whole log.
+  history: (ref?: string) => call<{ entries: HistoryEntry[] }>(`/api/history${ref ? `?ref=${encodeURIComponent(ref)}` : ''}`),
   entity: (id: string) => call<EntityState>(`/api/entities/${id}`),
   saveEntity: (entity: Entity, revision: string) =>
     call<EntityState>(`/api/entities/${entity.id}`, { method: 'PUT', body: JSON.stringify({ entity, revision }) }),
@@ -126,8 +129,9 @@ export const api = {
     call<EntityState | ProjectDecideResult>(`/api/proposals/${id}/decide`, { method: 'POST', body: JSON.stringify({ decisions }) }),
   run: (filter: { ids?: string[]; entity?: string } = {}) =>
     call<{ job: string }>('/api/runs', { method: 'POST', body: JSON.stringify(filter) }),
-  explore: (agent: string, provider: 'live' | 'scripted') =>
-    call<{ job: string }>(`/api/agents/${agent}/explore`, { method: 'POST', body: JSON.stringify({ provider }) }),
+  // runtime: settings for this run only, on top of the agent's own.
+  explore: (agent: string, provider: 'live' | 'scripted', runtime?: RuntimeOverride) =>
+    call<{ job: string }>(`/api/agents/${agent}/explore`, { method: 'POST', body: JSON.stringify({ provider, runtime }) }),
   cancel: (job: string) => call(`/api/jobs/${job}/cancel`, { method: 'POST' }),
   exportMarkdown: () => call<{ files: { path: string; content: string }[] }>('/api/export/markdown', { method: 'POST' }),
   sources: () => call<{ sources: SourceInfo[]; usePriority: boolean }>('/api/sources'),
@@ -151,8 +155,8 @@ export const api = {
   backlog: () => call<BacklogState>('/api/backlog'),
   saveBacklog: (backlog: Backlog, revision: string) =>
     call<{ revision: string }>('/api/backlog', { method: 'PUT', body: JSON.stringify({ backlog, revision }) }),
-  runOnboarding: (provider: 'live' | 'scripted', mode: 'onboard' | 'review' = 'onboard') =>
-    call<{ job: string }>('/api/onboarding/run', { method: 'POST', body: JSON.stringify({ provider, mode }) }),
+  runOnboarding: (provider: 'live' | 'scripted', mode: 'onboard' | 'review' = 'onboard', runtime?: RuntimeOverride) =>
+    call<{ job: string }>('/api/onboarding/run', { method: 'POST', body: JSON.stringify({ provider, mode, runtime }) }),
   runtimes: () => call<RuntimeStatus[]>('/api/runtimes'),
   // A short end-to-end run; the job's result is { ok: boolean; seconds: number }.
   testRuntime: (provider: AgentProvider, model?: string) =>

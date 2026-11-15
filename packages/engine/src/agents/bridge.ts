@@ -8,7 +8,7 @@ import type { AddressInfo } from 'node:net';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
-import type { AgentProvider, Runtime } from '@tc/model';
+import type { AgentProvider, AgentUsage, Runtime } from '@tc/model';
 
 export type BridgeTool = { name: string; description: string; inputSchema: Record<string, unknown> };
 export type BridgeResult = { content: string; isError?: boolean };
@@ -22,10 +22,14 @@ export type Harness = {
   prompt: string;
   runtime: Runtime;
   toolNames: string[];
+  // The tool that hands in the result: only the lead agent may call it, never a subagent.
+  deliver: string;
   bridge: Bridge;
   cwd: string;
   abort: AbortController;
   onText(text: string): void;
+  // The run's usage so far, whenever the runtime reports more.
+  onUsage(usage: AgentUsage): void;
 };
 
 export type RuntimeStatus = {
