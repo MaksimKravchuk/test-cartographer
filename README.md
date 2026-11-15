@@ -2,6 +2,10 @@
 
 A local macOS app where a person and AI agents explore a web application together, rebuild a model of how it behaves, and turn the confirmed model into Playwright tests.
 
+Writing end-to-end tests usually starts with someone working out how the product actually behaves: which states an order goes through, who can cancel it and when, what must stay impossible. Test Cartographer does that work with you. Agents click through each role's interface and read your docs and backlog, propose what they find, and you decide what is a requirement. From the confirmed model the engine generates Playwright tests, including the negative ones: everything a role must *not* be able to do.
+
+> **Status: early alpha.** It runs on macOS with Node.js 24+, and the file formats may still change. Issues and pull requests are welcome, see [CONTRIBUTING](CONTRIBUTING.md).
+
 ## Quick start
 
 ```bash
@@ -189,3 +193,9 @@ Next:
 - creating entities from the GUI;
 - agent-authored changes to the action library, reviewed by a person;
 - packaging as a `.app`.
+
+## License
+
+[Apache License 2.0](LICENSE). Contributions are accepted under the [Contributor License Agreement](CLA.md).
+
+The agent runtimes are third-party SDKs installed as dependencies, each under its own terms, which this project's license doesn't cover: the Claude Agent SDK ([Anthropic Commercial Terms](https://www.anthropic.com/legal/commercial-terms)), the Cursor SDK ([Cursor Terms of Service](https://cursor.com/terms-of-service)), the GitHub Copilot SDK (MIT) and the Codex SDK (Apache-2.0). Using one also requires an account with that vendor.

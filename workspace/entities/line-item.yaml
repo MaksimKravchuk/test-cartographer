@@ -2,10 +2,8 @@ id: line-item
 title: Line Item
 description: One product line inside an order.
 key: id
-reader:
-  tool: mcp.get_line_item
-  args:
-    id: "{{key}}"
+# No reader: the demo shop keeps one item per order and has no line-item API.
+# This entity only shows a part-of relation on the Objects page.
 relations:
   - id: order
     title: Order
