@@ -40,6 +40,9 @@ export function validateProject(project: Project, actions?: Set<string>): Issue[
       if (!a.entity) issues.push({ level: 'error', path: p, message: 'An explore agent needs an entity' });
     }
   }
+  // One word, one meaning: a term or synonym listed twice makes agents guess.
+  for (const d of duplicates(project.glossary.flatMap((t) => [t.term, ...t.synonyms].map((w) => w.trim().toLowerCase()))))
+    issues.push({ level: 'error', path: `glossary.${d}`, message: `“${d}” is in the glossary more than once` });
   return issues;
 }
 

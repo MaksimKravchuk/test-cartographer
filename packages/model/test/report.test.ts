@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { allFindings, checkRoles, disagreements, Entity, lintModel, Project, Proposal, renderSpec, reviewMatrix, validateEntity } from '@tc/model';
+import { allFindings, checkRoles, disagreements, Entity, lintModel, Project, Proposal, renderSpec, reviewMatrix, validateEntity, validateProject } from '@tc/model';
 
 const project = Project.parse({
   name: 'Shop',
@@ -115,4 +115,13 @@ test('planned elements: listed in the spec as not built yet, no tests', () => {
   const md2 = renderSpec(project, [more], [], []);
   assert.match(md2, /- State: Refunded/);
   assert.match(md2, /- Buyer may Cancel/);
+});
+
+test('glossary: listed in the spec; a word defined twice is an error', () => {
+  const p = Project.parse({ ...project, glossary: [{ term: 'Order', definition: 'What a buyer pays for in one checkout.', synonyms: ['purchase'], ref: 'order' }] });
+  assert.match(renderSpec(p, [order], [], []), /## Glossary\n\n- \*\*Order\*\* \(also: purchase\) — What a buyer pays for in one checkout\./);
+  assert.doesNotMatch(renderSpec(project, [order], [], []), /Glossary/);
+  assert.deepEqual(validateProject(p), []);
+  const dup = Project.parse({ ...p, glossary: [...p.glossary, { term: 'Purchase', definition: 'x' }] });
+  assert.match(validateProject(dup).find((i) => i.path.startsWith('glossary'))!.message, /“purchase” is in the glossary more than once/);
 });

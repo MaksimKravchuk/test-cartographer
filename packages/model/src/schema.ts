@@ -142,6 +142,16 @@ export const Contract = z.object({
 export type Contract = z.infer<typeof Contract>;
 export type AgentSpec = z.infer<typeof AgentSpec>;
 
+// A project word and what it means, so people and agents name things the same way.
+// ref: what it is in the model, as `entity` or `kind:entity.id` (e.g. `action:order.cancel`).
+export const Term = z.object({
+  term: z.string().min(1),
+  definition: z.string().min(1),
+  synonyms: z.array(z.string()).default([]),
+  ref: z.string().optional(),
+});
+export type Term = z.infer<typeof Term>;
+
 export const Project = z.object({
   name: z.string(),
   interfaces: z.array(Interface).min(1),
@@ -152,6 +162,7 @@ export const Project = z.object({
   // can only run scripted.
   runtime: Runtime.optional(),
   agents: z.array(AgentSpec).default([]),
+  glossary: z.array(Term).default([]),
 });
 export type Project = z.infer<typeof Project>;
 
