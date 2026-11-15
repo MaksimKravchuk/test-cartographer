@@ -7,7 +7,8 @@ const Id = z.string().regex(/^[a-z][a-z0-9_-]*$/, 'id: lowercase Latin letters, 
 // proposed  — proposed by an agent, no human decision yet
 // confirmed — a person confirmed it: this is a requirement, tests are built from it
 // rejected  — a person rejected it; kept so agents don't propose it again
-export const Status = z.enum(['observed', 'proposed', 'confirmed', 'rejected']);
+// planned   — a requirement that isn't built yet: no tests, and code that lacks it isn't a bug
+export const Status = z.enum(['observed', 'proposed', 'confirmed', 'rejected', 'planned']);
 export type Status = z.infer<typeof Status>;
 
 export const Provenance = z.object({
@@ -534,7 +535,7 @@ export const Decision = z.object({
   // accept  — accept as a requirement (confirmed)
   // observe — record as observed behavior, but not a requirement
   // reject  — reject
-  verdict: z.enum(['accept', 'observe', 'reject']),
+  verdict: z.enum(['accept', 'observe', 'reject', 'plan']),
   note: z.string().optional(),
 });
 export type Decision = z.infer<typeof Decision>;

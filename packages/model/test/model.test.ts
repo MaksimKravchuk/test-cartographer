@@ -287,6 +287,9 @@ test('accessMatrix: allowed / undecided / denied, `@new` for create actions, and
   assert.equal(cell('seller', 'pay', 'new')?.decision, 'denied');
   // Only a proposed permit allows it — undecided, not allowed.
   assert.equal(cell('seller', 'view', 'paid')?.decision, 'undecided');
+  // A planned permit isn't built yet: undecided too, so no deny test asserts the opposite.
+  const planned = Entity.parse({ ...e, permits: [{ ...e.permits[0], status: 'planned' }] });
+  assert.equal(accessMatrix(planned, withAuth, 'a').find((c) => c.role === 'seller' && c.action === 'view' && c.state === 'paid')?.decision, 'undecided');
 });
 
 test('plan: a deny scenario per denied cell, blocked when the state can’t be reached', () => {
@@ -408,6 +411,7 @@ test('proposals: accept → requirement, observe → observation, reject is kept
   assert.equal(refund.provenance?.note, 'looks like a bug');
   assert.deepEqual(next.states.find((s) => s.id === 'shipped')!.variants, ['a', 'b']);
   assert.equal(next.variants.find((v) => v.id === 'c')!.status, 'rejected');
+  assert.equal(applyDecisions(entity(), proposal, [{ op: 0, verdict: 'plan' }], project).transitions.find((t) => t.id === 'cancel')!.status, 'planned');
   // A read back of the entity (probe evidence) marks the element as seen in the app.
   const probed = Proposal.parse({ ...proposal, evidence: [{ id: 'e1', kind: 'probe', summary: 'read order: {"status":"new"}' }] });
   assert.equal(applyDecisions(entity(), probed, [{ op: 0, verdict: 'accept' }], project).transitions.find((t) => t.id === 'cancel')!.provenance?.seen, true);

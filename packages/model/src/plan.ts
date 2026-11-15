@@ -133,7 +133,8 @@ function permitScenario(entity: Entity, variant: string, p: Permit, role: string
 export type AccessDecision = 'allowed' | 'undecided' | 'denied';
 export type AccessCell = { role: string; action: string; state: string; decision: AccessDecision; by: string | null };
 
-const pendingStatus = new Set(['observed', 'proposed']);
+// Not decided yet, or required but not built: neither is allowed nor denied in a test.
+const pendingStatus = new Set(['observed', 'proposed', 'planned']);
 
 function decideCell(entity: Entity, variant: string, role: string, action: string, state: string): AccessCell {
   const matchesT = (t: Transition) => t.action === action && t.from === state && t.by.includes(role) && appliesTo(t, variant);

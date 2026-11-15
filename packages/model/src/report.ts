@@ -102,6 +102,12 @@ export function renderSpec(project: Project, entities: Entity[], findings: Disag
       for (const f of open) lines.push(`- ${f.finding.kind === 'contradiction' ? 'Disagreement' : f.finding.kind === 'gap' ? 'Gap' : 'Question'}: ${f.finding.note}`);
       lines.push('');
     }
+    const planned = [
+      ...e.actions.filter((a) => a.status === 'planned').map((a) => `Action: ${a.title}`),
+      ...e.transitions.filter((t) => t.status === 'planned').map((t) => `${t.title}: ${e.states.find((s) => s.id === t.from)?.title ?? t.from} → ${e.states.find((s) => s.id === t.to)?.title ?? t.to}`),
+      ...e.rules.filter((r) => r.status === 'planned').map((r) => `Rule: ${r.text}`),
+    ];
+    if (planned.length) lines.push('### Planned, not built yet', '', ...planned.map((x) => `- ${x}`), '');
     const settled = findings.filter((f) => f.entity === e.id && f.resolution?.verdict === 'bug');
     if (settled.length) {
       lines.push('### Known defects', '');

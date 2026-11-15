@@ -11,6 +11,7 @@ export const statusText: Record<Status, string> = {
   observed: 'Observation',
   proposed: 'Proposed',
   rejected: 'Rejected',
+  planned: 'Planned',
 };
 
 export function StatusField({ value, onChange }: { value: Status; onChange(s: Status): void }) {
