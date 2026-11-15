@@ -754,3 +754,11 @@ test('validate: attributes — known subjects, enum values that states match on,
   const off = entity({ attributes: [{ id: 'status', title: 'Status', type: 'enum', values: ['open'] }] });
   assert.ok(validateEntity(off, project).some((i) => i.path === 'states.paid' && /“paid” is not a value of Status/.test(i.message)));
 });
+
+test('validate: a subject performing an action must be allowed to change the attributes it changes', () => {
+  const e = entity({
+    attributes: [{ id: 'payment', title: 'Payment', type: 'text', by: ['seller'] }],
+    actions: [{ ...baseActions()[0], changes: ['payment'] }, ...baseActions().slice(1)],
+  });
+  assert.ok(validateEntity(e, project).some((i) => i.path === 'actions.pay' && i.message === 'Client performs “Pay”, which changes Payment, but may not change Payment'));
+});

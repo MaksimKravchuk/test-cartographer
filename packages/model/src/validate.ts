@@ -92,7 +92,18 @@ export function validateEntity(entity: Entity, project: Project, actions?: Set<s
         warn(`states.${s.id}`, `“${String(value)}” is not a value of ${a.title} (${a.values.join(', ')})`);
     }
   for (const a of entity.actions)
-    for (const c of a.changes ?? []) if (!attributes.has(c)) err(`actions.${a.id}`, `Changes unknown attribute “${c}”`);
+    for (const c of a.changes ?? []) {
+      const attr = attributes.get(c);
+      if (!attr) {
+        err(`actions.${a.id}`, `Changes unknown attribute “${c}”`);
+        continue;
+      }
+      if (!attr.by) continue;
+      // Who performs the action must be allowed to change what it changes.
+      const performers = new Set([...(a.by ?? []), ...entity.transitions.filter((t) => t.action === a.id).flatMap((t) => t.by), ...entity.permits.filter((p) => p.action === a.id).flatMap((p) => p.by)]);
+      for (const r of performers)
+        if (!attr.by.includes(r)) warn(`actions.${a.id}`, `${roles.get(r)?.title ?? r} performs “${a.title}”, which changes ${attr.title}, but may not change ${attr.title}`);
+    }
 
   if (!entity.reader) warn('reader', NO_READER);
   else if (!toolAllowed(project, entity.reader.tool, 'read'))
