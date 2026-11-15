@@ -5,7 +5,7 @@ import { api, ApiError, subscribe, type EntityState, type EntitySummary, type Jo
 import type { Selection } from './graph.ts';
 import { MapView } from './views/MapView.tsx';
 import { Inspector } from './views/Inspector.tsx';
-import { ProposalsView } from './views/ProposalsView.tsx';
+import { InboxView } from './views/InboxView.tsx';
 import { CoverageView } from './views/CoverageView.tsx';
 import { ExportView } from './views/ExportView.tsx';
 import { OverviewView } from './views/OverviewView.tsx';
@@ -58,7 +58,7 @@ const placeOf: Record<Page, Place> = {
 const views: Record<Place, { page: Exclude<Page, 'entity'>; title: string }[]> = {
   sources: [{ page: 'onboarding', title: 'Sources' }],
   model: [{ page: 'model', title: 'Model' }, { page: 'objects', title: 'Map' }],
-  inbox: [{ page: 'report', title: 'Disagreements' }, { page: 'proposals', title: 'Proposals' }],
+  inbox: [{ page: 'proposals', title: 'Queue' }, { page: 'report', title: 'By source' }],
   spec: [{ page: 'spec', title: 'Specification' }],
   tests: [{ page: 'overview', title: 'Overview' }, { page: 'backlog', title: 'Backlog' }, { page: 'export', title: 'Export' }],
   settings: [{ page: 'settings', title: 'Project' }, { page: 'agents', title: 'Agents' }, { page: 'projects', title: 'Projects' }],
@@ -270,7 +270,7 @@ export function App() {
           {views[place].map((v) => (
             <button key={v.page} aria-current={route.page === v.page || (v.page === 'objects' && route.page === 'entity') ? 'page' : undefined} onClick={() => go({ page: v.page })}>
               {v.title}
-              {v.page === 'proposals' && pending.length > 0 && <span className="count">{pending.length}</span>}
+              {v.page === 'proposals' && inbox > 0 && <span className="count">{inbox}</span>}
               {v.page === 'objects' && <span className="muted"> {entities.length}</span>}
             </button>
           ))}
@@ -326,7 +326,7 @@ export function App() {
             onError={(m) => notify(m, true)}
           />
         )}
-        {route.page === 'report' && <ReportView proposals={proposals} reloadToken={reloadToken} onChanged={() => void reloadAll()} onError={(m) => notify(m, true)} />}
+        {route.page === 'report' && <ReportView proposals={proposals} reloadToken={reloadToken} onError={(m) => notify(m, true)} />}
         {route.page === 'spec' && <SpecView reloadToken={reloadToken} onError={(m) => notify(m, true)} />}
 
         {route.page === 'onboarding' && (
@@ -391,8 +391,10 @@ export function App() {
         )}
 
         {route.page === 'proposals' && (
-          <ProposalsView
+          <InboxView
             project={project}
+            reloadToken={reloadToken}
+            onChanged={() => void reloadAll()}
             proposals={proposals}
             entities={entities}
             dirty={dirty}

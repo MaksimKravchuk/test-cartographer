@@ -34,7 +34,7 @@ test('every section opens without an error', async ({ page }) => {
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(e.message));
   await page.goto('/');
-  const places: [string, string[]][] = [['Sources', []], ['Model', ['Map', 'Model']], ['Inbox', ['Proposals', 'Disagreements']], ['Spec', []], ['Tests', ['Backlog', 'Export', 'Overview']]];
+  const places: [string, string[]][] = [['Sources', []], ['Model', ['Map', 'Model']], ['Inbox', ['By source', 'Queue']], ['Spec', []], ['Tests', ['Backlog', 'Export', 'Overview']]];
   for (const [name, views] of places) {
     await place(page, name).click();
     await expect(place(page, name)).toHaveAttribute('aria-current', 'page');
@@ -66,12 +66,18 @@ test('a review shows by source which one contradicts the model', async ({ page }
   await expect(async () => {
     await page.goto('/');
     await place(page, 'Inbox').click();
-    await page.getByText('By source').click();
+    await view(page, 'By source').click();
     await expect(page.getByRole('table', { name: 'Review by source' }).getByText('✕').first()).toBeVisible({ timeout: 2_000 });
   }).toPass({ timeout: 30_000 });
   // A confirmation fills its row too: the overview and the code agree on the expiry.
   await expect(page.getByRole('table', { name: 'Review by source' }).getByRole('row', { name: /Action: Expire/ })).toContainText('✓');
   if (process.env.TC_SHOT) await page.screenshot({ path: process.env.TC_SHOT, fullPage: true });
+
+  // The Inbox queue opens on the contradiction, with each source's quote and the verdicts.
+  await view(page, 'Queue').click();
+  const finding = page.getByRole('article', { name: 'Finding' });
+  await expect(finding).toContainText('contradiction');
+  await expect(finding.getByRole('button', { name: /Bug in the product/ })).toBeEnabled();
 
   // The model screen lists the same contradiction in its "what to do next" queue, and its link opens the action.
   await place(page, 'Model').click();

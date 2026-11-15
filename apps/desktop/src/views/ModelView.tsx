@@ -96,7 +96,7 @@ function NextQueue({ queue, busy, onOpen, onSettle }: { queue: Queue; busy: bool
       <h2>What to do next</h2>
       {group('gaps in the model', 'gap', queue.gaps.map((l, i) => <li key={i}>{link(l.ref, l.message)}</li>))}
       {group('open questions', 'question', queue.questions.map((d) => finding(d, true)))}
-      {group('contradictions between sources (settle them on the Disagreements page)', 'contradiction', queue.contradictions.map((d) => finding(d, false)))}
+      {group('contradictions between sources (settle them in Inbox)', 'contradiction', queue.contradictions.map((d) => finding(d, false)))}
       <p className="muted" style={{ margin: 0 }}>Answer a question here, or use Ask agent › Review the model to have an agent look into all of them.</p>
     </section>
   );
