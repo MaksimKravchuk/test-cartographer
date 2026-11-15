@@ -267,6 +267,17 @@ export function AgentsView({ project, onSaved, onError }: Props) {
             onChange={(e) => setDraft({ ...draft, runtime: { ...draft.runtime!, maxSteps: Math.max(1, Number(e.target.value) || 1) } })}
           />
         </label>
+        {draft.runtime?.provider === 'codex' && (
+          <label className="field" style={{ flex: 1, minWidth: 240 }}>
+            <span>Model endpoint <span className="muted">(optional: an open model in Ollama, LM Studio or vLLM instead of ChatGPT)</span></span>
+            <input
+              className="text"
+              placeholder="http://localhost:11434/v1"
+              value={draft.runtime.baseUrl ?? ''}
+              onChange={(e) => setDraft({ ...draft, runtime: { ...draft.runtime!, baseUrl: e.target.value.trim() || undefined } })}
+            />
+          </label>
+        )}
       </div>
 
       <h2>Agents</h2>

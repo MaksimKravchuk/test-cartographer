@@ -40,6 +40,8 @@ export function validateProject(project: Project, actions?: Set<string>): Issue[
       if (!a.entity) issues.push({ level: 'error', path: p, message: 'An explore agent needs an entity' });
     }
   }
+  if (project.runtime?.baseUrl && project.runtime.provider !== 'codex')
+    issues.push({ level: 'warning', path: 'runtime.baseUrl', message: 'Only the Codex runtime can use a model endpoint (baseUrl) — it is ignored' });
   // One word, one meaning: a term or synonym listed twice makes agents guess.
   for (const d of duplicates(project.glossary.flatMap((t) => [t.term, ...t.synonyms].map((w) => w.trim().toLowerCase()))))
     issues.push({ level: 'error', path: `glossary.${d}`, message: `“${d}” is in the glossary more than once` });

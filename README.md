@@ -160,6 +160,17 @@ A proposal is created against a specific model revision (the backlog revision, f
 
 Agents don't call model APIs and nothing is billed per token: they run inside a coding agent you're already signed in to — **Claude Code** on your Claude subscription, **Codex** on your ChatGPT subscription, **GitHub Copilot** on your Copilot plan, or **Cursor** on your Cursor plan. The engine drives it through the vendor's SDK (Claude Agent SDK, Codex SDK, Copilot SDK, Cursor SDK — all bundled, no separate CLI install) using the local sign-in: `claude auth login`, `codex login`, `gh auth login` (or `copilot login`), and for Cursor the **Sign in** button / `tc runtimes login cursor` and serves the agent's tools to it over MCP on `127.0.0.1` for the length of a run; built-in tools (shell, file edits, web) are off, so every call still goes through the engine and lands in the evidence. The runtime is set in `cartographer.yaml → runtime` (`provider: claude | codex | copilot | cursor`, optional `model`, `effort`, `maxSteps` — tool calls per run), and an agent can override it with its own `runtime:`; the GUI's **Agents** page edits both, shows each runtime's sign-in state and models, and has a **Test run** button. `tc runtimes` prints the same status, `tc runtimes test <provider>` does a short end-to-end run. Claude runs draw from your plan's Agent SDK allowance, Codex runs from your ChatGPT plan's Codex limits, Copilot runs from your Copilot plan's requests, Cursor runs from your Cursor plan's usage (effort doesn't apply to Cursor).
 
+**Open models, no subscription.** Codex (Apache-2.0) can run on any model served over the OpenAI Responses API instead of a ChatGPT sign-in, such as an open-weight model in Ollama, LM Studio or vLLM. Add `baseUrl` to the runtime:
+
+```yaml
+runtime:
+  provider: codex
+  model: gpt-oss:20b                    # a model the endpoint serves
+  baseUrl: http://localhost:11434/v1    # Ollama; LM Studio: http://localhost:1234/v1
+```
+
+Codex is then "ready" when the endpoint answers and lists its models. Results depend on the model: it has to follow long instructions and call tools reliably. The integration test `open-model.test.ts` runs the whole loop (onboarding, accept, review, UI exploration and spec) through the real Codex CLI against such an endpoint.
+
 `--scripted` (and **Scripted** in the GUI) replays the agent's script from `workspace/agents/*.yaml` instead — deterministic, no model needed.
 
 ### Onboarding
@@ -200,18 +211,13 @@ Done:
 - scenarios tagged and annotated by epic/feature/story for Allure TestOps.
 
 Next, in this order (each step is its own pull request):
-1. Review as a matrix of model element × source: confirmed, partial, contradicts, not found.
-2. "Not found" always says where the agent looked, and the model keeps a list of unknowns.
-3. A transition counts as confirmed only when a later read shows its effect.
-4. A recorded HAR session as a source.
-5. Every test points to the specification item it checks, and items without a test are listed.
-6. A full loop with an agent under an open license (Codex or the Copilot SDK).
-7. Running on Linux and Windows through the CLI and web GUI; packaging as a `.app` on macOS.
-8. A quickstart on the demo shop.
-9. Later: cleaning up test data by `runTag`, agent-authored changes to the action library reviewed by a person, pushing runs to Allure TestOps (scenario IDs and epic/feature/story labels are already on every compiled test).
+1. Running on Linux and Windows through the CLI and web GUI; packaging as a `.app` on macOS.
+2. A quickstart on the demo shop.
+3. A public case: an undocumented app → specification → tests and the disagreements found.
+4. Later: a recorded HAR session as a source, noticing when sources change, cleaning up test data by `runTag`, agent-authored changes to the action library reviewed by a person, pushing runs to Allure TestOps (scenario IDs and epic/feature/story labels are already on every compiled test).
 
 ## License
 
 [Apache License 2.0](LICENSE). Contributions are accepted under the [Contributor License Agreement](CLA.md).
 
-The agent runtimes are third-party SDKs installed as dependencies, each under its own terms, which this project's license doesn't cover: the Claude Agent SDK ([Anthropic Commercial Terms](https://www.anthropic.com/legal/commercial-terms)), the Cursor SDK ([Cursor Terms of Service](https://cursor.com/terms-of-service)), the GitHub Copilot SDK (MIT) and the Codex SDK (Apache-2.0). Using one also requires an account with that vendor.
+The agent runtimes are third-party SDKs installed as dependencies, each under its own terms, which this project's license doesn't cover: the Claude Agent SDK ([Anthropic Commercial Terms](https://www.anthropic.com/legal/commercial-terms)), the Cursor SDK ([Cursor Terms of Service](https://cursor.com/terms-of-service)), the GitHub Copilot SDK (MIT) and the Codex SDK (Apache-2.0). Using one also requires an account with that vendor, except Codex on your own model endpoint.

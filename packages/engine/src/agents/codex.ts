@@ -30,10 +30,24 @@ const BUILTIN_TOOLS = [
 // above slipped through (say, a new Codex version): the run is stopped.
 const BUILTIN_ITEMS = new Set(['command_execution', 'file_change', 'web_search']);
 
+// A model endpoint (runtime.baseUrl) replaces the ChatGPT sign-in: Codex talks
+// the Responses API to it, so any model served that way works, open ones included.
+const endpointConfig = (baseUrl: string | undefined): Record<string, string | Record<string, Record<string, string>>> =>
+  baseUrl ? { model_provider: 'tc-endpoint', model_providers: { 'tc-endpoint': { name: 'Model endpoint', base_url: baseUrl, wire_api: 'responses' } } } : {};
+// A local endpoint must not go through an outbound proxy.
+const noProxy = (env: Record<string, string>, baseUrl: string | undefined): Record<string, string> => {
+  if (!baseUrl) return {};
+  const host = new URL(baseUrl).hostname;
+  const list = [env.NO_PROXY ?? env.no_proxy, host].filter(Boolean).join(',');
+  return { NO_PROXY: list, no_proxy: list };
+};
+
 export async function runCodex(h: Harness): Promise<void> {
+  const env = subscriptionEnv();
   const codex = new Codex({
-    env: { ...subscriptionEnv(), [TOKEN_ENV]: h.bridge.token },
+    env: { ...env, ...noProxy(env, h.runtime.baseUrl), [TOKEN_ENV]: h.bridge.token },
     config: {
+      ...endpointConfig(h.runtime.baseUrl),
       developer_instructions: h.system,
       features: Object.fromEntries(BUILTIN_TOOLS.map((f) => [f, false])),
       mcp_servers: {
@@ -71,7 +85,20 @@ const cli = async (args: string[]) => {
   return (stdout + stderr).trim();
 };
 
-export async function codexStatus(): Promise<RuntimeStatus> {
+// With a model endpoint, ready means it answers and lists its models.
+async function endpointStatus(baseUrl: string): Promise<RuntimeStatus> {
+  try {
+    const res = await fetch(`${baseUrl.replace(/\/$/, '')}/models`, { signal: AbortSignal.timeout(10_000) });
+    if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+    const { data = [] } = (await res.json()) as { data?: { id: string }[] };
+    return { provider: 'codex', ready: true, account: `Model endpoint ${baseUrl}`, models: data.map((m) => ({ id: m.id, title: m.id })) };
+  } catch (e) {
+    return { provider: 'codex', ready: false, models: [], detail: `The model endpoint ${baseUrl} doesn't answer: ${(e as Error).message}` };
+  }
+}
+
+export async function codexStatus(baseUrl?: string): Promise<RuntimeStatus> {
+  if (baseUrl) return endpointStatus(baseUrl);
   try {
     const [version, login] = await Promise.all([cli(['--version']), cli(['login', 'status']).catch((e) => String(e.stderr ?? e.message))]);
     const chatgpt = /logged in using chatgpt/i.test(login);

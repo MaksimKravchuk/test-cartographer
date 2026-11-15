@@ -128,14 +128,18 @@ switch (cmd) {
       console.log(`✔ signed in to Cursor${email ? ` as ${email}` : ''}`);
       break;
     }
+    const configured = (await ws.project().catch(() => undefined))?.runtime;
+    const endpoint = configured?.baseUrl;
     if (arg === 'test') {
       const provider = AgentProvider.parse(positionals[2]);
-      const r = await testRuntime(provider, values.model, (l) => console.log(l));
+      // The project's model, unless --model says otherwise: an endpoint serves only the models it has.
+      const model = values.model ?? (configured?.provider === provider ? configured.model : undefined);
+      const r = await testRuntime(provider, model, (l) => console.log(l), undefined, endpoint);
       console.log(`\n${r.ok ? '✔' : '✘'} ${provider} in ${r.seconds}s`);
       if (!r.ok) process.exitCode = 1;
       break;
     }
-    for (const s of await runtimeStatus()) {
+    for (const s of await runtimeStatus(endpoint)) {
       const who = [s.account, s.plan, s.version && `v${s.version}`].filter(Boolean).join(' · ');
       console.log(`${s.ready ? '✔' : '✘'} ${runtimeTitle(s.provider)}${who ? ` — ${who}` : ''}`);
       if (s.detail) console.log(`  ${s.detail}`);
