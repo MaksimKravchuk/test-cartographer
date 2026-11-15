@@ -14,18 +14,19 @@ type Props = { disabled: boolean; busy: boolean; onSubmit(fn: () => Promise<unkn
 const native = (window as { cartographer?: { pickFolder(start?: string): Promise<string | null> } }).cartographer;
 
 // The engine's view of a typed path, checked a moment after typing stops.
+// Null until the path as typed now has been checked, so an older answer never stands in for it.
 function useFolder(path: string): FolderInfo | null {
-  const [info, setInfo] = useState<FolderInfo | null>(null);
+  const [checked, setChecked] = useState<{ path: string; info: FolderInfo | null } | null>(null);
   useEffect(() => {
-    if (!path.trim()) return setInfo(null);
+    if (!path.trim()) return;
     let live = true;
-    const t = setTimeout(() => void api.folder(path).then((i) => live && setInfo(i), () => live && setInfo(null)), 250);
+    const t = setTimeout(() => void api.folder(path).then((info) => live && setChecked({ path, info }), () => live && setChecked({ path, info: null })), 250);
     return () => {
       live = false;
       clearTimeout(t);
     };
   }, [path]);
-  return info && path.trim() ? info : null;
+  return path.trim() && checked?.path === path ? checked.info : null;
 }
 
 type Hint = { tone?: 'ok' | 'bad'; text: ReactNode };

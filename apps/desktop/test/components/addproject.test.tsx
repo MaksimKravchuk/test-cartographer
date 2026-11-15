@@ -50,3 +50,17 @@ describe('AddProject', () => {
     expect(screen.getByRole('button', { name: 'Open project' })).toBeEnabled();
   });
 });
+
+describe('AddProject while a path is being checked', () => {
+  it('doesn’t keep the last folder’s answer for a new path', async () => {
+    render(<AddProject disabled={false} busy={false} onSubmit={vi.fn()} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Open existing' }));
+    const folder = screen.getByLabelText('Folder');
+    await userEvent.type(folder, '/home/max/shop');
+    expect(await screen.findByText('Test Cartographer project “Shop”.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Open project' })).toBeEnabled();
+    await userEvent.type(folder, '-old');
+    expect(screen.getByRole('button', { name: 'Open project' })).toBeDisabled();
+    expect(screen.getByText('Checking…')).toBeInTheDocument();
+  });
+});
