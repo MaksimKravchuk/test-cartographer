@@ -68,10 +68,10 @@ await click(page.getByRole('menuitem', { name: /Review the model/ }));
 await page.getByText('review — done').waitFor({ timeout: 60_000 });
 await caption('Findings land on the model, with a dashed border');
 await hold(2);
-await click(page.getByRole('button', { name: /^Cancel/ }).first());
-await caption('Each rule comes with quotes: ✓ true · ≈ observed · ⏳ planned · ✕ strike out');
-// The agent's rule on Cancel, quoted from the product overview: the last ✓ on the page.
-const accept = page.getByRole('button', { name: '✓' }).last();
+await click(page.getByRole('region', { name: 'Actions' }).getByRole('button', { name: /^Cancel/ }).first());
+await caption('Each rule comes with quotes: Requirement · Observed · Planned · Strike out');
+// The agent's rule on Cancel, quoted from the product overview.
+const accept = page.getByRole('region', { name: 'Rules' }).getByRole('button', { name: 'Requirement' }).first();
 await accept.scrollIntoViewIfNeeded();
 await hold(3);
 await click(accept);
