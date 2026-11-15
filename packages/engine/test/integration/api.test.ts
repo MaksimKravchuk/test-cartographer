@@ -63,6 +63,30 @@ describe('project and entities', () => {
 });
 
 describe('knowledge sources, backlog, export', () => {
+  test('every save lands in the history with who made it', async () => {
+    const { entries } = await get('/api/history?ref=entity:listing');
+    const renamed = entries.find((e: any) => e.ref === 'entity:listing' && e.op === 'change');
+    assert.deepEqual(renamed.changes.title, ['Listing', 'Listing (renamed)']);
+    assert.equal(renamed.by.kind, 'human');
+    const review = (await get('/api/history?ref=entity:review')).entries.map((e: any) => e.op);
+    assert.deepEqual(review, ['add', 'remove']);
+  });
+
+  test('removing a subject takes it off actions, and stops where it is the only actor', async () => {
+    const blocked = await app.request('/api/roles/seller', { method: 'DELETE' });
+    assert.equal(blocked.status, 409);
+    assert.match((await blocked.json()).error, /agent/);
+    const { entity, revision } = await get('/api/entities/listing');
+    entity.actions[0].by = ['seller', 'guest'];
+    assert.equal((await app.request('/api/entities/listing', json('PUT', { entity, revision }))).status, 200);
+    const res = await app.request('/api/roles/guest', { method: 'DELETE' });
+    assert.equal(res.status, 200, await res.clone().text());
+    assert.ok(!(await get('/api/project')).project.roles.some((r: any) => r.id === 'guest'));
+    assert.deepEqual((await get('/api/entities/listing')).entity.actions[0].by, ['seller']);
+    assert.equal((await get('/api/history?ref=role:guest')).entries.at(-1).op, 'remove');
+    assert.equal((await app.request('/api/roles/nope', { method: 'DELETE' })).status, 404);
+  });
+
   test('a source can be added, read and removed', async () => {
     const added = await app.request('/api/sources', json('POST', { name: 'refunds.md', content: '# Refunds\nA refund is issued within 14 days.' }));
     assert.equal(added.status, 200);
@@ -126,5 +150,8 @@ describe('project form', () => {
     assert.equal(p.runtime?.provider, 'codex');
     const sources = await new Workspace(root).sources();
     assert.deepEqual(sources.map((s) => [s.kind, s.kind === 'code' && s.path]), [['code', ws.root]]);
+    // The starting subjects say where they came from.
+    const history = await new Workspace(root).history();
+    assert.deepEqual(history.map((e) => [e.ref, e.by.kind]), [['role:guest', 'template'], ['role:user', 'template']]);
   });
 });

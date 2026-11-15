@@ -10,3 +10,4 @@ export * from './markdown.ts';
 export * from './workspace.ts';
 export * from './data.ts';
 export * from './report.ts';
+export * from './history.ts';

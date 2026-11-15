@@ -1,4 +1,4 @@
-import type { AgentProvider, Backlog, BacklogCoverage, Coverage, Decision, Entity, Field, Issue, Plan, Project, Proposal, ScenarioResult, FileSourceKind, Source, Status, Disagreement, Lint, Resolution, ReviewRow, RuntimeOverride } from '@tc/model';
+import type { AgentProvider, Backlog, BacklogCoverage, Coverage, Decision, Entity, Field, Issue, Plan, Project, Proposal, ScenarioResult, FileSourceKind, Source, Status, Disagreement, Lint, Resolution, ReviewRow, RuntimeOverride, HistoryEntry } from '@tc/model';
 
 export type EntityState = {
   entity: Entity;
@@ -116,6 +116,9 @@ export const api = {
   createEntity: (input: { id: string; title: string; description?: string; partOf?: string }) =>
     call<EntityState>('/api/entities', { method: 'POST', body: JSON.stringify(input) }),
   deleteEntity: (id: string) => call(`/api/entities/${id}`, { method: 'DELETE' }),
+  removeRole: (id: string) => call(`/api/roles/${id}`, { method: 'DELETE' }),
+  // ref — role:<id>, entity:<id> (with everything in it) or <kind>:<entity>.<id>; none — the whole log.
+  history: (ref?: string) => call<{ entries: HistoryEntry[] }>(`/api/history${ref ? `?ref=${encodeURIComponent(ref)}` : ''}`),
   entity: (id: string) => call<EntityState>(`/api/entities/${id}`),
   saveEntity: (entity: Entity, revision: string) =>
     call<EntityState>(`/api/entities/${entity.id}`, { method: 'PUT', body: JSON.stringify({ entity, revision }) }),
