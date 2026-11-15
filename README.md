@@ -32,6 +32,18 @@ Engine CLI — `pnpm tc <command>`:
 | `onboard [agent] [--scripted]` | the onboarding agent reads the knowledge sources and proposes roles, entities, the model, and the backlog |
 | `backlog` | epics → features → stories, with totals and unmapped stories |
 
+## The knowledge loop
+
+The app is built around one loop. A person and agents keep adding to the same model of the product until it describes the system well enough to test it:
+
+1. **Sources** — list everything known about the product: uploaded docs and tracker exports, code folders, systems behind MCP (Confluence, Jira). Give each a priority (requirements outrank code by default) and press **Check access**.
+2. **Model** — subjects (roles), objects (entities), and a matrix of who performs which action on what. Click an action to see and write its rules in plain words; a rule doesn't need a transition or conditions to be useful.
+3. **Agents research** — **Run first research** proposes a model from the sources; **Review the model** checks the existing one, quoting the docs and the code (`file#Lx-Ly`), and proposes what's missing. Findings appear in place on the Model page with ✓ (true), ≈ (that's how it works, but not a requirement) and ✕ (strike out — agents won't propose it again). Each op can be decided on its own.
+4. **Disagreements** — every contradiction, gap and question, with the quotes from each side and the side that stands by priority. Settle it as *Bug in the product*, *Requirements are outdated* or *Not a problem*.
+5. **Specification** — the confirmed model as one Markdown document (`export/spec.md`): subjects, objects, every action with who performs it and its rules with sources, open questions and known defects. Tests are generated from the same model.
+
+You can enter the loop anywhere: write the model by hand, start with research, or ask for a review of what you have. `workspace/agents/review.yaml` is a scripted review of the demo shop that finds the real disagreement between `product-overview.md` and `demo/shop/domain.ts` on cancelling a paid order.
+
 ## Projects, entities, scenarios
 
 The app is organized as **project → entities → scenarios**.

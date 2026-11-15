@@ -266,11 +266,13 @@ export function ProposalsView(props: Props) {
     </div>
   );
 
+  const priorVerdict = (i: number) => p?.decisions.find((x) => x.op === i)?.verdict;
   const decide = async () => {
     if (!p) return;
     setBusy(true);
     try {
-      const decisions: Decision[] = p.ops.map((_, i) => ({ op: i, verdict: verdicts[i], ...(notes[i] ? { note: notes[i] } : {}) }));
+      // Ops already decided in place (from the Model page) are left out.
+      const decisions: Decision[] = p.ops.flatMap((_, i) => (priorVerdict(i) ? [] : [{ op: i, verdict: verdicts[i], ...(notes[i] ? { note: notes[i] } : {}) }]));
       props.onDecided(await api.decide(p.id, decisions));
     } catch (e) {
       props.onError((e as Error).message);
@@ -279,7 +281,7 @@ export function ProposalsView(props: Props) {
     }
   };
 
-  const decidedCount = p ? p.ops.filter((_, i) => verdicts[i]).length : 0;
+  const decidedCount = p ? p.ops.filter((_, i) => priorVerdict(i) || verdicts[i]).length : 0;
   const conflictOf = (i: number) => p?.conflicts.find((c) => c.op === i)?.message;
   const evidenceById = (id: string) => p?.evidence.find((e) => e.id === id);
   const missingEntity = p?.entity && !props.entities.some((e) => e.id === p.entity);
@@ -338,8 +340,9 @@ export function ProposalsView(props: Props) {
               const isProject = projectKinds.has(op.kind);
               const d = isProject ? describeProject(op, { project, entities: props.entities, backlog, opsSoFar: p.ops }) : describe(op, entity ?? emptyEntity);
               const noObserve = noStatusKinds.has(op.kind);
-              const decided = p.status === 'decided' ? p.decisions.find((x) => x.op === i)?.verdict : verdicts[i];
-              const conflict = p.status === 'pending' ? conflictOf(i) : undefined;
+              const decided = priorVerdict(i) ?? (p.status === 'pending' ? verdicts[i] : undefined);
+              const open = p.status === 'pending' && !priorVerdict(i);
+              const conflict = open ? conflictOf(i) : undefined;
               const sourceEvidence = op.evidence.map((id) => evidenceById(id)).filter((e): e is Evidence => !!e && e.kind === 'source');
               const otherEvidence = op.evidence.map((id) => evidenceById(id)).filter((e): e is Evidence => !!e && e.kind !== 'source');
               return (
@@ -349,7 +352,7 @@ export function ProposalsView(props: Props) {
                     <div className="what">{d.what}</div>
                   </div>
                   <div className="decide">
-                    {p.status === 'pending' ? (
+                    {open ? (
                       <>
                         <button className={`btn small accept ${verdicts[i] === 'accept' ? 'on' : ''}`} aria-pressed={verdicts[i] === 'accept'} disabled={!!conflict} onClick={() => setVerdicts({ ...verdicts, [i]: 'accept' })}>
                           {noObserve ? 'Apply' : 'Requirement'}
@@ -380,7 +383,7 @@ export function ProposalsView(props: Props) {
                       {otherEvidence.map((e) => <EvidenceThumb key={e.id} e={e} onOpen={() => setLightbox(e)} />)}
                     </div>
                   )}
-                  {p.status === 'pending' && verdicts[i] && verdicts[i] !== 'accept' && (
+                  {open && verdicts[i] && verdicts[i] !== 'accept' && (
                     <input
                       className="text"
                       style={{ gridColumn: '1 / -1' }}

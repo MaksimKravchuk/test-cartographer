@@ -10,12 +10,12 @@ import { dirname, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   AgentProvider, applyDecisions, applyProjectDecisions, Backlog, backlogCoverage, buildPlan, conflicts, coverage, Decision, Entity, objectParents, Project,
-  RevisionConflict, FILE_SOURCE_KINDS, ToolCall, isFileSource, validateBacklog, validateEntity, validateProject, type ProjectState, type Workspace,
+  RevisionConflict, Resolution, disagreements, FILE_SOURCE_KINDS, ToolCall, isFileSource, validateBacklog, validateEntity, validateProject, type ProjectState, type Workspace,
 } from '@tc/model';
 import { z } from 'zod';
 import { loadActions } from './actions-loader.ts';
 import { runTests } from './run.ts';
-import { exportMarkdown } from './export.ts';
+import { exportMarkdown, exportSpec, specMarkdown } from './export.ts';
 import { explore } from './agents/explore.ts';
 import { onboard } from './agents/onboard.ts';
 import { checkSources } from './sources.ts';
@@ -358,6 +358,15 @@ export function createApp(initial: Workspace) {
     const { decisions } = z.object({ decisions: z.array(Decision) }).parse(await c.req.json());
     const proposal = await ws.proposal(c.req.param('id'));
     if (proposal.status !== 'pending') throw new HttpError(409, 'The proposal has already been decided');
+    // Ops can be decided a few at a time (from the model, in place): the
+    // proposal stays pending until every op has a decision.
+    const already = new Set(proposal.decisions.map((d) => d.op));
+    const again = decisions.find((d) => already.has(d.op));
+    if (again) throw new HttpError(409, `Operation #${again.op} has already been decided`);
+    const all = [...proposal.decisions, ...decisions];
+    const settled = proposal.ops.every((_, i) => all.some((d) => d.op === i))
+      ? { status: 'decided' as const, decisions: all, decidedAt: new Date().toISOString() }
+      : { decisions: all };
 
     if (!proposal.entity) {
       const project = await ws.project();
@@ -379,7 +388,7 @@ export function createApp(initial: Workspace) {
           await ws.saveEntity(Entity.parse({ ...entity, ...op.set }), revision);
         }
       }
-      await ws.saveProposal({ ...proposal, status: 'decided', decisions, decidedAt: new Date().toISOString() });
+      await ws.saveProposal({ ...proposal, ...settled });
       return c.json({ project: nextProject, backlog: nextBacklog, created: created.map((e) => e.id) });
     }
 
@@ -388,9 +397,29 @@ export function createApp(initial: Workspace) {
     const { entity, revision } = await ws.entity(proposal.entity);
     const next = applyDecisions(entity, proposal, decisions, await ws.project());
     await ws.saveEntity(next, revision);
-    await ws.saveProposal({ ...proposal, status: 'decided', decisions, decidedAt: new Date().toISOString() });
+    await ws.saveProposal({ ...proposal, ...settled });
     return c.json(await entityState(proposal.entity));
   });
+
+  // Every finding agents reported, with quotes, priorities and the side that wins.
+  app.get('/api/report', async (c) => {
+    const { sources, usePriority } = await ws.sourceRegistry();
+    return c.json({ disagreements: disagreements(await ws.proposals(), sources, usePriority), sources, usePriority });
+  });
+
+  app.post('/api/proposals/:id/findings/:index', async (c) => {
+    const { verdict, note } = z.object({ verdict: Resolution.shape.verdict.nullable(), note: z.string().optional() }).parse(await c.req.json());
+    const proposal = await ws.proposal(c.req.param('id'));
+    const index = Number(c.req.param('index'));
+    if (!proposal.findings[index]) throw new HttpError(404, `No finding #${index}`);
+    const rest = proposal.resolutions.filter((r) => r.finding !== index);
+    // verdict null — reopen the finding.
+    await ws.saveProposal({ ...proposal, resolutions: verdict ? [...rest, { finding: index, verdict, note, at: new Date().toISOString() }] : rest });
+    return c.json({ ok: true });
+  });
+
+  app.get('/api/spec', async (c) => c.json({ markdown: await specMarkdown(ws) }));
+  app.post('/api/spec/export', async (c) => c.json({ file: await exportSpec(ws) }));
 
   app.post('/api/runs', async (c) => {
     const opts = z
@@ -435,9 +464,11 @@ export function createApp(initial: Workspace) {
 
   // The configured onboarding agent (or the built-in default, if none is set up yet).
   app.post('/api/onboarding/run', async (c) => {
-    const { provider } = z.object({ provider: z.enum(['live', 'scripted']).default('live') }).parse(await c.req.json().catch(() => ({})));
-    const job = startJob('onboard', async (log, signal) => {
-      const proposals = await onboard(ws, undefined, { onLog: log, provider, signal });
+    const { provider, mode } = z
+      .object({ provider: z.enum(['live', 'scripted']).default('live'), mode: z.enum(['onboard', 'review']).default('onboard') })
+      .parse(await c.req.json().catch(() => ({})));
+    const job = startJob(mode === 'review' ? 'onboard:review' : 'onboard', async (log, signal) => {
+      const proposals = await onboard(ws, undefined, { onLog: log, provider, signal, mode });
       return { proposals: proposals.map((p) => p.id), ops: proposals.reduce((n, p) => n + p.ops.length, 0), findings: proposals.reduce((n, p) => n + p.findings.length, 0) };
     });
     return c.json({ job });

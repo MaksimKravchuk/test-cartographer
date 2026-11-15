@@ -1,4 +1,4 @@
-import type { AgentProvider, Backlog, BacklogCoverage, Coverage, Decision, Entity, Field, Issue, Plan, Project, Proposal, ScenarioResult, FileSourceKind, Source, Status } from '@tc/model';
+import type { AgentProvider, Backlog, BacklogCoverage, Coverage, Decision, Entity, Field, Issue, Plan, Project, Proposal, ScenarioResult, FileSourceKind, Source, Status, Disagreement, Resolution } from '@tc/model';
 
 export type EntityState = {
   entity: Entity;
@@ -140,11 +140,16 @@ export const api = {
   checkSources: (id?: string) => call<{ checks: SourceCheck[] }>(`/api/sources/check${id ? `?id=${encodeURIComponent(id)}` : ''}`, { method: 'POST' }),
   sourceText: (id: string) => call<{ source: Source; text: string }>(`/api/sources/${id}`),
   removeSource: (id: string) => call<{ ok: true }>(`/api/sources/${id}`, { method: 'DELETE' }),
+  report: () => call<{ disagreements: Disagreement[]; sources: Source[]; usePriority: boolean }>('/api/report'),
+  resolve: (proposal: string, index: number, verdict: Resolution['verdict'] | null, note?: string) =>
+    call(`/api/proposals/${proposal}/findings/${index}`, { method: 'POST', body: JSON.stringify({ verdict, note }) }),
+  spec: () => call<{ markdown: string }>('/api/spec'),
+  exportSpec: () => call<{ file: string }>('/api/spec/export', { method: 'POST' }),
   backlog: () => call<BacklogState>('/api/backlog'),
   saveBacklog: (backlog: Backlog, revision: string) =>
     call<{ revision: string }>('/api/backlog', { method: 'PUT', body: JSON.stringify({ backlog, revision }) }),
-  runOnboarding: (provider: 'live' | 'scripted') =>
-    call<{ job: string }>('/api/onboarding/run', { method: 'POST', body: JSON.stringify({ provider }) }),
+  runOnboarding: (provider: 'live' | 'scripted', mode: 'onboard' | 'review' = 'onboard') =>
+    call<{ job: string }>('/api/onboarding/run', { method: 'POST', body: JSON.stringify({ provider, mode }) }),
   runtimes: () => call<RuntimeStatus[]>('/api/runtimes'),
   // A short end-to-end run; the job's result is { ok: boolean; seconds: number }.
   testRuntime: (provider: AgentProvider, model?: string) =>

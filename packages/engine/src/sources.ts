@@ -7,7 +7,7 @@ import { McpPool } from './mcp.ts';
 export type SourceCheck = { id: string; ok: boolean; detail: string };
 
 // Folders a code scan never descends into.
-const SKIP = new Set(['node_modules', '.git', 'dist', 'build', 'out', 'coverage', '.next', '.turbo', '.venv', 'vendor', 'target']);
+export const SKIP = new Set(['node_modules', '.git', 'dist', 'build', 'out', 'coverage', '.next', '.turbo', '.venv', 'vendor', 'target']);
 const MAX_FILES = 20_000;
 
 export function codePath(root: string, path: string): string {
@@ -15,18 +15,26 @@ export function codePath(root: string, path: string): string {
   return isAbsolute(p) ? p : resolve(root, p);
 }
 
-async function countFiles(dir: string): Promise<number> {
-  let n = 0;
-  const walk = async (d: string) => {
-    for (const e of await readdir(d, { withFileTypes: true })) {
-      if (n >= MAX_FILES) return;
+// Files an agent may read from a code folder: not in SKIP folders, not .env*
+// (secrets), relative to the folder. Capped at `limit`.
+export async function listCode(dir: string, limit = MAX_FILES): Promise<string[]> {
+  const out: string[] = [];
+  const walk = async (d: string, rel: string) => {
+    const entries = (await readdir(d, { withFileTypes: true })).sort((a, b) => a.name.localeCompare(b.name));
+    for (const e of entries) {
+      if (out.length >= limit) return;
+      const r = rel ? `${rel}/${e.name}` : e.name;
       if (e.isDirectory()) {
-        if (!SKIP.has(e.name)) await walk(join(d, e.name));
-      } else if (e.isFile()) n++;
+        if (!SKIP.has(e.name)) await walk(join(d, e.name), r);
+      } else if (e.isFile() && !e.name.startsWith('.env')) out.push(r);
     }
   };
-  await walk(dir);
-  return n;
+  await walk(dir, '');
+  return out;
+}
+
+async function countFiles(dir: string): Promise<number> {
+  return (await listCode(dir)).length;
 }
 
 function describe(result: unknown): string {
