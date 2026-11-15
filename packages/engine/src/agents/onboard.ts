@@ -86,6 +86,13 @@ Rules:
 - Call model() first, then model({ entity }) for each entity it lists, and don't propose what it already has — use op=update for a field that changed, never
   op=add for something that already exists.
 - Name things with the words in model().glossary: a synonym there is the same thing as its term, not a new one.
+  When two names look like the same thing (the docs say Location, the code says place), ask in a finding
+  (kind=question) with \`synonym: { term: "<the model's word>", synonym: "<the other word>" }\`: a yes files it
+  in the glossary. When yes/no doesn't fit a question, give its likely answers in \`options\` (up to 6, short);
+  a person may still answer in words.
+- When a source can't be read or looks incomplete (a folder an AGENTS.md or README describes has no files,
+  a page is empty), report it as kind=source with what you tried, not as a gap: it is a problem with the
+  inputs, not the product.
 - Every operation needs at least one quote: call quote({ source, text, path? }) with the exact text (path: the
   file inside a code folder) (it doesn't need
   to line-wrap the way the source does, but the words and punctuation must match) and put the evidence id it
@@ -96,7 +103,8 @@ Rules:
 - When a search finds nothing, say where you searched (which sources, files or queries) in the finding's note, so
   "not found" can be told apart from "not looked for".
 - model() lists openQuestions that earlier runs left. Try to answer each one from the sources. End the rationale
-  with one line per open question: answered, partly or still open, and why.
+  with one line per open question: answered, partly or still open, and why. model().answers are what a person
+  already answered: take them as given and don't ask again.
 - Describe what the product does, not how it's built: a rule names behavior a user or tester can see ("a buyer
   can cancel until payment"), never a function, table or flag. Avoid untestable words like "usually" or "may".
 - A state's \`match\` should only name a field/value when a source actually says what the app shows for it;
@@ -286,14 +294,12 @@ export async function onboard(ws: Workspace, agentId: string | undefined, opts: 
     },
     {
       name: 'files',
-      description: 'List the files of a code-folder source (skips node_modules, build output, .git and .env files), optionally under a sub-folder.',
+      description: 'List the files of a code-folder source (what git tracks, or without git everything but node_modules, build output and .git; never .env files), optionally under a sub-folder (a path, not a glob).',
       input: z.object({ source: z.string(), dir: z.string().default('') }),
       run: async ({ source, dir }) => {
         const s = sourceOf(source, ['code']);
-        const all = await listCode(codePath(ws.root, s.path!));
-        const prefix = dir.replace(/^\.?\/?/, '').replace(/\/?$/, dir ? '/' : '');
-        const list = all.filter((f) => f.startsWith(prefix));
-        return list.length > 800 ? `${list.slice(0, 800).join('\n')}\n… ${list.length - 800} more — narrow with dir` : list.join('\n') || 'no files';
+        const list = await listCode(codePath(ws.root, s.path!), undefined, dir);
+        return list.length > 800 ? `${list.slice(0, 800).join('\n')}\n… ${list.length - 800} more — narrow with dir` : list.join('\n') || `no files under “${dir}”`;
       },
     },
     {
@@ -348,13 +354,20 @@ export async function onboard(ws: Workspace, agentId: string | undefined, opts: 
           return JSON.stringify(entities[entity]);
         }
         // One call per entity keeps every result readable: the whole Vikunja model was 68 KB and the runtime cut it to a preview.
+        const proposals = await ws.proposals();
         return JSON.stringify({
           project: { roles: redactFields('roles', project.roles, process.env), interfaces: project.interfaces, glossary: project.glossary },
           entities: Object.values(entities).map((e: any) => ({ id: e.id, title: e.title, description: e.description, states: e.states.map((x: any) => x.id), actions: e.actions.map((x: any) => x.id), rules: e.rules.length })),
           backlog: baseBacklog,
           // What earlier runs left open: questions and gaps nobody has settled yet.
-          openQuestions: (await ws.proposals()).flatMap((p) =>
-            p.findings.flatMap((f, i) => ((f.kind === 'gap' || f.kind === 'question') && !p.resolutions.some((r) => r.finding === i) ? [{ kind: f.kind, refs: f.refs, note: f.note }] : [])),
+          openQuestions: proposals.flatMap((p) =>
+            p.findings.flatMap((f, i) => (['gap', 'question', 'source'].includes(f.kind) && !p.resolutions.some((r) => r.finding === i) ? [{ kind: f.kind, refs: f.refs, note: f.note }] : [])),
+          ),
+          answers: proposals.flatMap((p) =>
+            p.resolutions.flatMap((r) => {
+              const f = p.findings[r.finding];
+              return f && f.kind !== 'contradiction' ? [{ kind: f.kind, refs: f.refs, note: f.note, answer: r.verdict, ...(r.note ? { text: r.note } : {}) }] : [];
+            }),
           ),
         });
       },

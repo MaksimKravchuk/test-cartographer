@@ -4,9 +4,10 @@ import { api, type EntityState, type EntitySummary, type ProjectDecideResult, ty
 import { ProposalsView } from './ProposalsView.tsx';
 
 // Everything that waits for a person, in one queue: contradictions between
-// sources, agents' questions, gaps, and proposed model changes. Pick an item
-// on the left, decide on the right; a decision applies at once and the next
-// item opens. J / K move through the list, B / U / N settle a finding.
+// sources, agents' questions, gaps, problems reading a source, and proposed
+// model changes. Pick an item on the left, decide on the right; a decision
+// applies at once and the next item opens. J / K move through the list, and
+// each kind of finding has its own answers and keys.
 
 type Props = {
   project: ProjectState;
@@ -21,23 +22,44 @@ type Props = {
 };
 
 type Report = { disagreements: Disagreement[]; lint: Lint[]; sources: Source[]; usePriority: boolean };
-type Item = { key: string; kind: 'contradiction' | 'question' | 'gap' | 'proposal'; title: string; where: string; d?: Disagreement; p?: ProposalState };
+type FindingKind = 'contradiction' | 'question' | 'gap' | 'source';
+type Item = { key: string; kind: FindingKind | 'proposal'; title: string; where: string; d?: Disagreement; p?: ProposalState };
 type Filter = 'all' | Item['kind'];
 
-const verdicts: { v: Resolution['verdict']; title: string; key: string }[] = [
+type Answer = { v: Resolution['verdict']; title: string; key: string; note?: string };
+const triad: Answer[] = [
   { v: 'bug', title: 'Bug in the product', key: 'b' },
   { v: 'outdated', title: 'Requirements are outdated', key: 'u' },
   { v: 'fine', title: 'Not a problem', key: 'n' },
 ];
-const verdictTitle = Object.fromEntries(verdicts.map((x) => [x.v, x.title])) as Record<Resolution['verdict'], string>;
+// The answers that fit each kind: a question is answered, a source problem is fixed or meant.
+const answersFor = (d: Disagreement): Answer[] => {
+  const kind = findingKind(d);
+  // An agent's own options come first: it knows what answers fit its question.
+  if (kind === 'question' && d.finding.options?.length)
+    return d.finding.options.map((o, i) => ({ v: 'answered' as const, title: o, key: String(i + 1), note: o }));
+  if (kind === 'question')
+    return d.finding.synonym
+      ? [{ v: 'yes', title: 'Yes, the same thing', key: 'y' }, { v: 'no', title: 'No, different things', key: 'n' }]
+      : [{ v: 'yes', title: 'Yes', key: 'y' }, { v: 'no', title: 'No', key: 'n' }];
+  if (kind === 'source') return [{ v: 'fixed', title: 'Fixed, read it again next run', key: 'f' }, { v: 'excluded', title: 'Left out on purpose', key: 'x' }];
+  return triad;
+};
+const verdictTitle: Record<Resolution['verdict'], string> = {
+  bug: 'Bug in the product', outdated: 'Requirements are outdated', fine: 'Not a problem',
+  yes: 'Yes', no: 'No', answered: 'Answered', fixed: 'Fixed', excluded: 'Left out on purpose',
+};
+const findingKind = (d: Disagreement): FindingKind =>
+  d.finding.kind === 'contradiction' || d.finding.kind === 'gap' || d.finding.kind === 'source' ? d.finding.kind : 'question';
 const groups: { kind: Item['kind']; title: string }[] = [
+  { kind: 'source', title: 'Source problems' },
   { kind: 'contradiction', title: 'Contradictions' },
   { kind: 'question', title: 'Questions' },
   { kind: 'gap', title: 'Gaps' },
   { kind: 'proposal', title: 'Proposed changes' },
 ];
-const kindTag = { contradiction: 'contradicts', question: 'observed', gap: 'planned', proposal: 'proposed' } as const;
-const kindWord = { contradiction: 'contradiction', question: 'question', gap: 'gap', proposal: 'proposed change' } as const;
+const kindTag = { contradiction: 'contradicts', question: 'observed', gap: 'planned', source: 'planned', proposal: 'proposed' } as const;
+const kindWord = { contradiction: 'contradiction', question: 'question', gap: 'gap', source: 'source problem', proposal: 'proposed change' } as const;
 
 export function InboxView(props: Props) {
   const { proposals, project, entities } = props;
@@ -46,6 +68,7 @@ export function InboxView(props: Props) {
   const [showSettled, setShowSettled] = useState(false);
   const [current, setCurrent] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [answer, setAnswer] = useState('');
 
   const load = () => api.report().then(setReport).catch((e) => props.onError((e as Error).message));
   useEffect(() => { void load(); }, [props.reloadToken, proposals]);
@@ -62,7 +85,7 @@ export function InboxView(props: Props) {
       .filter((d) => showSettled || !d.resolution)
       .map((d): Item => ({
         key: `f:${d.proposal}:${d.index}`,
-        kind: d.finding.kind === 'contradiction' ? 'contradiction' : d.finding.kind === 'gap' ? 'gap' : 'question',
+        kind: findingKind(d),
         title: d.finding.note,
         where: where(d.finding.refs, d.entity),
         d,
@@ -75,6 +98,7 @@ export function InboxView(props: Props) {
   const visible = ordered.filter((i) => filter === 'all' || i.kind === filter);
   const item = visible.find((i) => i.key === current) ?? visible[0];
   const count = (k: Item['kind']) => items.filter((i) => i.kind === k).length;
+  useEffect(() => setAnswer(''), [item?.key]);
 
   const move = (step: number) => {
     if (!visible.length) return;
@@ -82,13 +106,14 @@ export function InboxView(props: Props) {
     setCurrent(visible[Math.min(visible.length - 1, Math.max(0, at + step))].key);
   };
 
-  const resolve = async (d: Disagreement, verdict: Resolution['verdict'] | null) => {
+  const resolve = async (d: Disagreement, verdict: Resolution['verdict'] | null, note?: string) => {
     setBusy(true);
     try {
       // The next item opens once this one leaves the list.
       const at = visible.findIndex((i) => i.key === item?.key);
       setCurrent(visible[at + 1]?.key ?? visible[at - 1]?.key ?? null);
-      await api.resolve(d.proposal, d.index, verdict);
+      await api.resolve(d.proposal, d.index, verdict, note);
+      setAnswer('');
       await load();
       props.onChanged();
     } catch (e) {
@@ -106,8 +131,8 @@ export function InboxView(props: Props) {
       if (k === 'j') move(1);
       else if (k === 'k') move(-1);
       else if (item?.d && !item.d.resolution && !busy) {
-        const v = verdicts.find((x) => x.key === k);
-        if (v) void resolve(item.d, v.v);
+        const v = answersFor(item.d).find((x) => x.key === k);
+        if (v) void resolve(item.d, v.v, v.note);
       }
     };
     window.addEventListener('keydown', onKey);
@@ -171,6 +196,12 @@ export function InboxView(props: Props) {
               <span className="id">{visible.indexOf(item) + 1} / {visible.length}</span>
             </div>
             <p className="claim">{item.d.finding.note}</p>
+            {item.d.finding.synonym && !item.d.resolution && (
+              <p className="muted">Yes adds “{item.d.finding.synonym.synonym}” to the glossary as another name for “{item.d.finding.synonym.term}”.</p>
+            )}
+            {item.kind === 'source' && !item.d.resolution && (
+              <p className="muted">This is about what the agent could read, not about the product. Check the source on the Sources page, then mark it fixed so the next run reads it again.</p>
+            )}
             {item.d.quotes.length > 0 && (
               <div className="evidence-cols">
                 {item.d.quotes.map((q) => {
@@ -194,15 +225,23 @@ export function InboxView(props: Props) {
             <div className="decide-row">
               {item.d.resolution ? (
                 <>
-                  <span>Settled: <b>{verdictTitle[item.d.resolution.verdict]}</b></span>
+                  <span>Settled: <b>{verdictTitle[item.d.resolution.verdict]}</b>{item.d.resolution.note ? ` · ${item.d.resolution.note}` : ''}</span>
                   <button className="btn small" disabled={busy} onClick={() => resolve(item.d!, null)}>Reopen</button>
                 </>
               ) : (
-                verdicts.map((x) => (
-                  <button key={x.v} className={`btn ${x.v === 'bug' && item.d!.winner ? 'primary' : ''}`} disabled={busy} onClick={() => resolve(item.d!, x.v)}>
-                    {x.title} <span className="kbd">{x.key.toUpperCase()}</span>
-                  </button>
-                ))
+                <>
+                  {answersFor(item.d).map((x) => (
+                    <button key={x.key} className={`btn ${x.v === 'bug' && item.d!.winner ? 'primary' : ''}`} disabled={busy} onClick={() => resolve(item.d!, x.v, x.note)}>
+                      {x.title} <span className="kbd">{x.key.toUpperCase()}</span>
+                    </button>
+                  ))}
+                  {item.kind === 'question' && (
+                    <form className="answer" onSubmit={(e) => { e.preventDefault(); if (answer.trim()) void resolve(item.d!, 'answered', answer.trim()); }}>
+                      <input className="text" aria-label="Your answer" placeholder="Or answer in your own words" value={answer} onChange={(e) => setAnswer(e.target.value)} />
+                      <button className="btn" disabled={busy || !answer.trim()}>Answer</button>
+                    </form>
+                  )}
+                </>
               )}
               <span className="spacer" />
               <span className="muted hint">

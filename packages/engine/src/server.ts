@@ -10,7 +10,7 @@ import { dirname, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   AgentProvider, RuntimeOverride, applyDecisions, applyProjectDecisions, removeRole, Backlog, backlogCoverage, buildPlan, conflicts, coverage, Decision, Entity, objectParents, Project,
-  RevisionConflict, Resolution, allFindings, lintModel, reviewMatrix, FILE_SOURCE_KINDS, ToolCall, isFileSource, validateBacklog, validateEntity, validateProject, type ProjectState, type Workspace,
+  RevisionConflict, Resolution, addSynonym, allFindings, findingSynonym, lintModel, reviewMatrix, FILE_SOURCE_KINDS, ToolCall, isFileSource, validateBacklog, validateEntity, validateProject, type ProjectState, type Workspace,
 } from '@tc/model';
 import { z } from 'zod';
 import { loadActions } from './actions-loader.ts';
@@ -442,7 +442,14 @@ export function createApp(initial: Workspace) {
     const { verdict, note } = z.object({ verdict: Resolution.shape.verdict.nullable(), note: z.string().optional() }).parse(await c.req.json());
     const proposal = await ws.proposal(c.req.param('id'));
     const index = Number(c.req.param('index'));
-    if (!proposal.findings[index]) throw new HttpError(404, `No finding #${index}`);
+    const finding = proposal.findings[index];
+    if (!finding) throw new HttpError(404, `No finding #${index}`);
+    // "Yes, the same thing" files the synonym in the glossary; reopening leaves it there.
+    const synonym = findingSynonym(finding);
+    if (verdict === 'yes' && synonym) {
+      const project = await ws.project();
+      await ws.saveProject({ ...project, glossary: addSynonym(project.glossary, synonym.term, synonym.synonym) });
+    }
     const rest = proposal.resolutions.filter((r) => r.finding !== index);
     // verdict null — reopen the finding.
     await ws.saveProposal({ ...proposal, resolutions: verdict ? [...rest, { finding: index, verdict, note, at: new Date().toISOString() }] : rest });

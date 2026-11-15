@@ -118,6 +118,21 @@ describe('input checks', () => {
     assert.equal(res.status, 400);
   });
 
+  test('answering yes to a synonym question files it in the glossary', async () => {
+    const w = new Workspace(ws.root);
+    await w.saveProposal({
+      id: 'syn', agent: 'onboarding', createdAt: new Date().toISOString(), baseRevision: '', rationale: '', evidence: [], ops: [], status: 'decided', decisions: [], resolutions: [],
+      findings: [{ kind: 'question', note: 'Is a purchase the same as a basket?', refs: [], evidence: [], synonym: { term: 'Order', synonym: 'basket' } },
+        { kind: 'question', note: "Should 'cart' go in the glossary as a synonym of Order?", refs: [], evidence: [] }],
+    });
+    assert.equal((await app.request('/api/proposals/syn/findings/0', json('POST', { verdict: 'yes' }))).status, 200);
+    // A question asked before agents gave the pair is read from its wording.
+    assert.equal((await app.request('/api/proposals/syn/findings/1', json('POST', { verdict: 'yes' }))).status, 200);
+    const order = (await get('/api/project')).project.glossary.find((t: any) => t.term === 'Order');
+    assert.deepEqual(order.synonyms, ['purchase', 'basket', 'cart']);
+    assert.equal((await w.proposal('syn')).resolutions[0].verdict, 'yes');
+  });
+
   test('a malformed body is a 400 with a readable message', async () => {
     const res = await app.request('/api/project', json('PUT', { project: { name: 42 } }));
     assert.equal(res.status, 400);
