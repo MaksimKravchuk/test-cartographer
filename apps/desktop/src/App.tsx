@@ -17,6 +17,7 @@ import { SpecView } from './views/SpecView.tsx';
 import { BacklogView } from './views/BacklogView.tsx';
 import { ScenariosView } from './views/ScenariosView.tsx';
 import { AgentsView } from './views/AgentsView.tsx';
+import { RunView } from './views/RunView.tsx';
 import { SettingsView } from './views/SettingsView.tsx';
 import { GlossaryView } from './views/GlossaryView.tsx';
 import { ProjectSwitcher } from './views/ProjectSwitcher.tsx';
@@ -40,14 +41,15 @@ type Route =
   | { page: 'proposals' }
   | { page: 'export' }
   | { page: 'agents' }
+  | { page: 'run' }
   | { page: 'settings' }
   | { page: 'projects' };
 
 const tabTitles: Record<EntityTab, string> = { map: 'Map', scenarios: 'Scenarios', coverage: 'Coverage' };
 
-// Five places along the loop (sources → model ⇄ inbox → spec → tests) plus
-// settings. Each place may hold a few views, switched in its own sub-bar.
-type Place = 'sources' | 'model' | 'inbox' | 'spec' | 'tests' | 'settings';
+// Five places along the loop (sources → model ⇄ inbox → spec → tests), the
+// agent that works the loop with you, plus settings. Each place may hold a few views, switched in its own sub-bar.
+type Place = 'sources' | 'model' | 'inbox' | 'spec' | 'tests' | 'agent' | 'settings';
 type Page = Route['page'];
 const placeOf: Record<Page, Place> = {
   onboarding: 'sources',
@@ -55,6 +57,7 @@ const placeOf: Record<Page, Place> = {
   proposals: 'inbox', report: 'inbox',
   spec: 'spec',
   overview: 'tests', backlog: 'tests', export: 'tests',
+  run: 'agent',
   settings: 'settings', agents: 'settings', projects: 'settings',
 };
 const views: Record<Place, { page: Exclude<Page, 'entity'>; title: string }[]> = {
@@ -63,9 +66,10 @@ const views: Record<Place, { page: Exclude<Page, 'entity'>; title: string }[]> =
   inbox: [{ page: 'proposals', title: 'Queue' }, { page: 'report', title: 'By source' }],
   spec: [{ page: 'spec', title: 'Specification' }],
   tests: [{ page: 'overview', title: 'Overview' }, { page: 'backlog', title: 'Backlog' }, { page: 'export', title: 'Export' }],
+  agent: [{ page: 'run', title: 'Run' }],
   settings: [{ page: 'settings', title: 'Project' }, { page: 'agents', title: 'Agents' }, { page: 'projects', title: 'Projects' }],
 };
-const placeTitles: Record<Exclude<Place, 'settings'>, string> = { sources: 'Sources', model: 'Model', inbox: 'Inbox', spec: 'Spec', tests: 'Tests' };
+const placeTitles: Record<Exclude<Place, 'settings'>, string> = { sources: 'Sources', model: 'Model', inbox: 'Inbox', spec: 'Spec', tests: 'Tests', agent: 'Agent' };
 
 export function App() {
   const [project, setProject] = useState<ProjectState | null>(null);
@@ -79,6 +83,10 @@ export function App() {
   const [log, setLog] = useState<string[]>([]);
   const [job, setJob] = useState<Job | null>(null);
   const [startedAt, setStartedAt] = useState<number | null>(null);
+  // Proposals that were there when the latest job started: the rest is what it handed in.
+  const [before, setBefore] = useState<Set<string>>(new Set());
+  const proposalsRef = useRef(proposals);
+  proposalsRef.current = proposals;
   // Open questions and contradictions agents left: counted into the Inbox badge.
   const [openFindings, setOpenFindings] = useState(0);
   // Bumped on every disk change and job completion so views that fetch their
@@ -147,6 +155,7 @@ export function App() {
           if (e.state === 'running') {
             setLog([]);
             setStartedAt(Date.now());
+            setBefore(new Set(proposalsRef.current.map((p) => p.id)));
           }
           if (e.state === 'done') {
             notify(
@@ -162,7 +171,8 @@ export function App() {
           if (e.state === 'failed') notify(e.error ?? 'Job failed', true);
         }
         if (e.type === 'changed') {
-          if (dirtyRef.current) notify(`${e.path} changed on disk. Save or discard your edits.`);
+          // A proposal an agent records mid-run doesn't touch the draft: reloading keeps it.
+          if (dirtyRef.current && !/^proposals[\\/]/.test(e.path)) notify(`${e.path} changed on disk. Save or discard your edits.`);
           else void reloadAll();
           setReloadToken((n) => n + 1);
         }
@@ -263,7 +273,7 @@ export function App() {
           </>
         )}
         <AgentStatus project={project} job={job} startedAt={startedAt} log={log} onStop={() => job && void api.cancel(job.id)} />
-        {!dirty && <AskAgent project={project} running={running} onResearch={research} onError={(m) => notify(m, true)} />}
+        {!dirty && <AskAgent project={project} running={running} onResearch={research} onSettings={() => go({ page: 'run' })} onError={(m) => notify(m, true)} />}
         <button className="btn ghost icon" aria-label="Settings" aria-current={place === 'settings' ? 'page' : undefined} title="Settings" onClick={() => go({ page: 'settings' })}>⚙</button>
       </header>
 
@@ -326,6 +336,18 @@ export function App() {
             running={running}
             onOpenEntity={(id) => go({ page: 'entity', id, tab: 'map' })}
             onChanged={() => void reloadAll()}
+            onError={(m) => notify(m, true)}
+          />
+        )}
+        {route.page === 'run' && (
+          <RunView
+            project={project}
+            proposals={proposals.filter((p) => !before.has(p.id))}
+            job={job}
+            startedAt={startedAt}
+            log={log}
+            onOpenInbox={() => go({ page: 'proposals' })}
+            onOpenSettings={() => go({ page: 'agents' })}
             onError={(m) => notify(m, true)}
           />
         )}

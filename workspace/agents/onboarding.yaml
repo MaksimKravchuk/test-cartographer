@@ -173,8 +173,8 @@ steps:
     input:
       source: backlog
       text: As a seller, I want to publicly respond to a review so I can thank a happy customer or address a complaint.
-  - say: Writing up the proposal.
-    call: propose
+  - say: Handing in the backlog and the new entity first, so they can be reviewed while I go on.
+    call: record
     input:
       rationale: "The product overview and the tracker export agree on most of the shop as it already behaves, and add three things worth a decision: a documented cancellation rule the running app does not enforce, a seller archiving right the model does not have yet, and a buyer reviews feature the app does not have at all. The backlog is proposed as a slice over the existing actions, plus the new review entity and two pre-order stories the model cannot cover until the pending pre-order proposal is decided."
       project:
@@ -674,6 +674,10 @@ steps:
               - shop-313
             evidence:
               - e33
+  - say: The backlog and the new entity are in the inbox already; handing in the changes to the existing entities.
+    call: propose
+    input:
+      rationale: "What the sources say about the listing and review objects: the archiving right, the cancellation rule and the review lifecycle."
       entities:
         listing:
           ops:

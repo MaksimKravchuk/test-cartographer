@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import type { AgentProvider, AgentSpec, Effort, Project, RuntimeOverride } from '@tc/model';
 // schema.ts only: the package index pulls in Node-only workspace.ts (see AccessMatrix.tsx).
-import { resolveRuntime } from '@tc/model/schema';
+import { resolveRuntime, SUBAGENTS } from '@tc/model/schema';
 import { api, runtimeTitle, subscribe, type ProjectState, type RuntimeStatus } from '../api.ts';
 import { nextId } from '../graph.ts';
 
@@ -59,6 +59,7 @@ function describeRuntime(r: ReturnType<typeof resolveRuntime>): string {
   const parts = [runtimeTitle[r.provider]];
   if (r.model) parts.push(r.model);
   if (r.effort && r.provider !== 'cursor') parts.push(`effort ${r.effort}`);
+  if (r.subagents && SUBAGENTS.includes(r.provider)) parts.push('subagents');
   parts.push(`${r.maxSteps} steps`);
   return `Runs on ${parts.join(' · ')}`;
 }
@@ -267,6 +268,18 @@ export function AgentsView({ project, onSaved, onError }: Props) {
             onChange={(e) => setDraft({ ...draft, runtime: { ...draft.runtime!, maxSteps: Math.max(1, Number(e.target.value) || 1) } })}
           />
         </label>
+        <label className="field" style={{ width: 160 }}>
+          <span>Subagents</span>
+          <select
+            className="text"
+            disabled={!draft.runtime || !SUBAGENTS.includes(draft.runtime.provider)}
+            value={draft.runtime?.subagents ? 'on' : ''}
+            onChange={(e) => setDraft({ ...draft, runtime: { ...draft.runtime!, subagents: e.target.value === 'on' || undefined } })}
+          >
+            <option value="">Off</option>
+            <option value="on">On</option>
+          </select>
+        </label>
         {draft.runtime?.provider === 'codex' && (
           <label className="field" style={{ flex: 1, minWidth: 240 }}>
             <span>Model endpoint <span className="muted">(optional: an open model in Ollama, LM Studio or vLLM instead of ChatGPT)</span></span>
@@ -369,6 +382,19 @@ export function AgentsView({ project, onSaved, onError }: Props) {
                 >
                   <option value="">Default</option>
                   {efforts.map((v) => <option key={v} value={v}>{v}</option>)}
+                </select>
+              </label>
+              <label className="field">
+                <span>Subagents</span>
+                <select
+                  className="text"
+                  disabled={!effProvider || !SUBAGENTS.includes(effProvider)}
+                  value={a.runtime?.subagents === undefined ? '' : a.runtime.subagents ? 'on' : 'off'}
+                  onChange={(e) => setAgent(i, { runtime: cleanOverride({ ...a.runtime, subagents: e.target.value === '' ? undefined : e.target.value === 'on' }) })}
+                >
+                  <option value="">Default</option>
+                  <option value="on">On</option>
+                  <option value="off">Off</option>
                 </select>
               </label>
             </div>

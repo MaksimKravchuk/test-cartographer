@@ -4,7 +4,7 @@
 // never touches a running app: everything it knows comes from what was
 // uploaded, and every operation must cite an exact quote from it.
 import { z } from 'zod';
-import { checkRoles, Finding, isFileSource, Op, Proposal, type Provenance, redactFields, resolveRuntime, type AgentSpec, type Evidence, type Workspace } from '@tc/model';
+import { checkRoles, Finding, isFileSource, Op, Proposal, type Provenance, redactFields, resolveRuntime, type AgentSpec, type Evidence, type RuntimeOverride, type Workspace } from '@tc/model';
 import { readFile, stat } from 'node:fs/promises';
 import { listOf, runAgent, type Tool } from './runtime.ts';
 import { McpPool } from '../mcp.ts';
@@ -13,6 +13,8 @@ import { codePath, insideCode, listCode } from '../sources.ts';
 export type OnboardOptions = {
   onLog?: (line: string) => void;
   provider?: 'scripted' | 'live';
+  // This run only, on top of the agent's own runtime (Ask agent's run settings).
+  runtime?: RuntimeOverride;
   signal?: AbortSignal;
   // onboard — propose a model from scratch (or add to a thin one);
   // review  — check every element of the existing model against the sources.
@@ -30,6 +32,8 @@ const DEFAULT_AGENT: Pick<AgentSpec, 'id' | 'title' | 'kind' | 'goal' | 'script'
 
 // One group of a propose() call: the project's, or one entity's.
 const ProposalGroup = z.object({ ops: listOf(Op).default([]), findings: listOf(Finding).default([]) });
+const Groups = z.object({ rationale: z.string(), project: ProposalGroup.optional(), entities: z.record(z.string(), ProposalGroup).optional() });
+type GroupsIn = { rationale: string; project?: { ops: unknown[]; findings: unknown[] }; entities?: Record<string, { ops: unknown[]; findings: unknown[] }> };
 
 const collapse = (s: string) => s.trim().replace(/\s+/g, ' ');
 const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -109,7 +113,10 @@ Rules:
   (kind=contradiction) instead of silently picking one side. If a tracker story can't be mapped to any model
   element yet (the behavior isn't proposed, or doesn't exist), leave its \`covers\` empty or partial and add a
   finding (kind=gap) instead of inventing a ref.
-- Call propose() exactly once, with one project-level group (project: { ops, findings }) for roles, interfaces,
+- Hand in what you find as you go: each time you finish an entity (or a batch of findings), call record() with it,
+  so a person can start reviewing while you work on. record() and propose() take the same groups; never send
+  the same operation or finding twice. Call propose() exactly once at the end with whatever is left (or just
+  the rationale, when record() already has everything). Each call takes one project-level group (project: { ops, findings }) for roles, interfaces,
   new entities, epics, features and stories, and one group per entity you change (entities: { <id>: { ops,
   findings } }) for that entity's own states/actions/transitions/permits/rules/invariants.
 
@@ -142,7 +149,7 @@ Entity-level (in entities.<id>.ops) — unchanged from an explorer's proposal:
   and every test then checks it after each read.
 For op=update: { kind, id, set: { fields } }. For op=remove: { kind, id } (entities can't be removed this way).
 
-When you're done reading and quoting, call propose() exactly once.`;
+When you're done, call propose() exactly once.`;
 
 export async function onboard(ws: Workspace, agentId: string | undefined, opts: OnboardOptions = {}): Promise<Proposal[]> {
   const log = opts.onLog ?? (() => {});
@@ -152,7 +159,7 @@ export async function onboard(ws: Workspace, agentId: string | undefined, opts: 
   if (agent && agent.kind !== 'onboard') throw new Error(`Agent “${agent.id}” is not an onboarding agent (kind “${agent.kind}”)`);
   const spec = agent ?? DEFAULT_AGENT;
 
-  const runtime = opts.provider === 'scripted' ? 'scripted' : resolveRuntime(project, agent) ?? 'scripted';
+  const runtime = opts.provider === 'scripted' ? 'scripted' : resolveRuntime({ runtime: resolveRuntime(project, agent) }, { runtime: opts.runtime }) ?? 'scripted';
 
   const timestamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
   // Onboarding reads uploaded files only; code and MCP sources come with the research agent.
@@ -161,7 +168,6 @@ export async function onboard(ws: Workspace, agentId: string | undefined, opts: 
   const sources = registry.sources.filter((s) => s.enabled);
   const mcp = new McpPool(project, ws.root);
   const { backlog: baseBacklog, revision: backlogRevision } = await ws.backlog();
-  const existingEntities = new Set(await ws.entityIds());
 
   const sourceOf = (id: string, kinds?: string[]) => {
     const s = sources.find((x) => x.id === id);
@@ -206,10 +212,9 @@ export async function onboard(ws: Workspace, agentId: string | undefined, opts: 
     return id;
   };
 
-  let rationale = '';
-  let projectGroup: { ops: Op[]; findings: Finding[] } | undefined;
-  const entityGroups = new Map<string, { ops: Op[]; findings: Finding[] }>();
   let done = false;
+  let batches = 0;
+  const saved: Proposal[] = [];
 
   const parseGroup = (label: string, ops: unknown[], findings: unknown[], known: Set<string>) => {
     const parsedOps = z.array(Op).safeParse(ops);
@@ -219,6 +224,49 @@ export async function onboard(ws: Workspace, agentId: string | undefined, opts: 
     const unknown = [...parsedOps.data, ...parsedFindings.data].flatMap((x) => x.evidence).filter((id) => !known.has(id));
     if (unknown.length) throw new Error(`${label}: unknown evidence ${[...new Set(unknown)].join(', ')}. Available: ${[...known].join(', ')}`);
     return { ops: parsedOps.data, findings: parsedFindings.data };
+  };
+
+  type Group = { ops: Op[]; findings: Finding[] };
+  type Checked = { rationale: string; project?: Group; entities: [string, Group][] };
+  const check = ({ rationale, project: projectIn, entities: entitiesIn }: GroupsIn): Checked => {
+    const known = new Set(evidence.map((e) => e.id));
+    if (!projectIn && !entitiesIn) throw new Error('needs at least a project or an entities group');
+    const parsedProject = projectIn && parseGroup('project', projectIn.ops, projectIn.findings, known);
+    const parsedEntities = Object.entries(entitiesIn ?? {}).map(([id, group]) => [id, parseGroup(`entity “${id}”`, group.ops, group.findings, known)] as [string, Group]);
+    // `by` and rule roles reference role ids — the project's, ones added earlier in this run, or ones this same call adds.
+    const roles = [
+      ...project.roles,
+      ...[...saved.filter((p) => !p.entity).flatMap((p) => p.ops), ...(parsedProject?.ops ?? [])].flatMap((op) =>
+        op.kind === 'role' && op.op === 'add' ? [{ id: String(op.value.id), title: String(op.value.title ?? op.value.id) }] : [],
+      ),
+    ];
+    const badRoles = parsedEntities.flatMap(([id, group]) =>
+      group.ops.flatMap((op, i) => {
+        const problem = checkRoles(op, roles);
+        return problem ? [`entity “${id}” op #${i}: ${problem}`] : [];
+      }),
+    );
+    if (badRoles.length) throw new Error(badRoles.join('\n'));
+    return { rationale, project: parsedProject, entities: parsedEntities };
+  };
+
+  // Writes one proposal per group straight away, so the Inbox shows it while
+  // the agent works on. `batch` numbers a record() call; propose() has none.
+  const tag = mode === 'review' ? 'review' : spec.id;
+  const save = async ({ rationale, project: group, entities }: Checked, batch?: number): Promise<Proposal[]> => {
+    const base = `${timestamp}-${tag}${batch ? `-${batch}` : ''}`;
+    const createdAt = new Date().toISOString();
+    const out: Proposal[] = [];
+    const make = (g: Group, extra: Partial<Proposal> & { id: string; baseRevision: string }) => {
+      const refs = new Set([...g.ops, ...g.findings].flatMap((x) => x.evidence));
+      out.push(Proposal.parse({ agent: spec.id, createdAt, rationale, evidence: evidence.filter((e) => refs.has(e.id)), ops: g.ops, findings: g.findings, ...extra }));
+    };
+    if (group) make(group, { id: base, baseRevision: backlogRevision });
+    for (const [entityId, g] of entities)
+      make(g, { id: `${base}-${entityId}`, entity: entityId, baseRevision: (await ws.entityIds()).includes(entityId) ? (await ws.entity(entityId)).revision : 'new' });
+    for (const p of out) await ws.saveProposal(p);
+    saved.push(...out);
+    return out;
   };
 
   const tools: Tool[] = [
@@ -344,38 +392,23 @@ export async function onboard(ws: Workspace, agentId: string | undefined, opts: 
       },
     },
     {
+      name: 'record',
+      description:
+        'Save part of the result now, in the same shape as propose(): a person starts reviewing it while you go on. ' +
+        'Call it each time you finish an entity or a batch of findings; never repeat what you already recorded.',
+      input: Groups,
+      run: async (input: GroupsIn) => {
+        return `recorded ${(await save(check(input), ++batches)).map((p) => p.id).join(', ')} — go on, and call propose() at the end`;
+      },
+    },
+    {
       name: 'propose',
-      description: 'Finish onboarding: submit one project-level proposal and/or one per entity. Call exactly once.',
-      input: z.object({
-        rationale: z.string(),
-        project: ProposalGroup.optional(),
-        entities: z.record(z.string(), ProposalGroup).optional(),
-      }),
-      run: async (input: {
-        rationale: string;
-        project?: { ops: unknown[]; findings: unknown[] };
-        entities?: Record<string, { ops: unknown[]; findings: unknown[] }>;
-      }) => {
-        const { rationale: r, project: projectIn, entities: entitiesIn } = input;
-        const known = new Set(evidence.map((e) => e.id));
-        if (!projectIn && !entitiesIn) throw new Error('propose needs at least a project or an entities group');
-        const parsedProject = projectIn && parseGroup('project', projectIn.ops, projectIn.findings, known);
-        const parsedEntities = Object.entries(entitiesIn ?? {}).map(([id, group]) => [id, parseGroup(`entity “${id}”`, group.ops, group.findings, known)] as const);
-        // `by` and rule roles reference role ids — the project's, or ones this same proposal adds.
-        const roles = [
-          ...project.roles,
-          ...(parsedProject?.ops ?? []).flatMap((op) => (op.kind === 'role' && op.op === 'add' ? [{ id: String(op.value.id), title: String(op.value.title ?? op.value.id) }] : [])),
-        ];
-        const badRoles = parsedEntities.flatMap(([id, group]) =>
-          group.ops.flatMap((op, i) => {
-            const problem = checkRoles(op, roles);
-            return problem ? [`entity “${id}” op #${i}: ${problem}`] : [];
-          }),
-        );
-        if (badRoles.length) throw new Error(badRoles.join('\n'));
-        projectGroup = parsedProject;
-        for (const [id, group] of parsedEntities) entityGroups.set(id, group);
-        rationale = r;
+      description: 'Finish: submit the rest of the result (what record() has not saved yet) — one project-level proposal and/or one per entity. Call exactly once.',
+      input: Groups,
+      run: async (input: GroupsIn) => {
+        // Everything may already be recorded; then propose only closes the run.
+        const empty = !input.project && !input.entities;
+        if (!(empty && batches)) await save(check(input));
         done = true;
         return 'proposal(s) recorded';
       },
@@ -404,40 +437,5 @@ export async function onboard(ws: Workspace, agentId: string | undefined, opts: 
   }
   if (!done) throw new Error('The agent finished without an accepted proposal (propose was never called or was rejected)');
 
-  const proposals: Proposal[] = [];
-  const createdAt = new Date().toISOString();
-  if (projectGroup) {
-    const refs = new Set([...projectGroup.ops, ...projectGroup.findings].flatMap((x) => x.evidence));
-    proposals.push(
-      Proposal.parse({
-        id: `${timestamp}-${mode === 'review' ? 'review' : spec.id}`,
-        agent: spec.id,
-        createdAt,
-        baseRevision: backlogRevision,
-        rationale,
-        evidence: evidence.filter((e) => refs.has(e.id)),
-        ops: projectGroup.ops,
-        findings: projectGroup.findings,
-      }),
-    );
-  }
-  for (const [entityId, group] of entityGroups) {
-    const refs = new Set([...group.ops, ...group.findings].flatMap((x) => x.evidence));
-    const baseRevision = existingEntities.has(entityId) ? (await ws.entity(entityId)).revision : 'new';
-    proposals.push(
-      Proposal.parse({
-        id: `${timestamp}-${mode === 'review' ? 'review' : spec.id}-${entityId}`,
-        entity: entityId,
-        agent: spec.id,
-        createdAt,
-        baseRevision,
-        rationale,
-        evidence: evidence.filter((e) => refs.has(e.id)),
-        ops: group.ops,
-        findings: group.findings,
-      }),
-    );
-  }
-  for (const p of proposals) await ws.saveProposal(p);
-  return proposals;
+  return saved;
 }

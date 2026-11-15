@@ -34,10 +34,12 @@ type AskProps = {
   project: ProjectState;
   running: boolean;
   onResearch(mode: 'onboard' | 'review'): void;
+  // Opens the Agent place, where a run can be tuned before it starts.
+  onSettings(): void;
   onError(m: string): void;
 };
 
-export function AskAgent({ project, running, onResearch, onError }: AskProps) {
+export function AskAgent({ project, running, onResearch, onSettings, onError }: AskProps) {
   const [open, setOpen] = useState(false);
   const ref = useClickOutside(open, () => setOpen(false));
   const explorers = (project.project.agents ?? []).filter((a) => (a.kind ?? 'explore') === 'explore');
@@ -67,6 +69,11 @@ export function AskAgent({ project, running, onResearch, onError }: AskProps) {
               <small>Click through the app and propose what it saw</small>
             </button>
           ))}
+          <div className="menu-section">Model, effort, subagents</div>
+          <button role="menuitem" onClick={pick(onSettings)}>
+            <b>Choose how it runs…</b>
+            <small>Pick the task and this run’s settings in the Agent tab</small>
+          </button>
         </div>
       )}
     </div>

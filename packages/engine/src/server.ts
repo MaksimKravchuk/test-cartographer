@@ -9,7 +9,7 @@ import { readFile } from 'node:fs/promises';
 import { dirname, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
-  AgentProvider, applyDecisions, applyProjectDecisions, Backlog, backlogCoverage, buildPlan, conflicts, coverage, Decision, Entity, objectParents, Project,
+  AgentProvider, RuntimeOverride, applyDecisions, applyProjectDecisions, Backlog, backlogCoverage, buildPlan, conflicts, coverage, Decision, Entity, objectParents, Project,
   RevisionConflict, Resolution, addSynonym, allFindings, findingSynonym, lintModel, reviewMatrix, FILE_SOURCE_KINDS, ToolCall, isFileSource, validateBacklog, validateEntity, validateProject, type ProjectState, type Workspace,
 } from '@tc/model';
 import { z } from 'zod';
@@ -29,6 +29,9 @@ type Event =
   | { type: 'project'; root: string };
 
 // The engine serves one project at a time; the GUI can switch it.
+// How an agent run is started: scripted or live, and run settings for this run only.
+const RunBody = z.object({ provider: z.enum(['live', 'scripted']).default('live'), runtime: RuntimeOverride.optional() });
+
 export function createApp(initial: Workspace) {
   let ws = initial;
   const app = new Hono();
@@ -448,10 +451,10 @@ export function createApp(initial: Workspace) {
   });
 
   app.post('/api/agents/:id/explore', async (c) => {
-    const { provider } = z.object({ provider: z.enum(['live', 'scripted']).default('live') }).parse(await c.req.json().catch(() => ({})));
+    const { provider, runtime } = RunBody.parse(await c.req.json().catch(() => ({})));
     const agent = c.req.param('id');
     const job = startJob(`explore:${agent}`, async (log, signal) => {
-      const p = await explore(ws, agent, { onLog: log, provider, signal });
+      const p = await explore(ws, agent, { onLog: log, provider, runtime, signal });
       return { proposal: p.id, ops: p.ops.length, findings: p.findings.length };
     });
     return c.json({ job });
@@ -459,19 +462,19 @@ export function createApp(initial: Workspace) {
 
   // Dispatches by the agent's own kind — explore keeps the alias above for callers who already know it's an explorer.
   app.post('/api/agents/:id/run', async (c) => {
-    const { provider } = z.object({ provider: z.enum(['live', 'scripted']).default('live') }).parse(await c.req.json().catch(() => ({})));
+    const { provider, runtime } = RunBody.parse(await c.req.json().catch(() => ({})));
     const id = c.req.param('id');
     const agent = (await ws.project()).agents.find((a) => a.id === id);
     if (!agent) throw new HttpError(404, `Agent “${id}” is not defined in cartographer.yaml`);
     if (agent.kind === 'onboard') {
       const job = startJob(`onboard:${id}`, async (log, signal) => {
-        const proposals = await onboard(ws, id, { onLog: log, provider, signal });
+        const proposals = await onboard(ws, id, { onLog: log, provider, runtime, signal });
         return { proposals: proposals.map((p) => p.id), ops: proposals.reduce((n, p) => n + p.ops.length, 0), findings: proposals.reduce((n, p) => n + p.findings.length, 0) };
       });
       return c.json({ job });
     }
     const job = startJob(`explore:${id}`, async (log, signal) => {
-      const p = await explore(ws, id, { onLog: log, provider, signal });
+      const p = await explore(ws, id, { onLog: log, provider, runtime, signal });
       return { proposal: p.id, ops: p.ops.length, findings: p.findings.length };
     });
     return c.json({ job });
@@ -479,11 +482,9 @@ export function createApp(initial: Workspace) {
 
   // The configured onboarding agent (or the built-in default, if none is set up yet).
   app.post('/api/onboarding/run', async (c) => {
-    const { provider, mode } = z
-      .object({ provider: z.enum(['live', 'scripted']).default('live'), mode: z.enum(['onboard', 'review']).default('onboard') })
-      .parse(await c.req.json().catch(() => ({})));
+    const { provider, mode, runtime } = RunBody.extend({ mode: z.enum(['onboard', 'review']).default('onboard') }).parse(await c.req.json().catch(() => ({})));
     const job = startJob(mode === 'review' ? 'onboard:review' : 'onboard', async (log, signal) => {
-      const proposals = await onboard(ws, undefined, { onLog: log, provider, signal, mode });
+      const proposals = await onboard(ws, undefined, { onLog: log, provider, runtime, signal, mode });
       return { proposals: proposals.map((p) => p.id), ops: proposals.reduce((n, p) => n + p.ops.length, 0), findings: proposals.reduce((n, p) => n + p.findings.length, 0) };
     });
     return c.json({ job });

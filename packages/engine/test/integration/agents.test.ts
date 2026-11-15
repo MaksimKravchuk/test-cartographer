@@ -11,6 +11,7 @@ import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/
 import { Workspace } from '@tc/model';
 import { copyWorkspace, startShop } from '../../../../tests/fixtures.ts';
 import { createApp } from '../../src/server.ts';
+import { onboard } from '../../src/agents/onboard.ts';
 import { openBridge } from '../../src/agents/bridge.ts';
 import { McpPool } from '../../src/mcp.ts';
 
@@ -63,6 +64,28 @@ describe('scripted onboarding', () => {
     const state = await res.json();
     assert.ok(state.entity.states.length >= 2 && state.plan.scenarios.length > 0, 'accepted ops became a test plan');
     assert.equal((await accept(review)).status, 409, 'a decided proposal cannot be decided twice');
+  });
+});
+
+describe('findings arrive while the agent works', () => {
+  test('what record() hands in is in the inbox before the agent finishes', async () => {
+    const own = await copyWorkspace();
+    try {
+      const w = new Workspace(own.root);
+      let before: Promise<string[]> | undefined;
+      const proposals = await onboard(w, undefined, {
+        provider: 'scripted',
+        onLog: (line) => {
+          if (line.startsWith('🔧 propose')) before = w.proposals().then((ps) => ps.map((p) => p.id));
+        },
+      });
+      const early = await before!;
+      const batch = proposals.find((p) => !p.entity)!;
+      assert.ok(early.includes(batch.id), `the project-level batch was saved before propose(): ${early.join(', ')}`);
+      assert.ok(proposals.some((p) => p.entity === 'listing' && !early.includes(p.id)), 'the final call adds its own proposals');
+    } finally {
+      await own.remove();
+    }
   });
 });
 
