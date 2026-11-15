@@ -292,6 +292,27 @@ test('accessMatrix: allowed / undecided / denied, `@new` for create actions, and
   assert.equal(accessMatrix(planned, withAuth, 'a').find((c) => c.role === 'seller' && c.action === 'view' && c.state === 'paid')?.decision, 'undecided');
 });
 
+test('accessMatrix: parameter rights deny a role that may not change what the action changes', () => {
+  const e = entity({
+    attributes: [{ id: 'price', title: 'Price', type: 'money', by: ['seller'] }],
+    actions: [...baseActions(), { id: 'reprice', title: 'Reprice', kind: 'update', run: 'o.reprice', changes: ['price'] }],
+    // Only proposed: without the parameter rights the client's cell would stay undecided.
+    permits: [{ id: 'client-reprice', title: 'Client reprice', action: 'reprice', by: ['client'], status: 'proposed' }],
+  });
+  const cells = accessMatrix(e, withAuth, 'a').filter((c) => c.action === 'reprice' && c.state === 'new');
+  const cell = (role: string) => cells.find((c) => c.role === role);
+  assert.deepEqual(cell('client'), { role: 'client', action: 'reprice', state: 'new', decision: 'denied', by: null, attributes: ['price'] });
+  assert.equal(cell('guest')?.decision, 'denied');
+  // The seller may change the price, but no permit says in which states: not denied.
+  assert.equal(cell('seller')?.decision, 'undecided');
+  const deny = buildPlan(e, withAuth).scenarios.find((s) => s.id === 'order/deny-reprice-client-new/a');
+  assert.equal(deny?.title, 'Denied: Client can\'t “Reprice” in New (may not change Price)');
+  // Rights nothing can exercise are flagged.
+  const idle = entity({ attributes: [{ id: 'price', title: 'Price', type: 'money', by: ['seller'] }] });
+  assert.ok(validateEntity(idle, withAuth).some((i) => i.path === 'attributes.price' && /isn't tested/.test(i.message)));
+  assert.ok(!validateEntity(e, withAuth).some((i) => i.path === 'attributes.price'));
+});
+
 test('plan: a planned action is not performed, even by a confirmed permit or transition', () => {
   const e = Entity.parse({
     ...entity(),
