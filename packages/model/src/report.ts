@@ -93,3 +93,35 @@ export function renderSpec(project: Project, entities: Entity[], findings: Disag
   }
   return lines.join('\n');
 }
+
+export type Lint = { entity: string; ref: string; message: string };
+const VAGUE = /\b(usually|normally|typically|may|might|should|generally|often|sometimes|as needed|etc)\b/i;
+
+// What makes the model hard to test, without running an agent: actions
+// nobody performs or with nothing said about them, rules in vague words,
+// states nothing leads to or nothing leaves (except terminal ones).
+export function lintModel(entities: Entity[]): Lint[] {
+  const out: Lint[] = [];
+  for (const e of entities) {
+    const transitions = e.transitions.filter(isActive);
+    for (const a of e.actions.filter(isActive)) {
+      const ts = transitions.filter((t) => t.action === a.id);
+      const by = (a.by?.length ?? 0) + ts.length + e.permits.filter((p) => isActive(p) && p.action === a.id).length;
+      if (!by) out.push({ entity: e.id, ref: `action:${e.id}.${a.id}`, message: `Nobody performs “${a.title}”` });
+      const ids = new Set(ts.map((t) => t.id));
+      const rules = e.rules.filter((r) => isActive(r) && (r.action === a.id || (r.transition && ids.has(r.transition))));
+      if (!ts.length && !rules.length) out.push({ entity: e.id, ref: `action:${e.id}.${a.id}`, message: `Nothing is known about “${a.title}”: no rules and no state change` });
+    }
+    for (const r of e.rules.filter(isActive)) {
+      const m = VAGUE.exec(r.text);
+      if (m) out.push({ entity: e.id, ref: `rule:${e.id}.${r.id}`, message: `“${m[0]}” can't be tested: say exactly when it holds — “${r.text}”` });
+    }
+    for (const s of e.states.filter(isActive)) {
+      const into = s.initial || s.setup.length > 0 || transitions.some((t) => t.to === s.id);
+      const out_ = s.terminal || transitions.some((t) => t.from === s.id);
+      if (!into) out.push({ entity: e.id, ref: `state:${e.id}.${s.id}`, message: `Nothing leads to “${s.title}”` });
+      if (!out_) out.push({ entity: e.id, ref: `state:${e.id}.${s.id}`, message: `Nothing leaves “${s.title}”, and it isn't marked terminal` });
+    }
+  }
+  return out;
+}

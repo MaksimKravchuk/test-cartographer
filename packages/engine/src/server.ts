@@ -10,7 +10,7 @@ import { dirname, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   AgentProvider, applyDecisions, applyProjectDecisions, Backlog, backlogCoverage, buildPlan, conflicts, coverage, Decision, Entity, objectParents, Project,
-  RevisionConflict, Resolution, disagreements, FILE_SOURCE_KINDS, ToolCall, isFileSource, validateBacklog, validateEntity, validateProject, type ProjectState, type Workspace,
+  RevisionConflict, Resolution, disagreements, lintModel, FILE_SOURCE_KINDS, ToolCall, isFileSource, validateBacklog, validateEntity, validateProject, type ProjectState, type Workspace,
 } from '@tc/model';
 import { z } from 'zod';
 import { loadActions } from './actions-loader.ts';
@@ -404,7 +404,7 @@ export function createApp(initial: Workspace) {
   // Every finding agents reported, with quotes, priorities and the side that wins.
   app.get('/api/report', async (c) => {
     const { sources, usePriority } = await ws.sourceRegistry();
-    return c.json({ disagreements: disagreements(await ws.proposals(), sources, usePriority), sources, usePriority });
+    return c.json({ disagreements: disagreements(await ws.proposals(), sources, usePriority), lint: lintModel(Object.values(await ws.catalog())), sources, usePriority });
   });
 
   app.post('/api/proposals/:id/findings/:index', async (c) => {

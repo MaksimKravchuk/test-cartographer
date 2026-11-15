@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { Disagreement, Resolution, Source } from '@tc/model';
+import type { Disagreement, Lint, Resolution, Source } from '@tc/model';
 import { api, type ProposalState } from '../api.ts';
 
 type Props = { proposals: ProposalState[]; reloadToken: number; onChanged(): void; onError(m: string): void };
@@ -11,7 +11,7 @@ const verdictTitle: Record<Resolution['verdict'], string> = { bug: 'Bug in the p
 // requirements, code and the model disagree, with the quotes from each side
 // and which side wins by priority. A person settles each one here.
 export function ReportView({ proposals, reloadToken, onChanged, onError }: Props) {
-  const [data, setData] = useState<{ disagreements: Disagreement[]; sources: Source[]; usePriority: boolean } | null>(null);
+  const [data, setData] = useState<{ disagreements: Disagreement[]; lint: Lint[]; sources: Source[]; usePriority: boolean } | null>(null);
   const [showSettled, setShowSettled] = useState(false);
   const [busy, setBusy] = useState(false);
   const load = () => api.report().then(setData).catch((e) => onError((e as Error).message));
@@ -51,6 +51,14 @@ export function ReportView({ proposals, reloadToken, onChanged, onError }: Props
           <input type="checkbox" checked={showSettled} onChange={(e) => setShowSettled(e.target.checked)} /> Show settled
         </label>
       </div>
+      {data.lint.length > 0 && (
+        <details style={{ marginTop: 12 }}>
+          <summary><b>Model checks</b> <span className="muted">— {data.lint.length} places the model is hard to test, found without an agent</span></summary>
+          <ul>
+            {data.lint.map((l, i) => <li key={i}>{l.message} <span className="id">{l.ref}</span></li>)}
+          </ul>
+        </details>
+      )}
       {list.length === 0 && <p className="muted">Nothing open. Run “Review the model” on the Model page to check it against the sources.</p>}
       {list.map((d) => (
         <section key={`${d.proposal}-${d.index}`} className="finding" style={{ borderLeft: `3px solid ${d.finding.kind === 'contradiction' ? 'var(--fail)' : 'var(--observed)'}`, marginTop: 12 }}>

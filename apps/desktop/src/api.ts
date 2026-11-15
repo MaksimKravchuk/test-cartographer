@@ -1,4 +1,4 @@
-import type { AgentProvider, Backlog, BacklogCoverage, Coverage, Decision, Entity, Field, Issue, Plan, Project, Proposal, ScenarioResult, FileSourceKind, Source, Status, Disagreement, Resolution } from '@tc/model';
+import type { AgentProvider, Backlog, BacklogCoverage, Coverage, Decision, Entity, Field, Issue, Plan, Project, Proposal, ScenarioResult, FileSourceKind, Source, Status, Disagreement, Lint, Resolution } from '@tc/model';
 
 export type EntityState = {
   entity: Entity;
@@ -140,7 +140,7 @@ export const api = {
   checkSources: (id?: string) => call<{ checks: SourceCheck[] }>(`/api/sources/check${id ? `?id=${encodeURIComponent(id)}` : ''}`, { method: 'POST' }),
   sourceText: (id: string) => call<{ source: Source; text: string }>(`/api/sources/${id}`),
   removeSource: (id: string) => call<{ ok: true }>(`/api/sources/${id}`, { method: 'DELETE' }),
-  report: () => call<{ disagreements: Disagreement[]; sources: Source[]; usePriority: boolean }>('/api/report'),
+  report: () => call<{ disagreements: Disagreement[]; lint: Lint[]; sources: Source[]; usePriority: boolean }>('/api/report'),
   resolve: (proposal: string, index: number, verdict: Resolution['verdict'] | null, note?: string) =>
     call(`/api/proposals/${proposal}/findings/${index}`, { method: 'POST', body: JSON.stringify({ verdict, note }) }),
   spec: () => call<{ markdown: string }>('/api/spec'),
