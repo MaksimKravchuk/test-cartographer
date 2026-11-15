@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api, type Projects, type RecentProject } from '../api.ts';
+import { AddProject } from './AddProject.tsx';
 
 type Props = {
   // Switching is off while there are unsaved edits or a running job.
@@ -15,9 +16,6 @@ export function ProjectsView({ disabled, onNotify, onError }: Props) {
   const [projects, setProjects] = useState<Projects | null>(null);
   const [busy, setBusy] = useState(false);
   const [confirm, setConfirm] = useState<string | null>(null);
-  const [openPath, setOpenPath] = useState('');
-  const [newPath, setNewPath] = useState('');
-  const [newName, setNewName] = useState('');
 
   const reload = useCallback(() => api.projects().then(setProjects).catch((e) => onError((e as Error).message)), [onError]);
   useEffect(() => {
@@ -49,7 +47,7 @@ export function ProjectsView({ disabled, onNotify, onError }: Props) {
         <div className="project-head">
           <button className="entity-open" disabled={busy || disabled || current || p.missing} onClick={() => act(() => api.openProject(p.root))}>
             <h2>{p.name}</h2>
-            <span className="id">{p.root}</span>
+            <span className="id" title={p.root}>{p.root}</span>
             <div className="entity-flags">
               {current && <span className="flag proposed">Open now</span>}
               {p.missing && <span className="flag error">Folder not found</span>}
@@ -102,43 +100,7 @@ export function ProjectsView({ disabled, onNotify, onError }: Props) {
       )}
 
       <h3 className="section-title">Add a project</h3>
-      <div className="catalog">
-        <form
-          className="entity-card new-entity"
-          onSubmit={(e) => {
-            e.preventDefault();
-            void act(() => api.createProject(newPath.trim(), newName.trim()));
-          }}
-        >
-          <h2>New project</h2>
-          <p className="muted">From the template: a web interface, a guest and a signed-in role.</p>
-          <label className="field">
-            <span>Project name</span>
-            <input className="text" value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Marketplace" />
-          </label>
-          <label className="field">
-            <span>Folder</span>
-            <input className="text" value={newPath} onChange={(e) => setNewPath(e.target.value)} placeholder="/Users/you/projects/shop-tests" />
-          </label>
-          <button className="btn primary" disabled={busy || disabled || !newPath.trim() || !newName.trim()}>Create project</button>
-        </form>
-
-        <form
-          className="entity-card new-entity"
-          onSubmit={(e) => {
-            e.preventDefault();
-            void act(() => api.openProject(openPath.trim()));
-          }}
-        >
-          <h2>Open existing</h2>
-          <p className="muted">A folder that already contains cartographer.yaml.</p>
-          <label className="field">
-            <span>Folder</span>
-            <input className="text" value={openPath} onChange={(e) => setOpenPath(e.target.value)} placeholder="/Users/you/projects/shop-tests" />
-          </label>
-          <button className="btn primary" disabled={busy || disabled || !openPath.trim()}>Open project</button>
-        </form>
-      </div>
+      <AddProject disabled={disabled} busy={busy} onSubmit={(fn) => act(fn)} />
     </div>
   );
 }

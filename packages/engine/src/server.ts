@@ -20,7 +20,7 @@ import { explore } from './agents/explore.ts';
 import { onboard } from './agents/onboard.ts';
 import { checkSources } from './sources.ts';
 import { cursorLogin, runtimeStatus, testRuntime } from './agents/runtime.ts';
-import { createEntity, createProject, forgetProject, openProject, pinProject, recentProjects, rememberProject, trashProject, UnknownParentError } from './projects.ts';
+import { createEntity, createProject, forgetProject, inspectFolder, openProject, pinProject, recentProjects, rememberProject, trashProject, UnknownParentError } from './projects.ts';
 
 type Event =
   | { type: 'log'; job: string; line: string }
@@ -143,9 +143,14 @@ export function createApp(initial: Workspace) {
     return c.json({ root: ws.root });
   });
 
+  // The project form checks a typed path as you go and browses folders where there's no native picker.
+  app.get('/api/folders', async (c) => c.json(await inspectFolder(c.req.query('path') ?? '')));
+
   app.post('/api/projects/create', async (c) => {
-    const { root, name } = z.object({ root: z.string().min(1), name: z.string().min(1) }).parse(await c.req.json());
-    switchTo(await createProject(root, name).catch((e: Error) => { throw new HttpError(400, e.message); }));
+    const { root, name, ...options } = z
+      .object({ root: z.string().min(1), name: z.string().min(1), baseUrl: z.string().url().optional(), code: z.string().min(1).optional(), provider: AgentProvider.optional() })
+      .parse(await c.req.json());
+    switchTo(await createProject(root, name, options).catch((e: Error) => { throw new HttpError(400, e.message); }));
     return c.json({ root: ws.root });
   });
 

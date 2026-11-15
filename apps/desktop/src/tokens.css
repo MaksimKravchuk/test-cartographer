@@ -25,6 +25,20 @@
 
   --sans: 'Geist Sans', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
   --mono: 'Geist Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  /* Spacing: every padding, margin and gap is one of these steps (4px grid).
+     --gutter is the one left edge that the switcher, view tabs and page content share. */
+  --s1: 4px;
+  --s2: 8px;
+  --s3: 12px;
+  --s4: 16px;
+  --s5: 24px;
+  --s6: 32px;
+  --s7: 48px;
+  --s8: 64px;
+  --gutter: var(--s5);
+  /* Controls (buttons, inputs, selects) share one height so rows line up. */
+  --control: 32px;
+  --control-sm: 24px;
   --r1: 4px;
   --r2: 6px;
   --r3: 10px;
