@@ -131,11 +131,16 @@ export function lintModel(entities: Entity[]): Lint[] {
 // the element's provenance; an open finding that names the element and quotes
 // the source overrides it, except that the side which stands by priority confirms. No cell means the source said nothing either way.
 export type ReviewCell = 'confirms' | 'contradicts' | 'gap' | 'question';
-export type ReviewRow = { entity: string; ref: string; title: string; cells: Record<string, ReviewCell> };
+// The three marks a reviewer reads first: what the requirements say (every source
+// that isn't code), what the code says, and whether the app showed it.
+export type ReviewMarks = { requirements?: ReviewCell; code?: ReviewCell; app: boolean };
+export type ReviewRow = { entity: string; ref: string; title: string; cells: Record<string, ReviewCell>; marks: ReviewMarks };
 const rank: Record<ReviewCell, number> = { confirms: 0, question: 1, gap: 2, contradicts: 3 };
 const findingCell = { contradiction: 'contradicts', gap: 'gap', question: 'question' } as const;
 
-export function reviewMatrix(entities: Entity[], findings: Disagreement[]): ReviewRow[] {
+export function reviewMatrix(entities: Entity[], findings: Disagreement[], sources: Pick<Source, 'id' | 'kind'>[] = []): ReviewRow[] {
+  const isCode = new Set(sources.filter((s) => s.kind === 'code').map((s) => s.id));
+  const strongest = (cells: ReviewCell[]) => cells.reduce<ReviewCell | undefined>((a, c) => (a === undefined || rank[c] > rank[a] ? c : a), undefined);
   const open = findings.filter((f) => !f.resolution);
   return entities.flatMap((e) => {
     const stateTitle = (id: string) => (id === '@new' ? '(new)' : (e.states.find((s) => s.id === id)?.title ?? id));
@@ -159,7 +164,12 @@ export function reviewMatrix(entities: Entity[], findings: Disagreement[]): Revi
           if (!found[s] || rank[cell] > rank[found[s]]) found[s] = cell;
         }
       Object.assign(cells, found);
-      return { entity: e.id, ref, title: `${e.title} · ${title}`, cells };
+      const marks = {
+        requirements: strongest(Object.entries(cells).filter(([id]) => !isCode.has(id)).map(([, c]) => c)),
+        code: strongest(Object.entries(cells).filter(([id]) => isCode.has(id)).map(([, c]) => c)),
+        app: !!x.provenance?.seen,
+      };
+      return { entity: e.id, ref, title: `${e.title} · ${title}`, cells, marks };
     });
   });
 }

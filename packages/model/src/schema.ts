@@ -18,6 +18,8 @@ export const Provenance = z.object({
   // Knowledge sources (workspace/sources.yaml) that back this element, from the
   // proposal's `source` evidence — set when applying a decision.
   sources: z.array(z.string()).default([]),
+  // The app showed it: an explorer read the entity back after acting and saw the effect.
+  seen: z.boolean().optional(),
   note: z.string().optional(),
 });
 export type Provenance = z.infer<typeof Provenance>;

@@ -407,7 +407,7 @@ export function createApp(initial: Workspace) {
     const { sources, usePriority } = await ws.sourceRegistry();
     const entities = Object.values(await ws.catalog());
     const found = disagreements(await ws.proposals(), sources, usePriority);
-    return c.json({ disagreements: found, lint: lintModel(entities), matrix: reviewMatrix(entities, found), sources, usePriority });
+    return c.json({ disagreements: found, lint: lintModel(entities), matrix: reviewMatrix(entities, found, sources), sources, usePriority });
   });
 
   app.post('/api/proposals/:id/findings/:index', async (c) => {

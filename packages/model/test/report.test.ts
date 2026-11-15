@@ -72,4 +72,9 @@ test('reviewMatrix: provenance confirms, an open finding quoting a source overri
   assert.deepEqual(row([finding(), question]).cells, { wiki: 'confirms', code: 'contradicts' }, 'an older question does not mask a contradiction');
   assert.deepEqual(row([finding(), { ...finding(), winner: 'code' }]).cells, { wiki: 'confirms', code: 'contradicts' });
   assert.deepEqual(reviewMatrix([e], []).find((r) => r.ref === 'action:order.cancel')!.cells, {});
+  // Marks: wiki is a requirement, code is code; a contradiction quoting the code shows under Code.
+  const marks = reviewMatrix([e], [finding()], [{ id: 'wiki', kind: 'doc' }, { id: 'code', kind: 'code' }]).find((r) => r.ref === 'rule:order.until-paid')!.marks;
+  assert.deepEqual(marks, { requirements: 'confirms', code: 'contradicts', app: false });
+  const seen = Entity.parse({ ...e, rules: [{ ...e.rules[0], provenance: { source: 'agent', sources: [], seen: true } }] });
+  assert.equal(reviewMatrix([seen], []).find((r) => r.ref === 'rule:order.until-paid')!.marks.app, true);
 });
