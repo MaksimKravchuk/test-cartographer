@@ -125,3 +125,40 @@ export function lintModel(entities: Entity[]): Lint[] {
   }
   return out;
 }
+
+// What each source says about each element of the model. `confirms` comes from
+// the element's provenance; an open finding that names the element and quotes
+// the source overrides it, except that the side which stands by priority confirms. No cell means the source said nothing either way.
+export type ReviewCell = 'confirms' | 'contradicts' | 'gap' | 'question';
+export type ReviewRow = { entity: string; ref: string; title: string; cells: Record<string, ReviewCell> };
+const rank: Record<ReviewCell, number> = { confirms: 0, question: 1, gap: 2, contradicts: 3 };
+const findingCell = { contradiction: 'contradicts', gap: 'gap', question: 'question' } as const;
+
+export function reviewMatrix(entities: Entity[], findings: Disagreement[]): ReviewRow[] {
+  const open = findings.filter((f) => !f.resolution);
+  return entities.flatMap((e) => {
+    const stateTitle = (id: string) => (id === '@new' ? '(new)' : (e.states.find((s) => s.id === id)?.title ?? id));
+    const actionTitle = (id: string) => e.actions.find((a) => a.id === id)?.title ?? id;
+    const elements = [
+      ...e.states.filter(isActive).map((x) => ({ x, ref: `state:${e.id}.${x.id}`, title: `State: ${x.title}` })),
+      ...e.actions.filter(isActive).map((x) => ({ x, ref: `action:${e.id}.${x.id}`, title: `Action: ${x.title}` })),
+      ...e.transitions.filter(isActive).map((x) => ({ x, ref: `transition:${e.id}.${x.id}`, title: `${actionTitle(x.action)}: ${stateTitle(x.from)} → ${stateTitle(x.to)}` })),
+      ...e.rules.filter(isActive).map((x) => ({ x, ref: `rule:${e.id}.${x.id}`, title: `Rule: ${x.text}` })),
+    ];
+    return elements.map(({ x, ref, title }) => {
+      const cells: Record<string, ReviewCell> = {};
+      for (const s of x.provenance?.sources ?? []) cells[s] = 'confirms';
+      const found: Record<string, ReviewCell> = {};
+      for (const f of open.filter((f) => f.finding.refs.includes(ref)))
+        for (const q of f.quotes) {
+          const s = q.evidence.source;
+          if (!s) continue;
+          const cell = s === f.winner ? 'confirms' : findingCell[f.finding.kind];
+          // Several findings may quote one source: the strongest stands, whatever their order.
+          if (!found[s] || rank[cell] > rank[found[s]]) found[s] = cell;
+        }
+      Object.assign(cells, found);
+      return { entity: e.id, ref, title: `${e.title} · ${title}`, cells };
+    });
+  });
+}

@@ -1,17 +1,23 @@
 import { useEffect, useState } from 'react';
-import type { Disagreement, Lint, Resolution, Source } from '@tc/model';
+import type { Disagreement, Lint, Resolution, ReviewCell, ReviewRow, Source } from '@tc/model';
 import { api, type ProposalState } from '../api.ts';
 
 type Props = { proposals: ProposalState[]; reloadToken: number; onChanged(): void; onError(m: string): void };
 
 const kindTitle = { contradiction: 'Sources disagree', gap: 'Gap', question: 'Question' } as const;
+const cellMark: Record<ReviewCell, { mark: string; title: string; color: string }> = {
+  confirms: { mark: '✓', title: 'confirms', color: 'var(--pass)' },
+  contradicts: { mark: '✕', title: 'contradicts', color: 'var(--fail)' },
+  gap: { mark: '…', title: 'gap', color: 'var(--observed)' },
+  question: { mark: '?', title: 'question', color: 'var(--observed)' },
+};
 const verdictTitle: Record<Resolution['verdict'], string> = { bug: 'Bug in the product', outdated: 'Requirements are outdated', fine: 'Not a problem' };
 
 // What agents found when they checked the model against the sources: where
 // requirements, code and the model disagree, with the quotes from each side
 // and which side wins by priority. A person settles each one here.
 export function ReportView({ proposals, reloadToken, onChanged, onError }: Props) {
-  const [data, setData] = useState<{ disagreements: Disagreement[]; lint: Lint[]; sources: Source[]; usePriority: boolean } | null>(null);
+  const [data, setData] = useState<{ disagreements: Disagreement[]; lint: Lint[]; matrix: ReviewRow[]; sources: Source[]; usePriority: boolean } | null>(null);
   const [showSettled, setShowSettled] = useState(false);
   const [busy, setBusy] = useState(false);
   const load = () => api.report().then(setData).catch((e) => onError((e as Error).message));
@@ -33,6 +39,9 @@ export function ReportView({ proposals, reloadToken, onChanged, onError }: Props
   if (!data) return <div className="page"><p className="muted">Loading…</p></div>;
   const list = data.disagreements.filter((d) => showSettled || !d.resolution);
   const count = (k: Disagreement['finding']['kind']) => data.disagreements.filter((d) => !d.resolution && d.finding.kind === k).length;
+  const cols = data.sources.filter((s) => s.enabled);
+  const spoken = data.matrix.filter((r) => Object.keys(r.cells).length > 0);
+  const silent = data.matrix.length - spoken.length;
   const title = (id?: string) => data.sources.find((s) => s.id === id)?.title ?? id ?? 'evidence';
 
   return (
@@ -57,6 +66,27 @@ export function ReportView({ proposals, reloadToken, onChanged, onError }: Props
           <ul>
             {data.lint.map((l, i) => <li key={i}>{l.message} <span className="id">{l.ref}</span></li>)}
           </ul>
+        </details>
+      )}
+      {spoken.length > 0 && cols.length > 0 && (
+        <details style={{ marginTop: 12 }}>
+          <summary><b>By source</b> <span className="muted">— what each source says about each element: ✓ confirms, ✕ contradicts, … gap, ? question, blank = says nothing.{silent > 0 && ` ${silent} more elements no source mentions yet.`}</span></summary>
+          <div style={{ overflowX: 'auto' }}>
+            <table className="matrix access" aria-label="Review by source">
+              <thead><tr><th>Element</th>{cols.map((s) => <th key={s.id}>{s.title}</th>)}</tr></thead>
+              <tbody>
+                {spoken.map((r) => (
+                  <tr key={r.ref}>
+                    <td className="name" title={r.ref}>{r.title.length > 70 ? `${r.title.slice(0, 69)}…` : r.title}</td>
+                    {cols.map((s) => {
+                      const c = r.cells[s.id];
+                      return <td key={s.id} title={c ? `${s.title} ${cellMark[c].title}` : `${s.title} says nothing`} style={{ color: c ? cellMark[c].color : undefined }}>{c ? cellMark[c].mark : ''}</td>;
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </details>
       )}
       {list.length === 0 && <p className="muted">Nothing open. Run “Review the model” on the Model page to check it against the sources.</p>}

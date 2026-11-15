@@ -44,3 +44,16 @@ test('export writes Markdown through the GUI', async ({ page }) => {
   await page.getByRole('button', { name: 'Export to Markdown' }).click();
   await expect(page.locator('pre.md').first()).toContainText('#');
 });
+
+test('a review shows by source which one contradicts the model', async ({ page }) => {
+  // The button picks a live agent when one is installed; the test needs the scripted review.
+  expect((await page.request.post('/api/onboarding/run', { data: { provider: 'scripted', mode: 'review' } })).ok()).toBe(true);
+  // The scripted review runs as a job; reopen the page until its findings land.
+  await expect(async () => {
+    await page.goto('/');
+    await page.getByRole('navigation', { name: 'Sections' }).getByRole('button', { name: /^Disagreements/ }).click();
+    await page.getByText('By source').click();
+    await expect(page.getByRole('table', { name: 'Review by source' }).getByText('✕').first()).toBeVisible({ timeout: 2_000 });
+  }).toPass({ timeout: 30_000 });
+  if (process.env.TC_SHOT) await page.screenshot({ path: process.env.TC_SHOT, fullPage: true });
+});
