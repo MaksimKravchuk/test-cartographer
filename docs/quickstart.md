@@ -58,7 +58,7 @@ Findings appear in place with a dashed border. Click **Cancel** in the buyer's r
 
 ## 4. Inbox
 
-Open **Inbox**. Everything waiting for a decision is one queue: contradictions, questions, gaps and the agents' proposed changes. A contradiction shows each source's quote side by side, with the one that stands by priority framed. Settle the cancel one as **Bug in the product** (or press **B**): the requirement wins and the tests will check it. **Requirements are outdated** (**U**) would make the code the truth instead; **Not a problem** (**N**) closes it. **J** and **K** move through the queue.
+Open **Inbox**. Everything waiting for a decision is one queue: contradictions, questions, gaps and the agents' proposed changes. A contradiction shows each source's quote side by side, with the one that stands by priority framed. Settle the cancel one as **Bug in the product** (or press **B**): the requirement wins and the tests will check it. **Requirements are outdated** (**U**) would make the code the truth instead; **Not a problem** (**N**) closes it. A question is answered **Yes**, **No** or in your own words (a yes to “is X the same as Y?” adds the synonym to **Model → Glossary**), and a source problem, where an agent couldn't read part of a source, is marked fixed or left out on purpose. **J** and **K** move through the queue.
 
 **Inbox › By source** shows the same review as a table: every element against every source, ✓ confirms, ✕ contradicts.
 
