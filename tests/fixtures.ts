@@ -16,7 +16,8 @@ export async function copyWorkspace(): Promise<{ root: string; remove(): Promise
     recursive: true,
     filter: (src) => !/[\\/]workspace[\\/](node_modules|runs|generated|export)([\\/]|$)/.test(src),
   });
-  await symlink(join(repo, 'workspace', 'node_modules'), join(root, 'node_modules'), 'dir');
+  // A junction needs no admin rights on Windows; elsewhere the type is ignored.
+  await symlink(join(repo, 'workspace', 'node_modules'), join(root, 'node_modules'), 'junction');
   return { root, remove: () => rm(root, { recursive: true, force: true }) };
 }
 
