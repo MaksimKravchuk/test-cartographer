@@ -94,6 +94,7 @@ export function validateEntity(entity: Entity, project: Project, actions?: Set<s
 
   for (const a of entity.actions) {
     const p = `actions.${a.id}`;
+    for (const roleId of a.by ?? []) if (!roles.has(roleId)) err(p, `Unknown role “${roleId}”`);
     if (!a.run && !a.invoke) warn(p, `Action “${a.title}” can't be performed in a test: give it a run entry, an invoke tool, or both`);
     if (a.invoke && !toolAllowed(project, a.invoke.tool, 'trigger'))
       err(p, `Trigger tool “${a.invoke.tool}” is not allowed (mcp.*.allow.trigger)`);
@@ -156,8 +157,11 @@ export function validateEntity(entity: Entity, project: Project, actions?: Set<s
   for (const r of entity.rules) {
     const p = `rules.${r.id}`;
     checkVariants(p, r.variants);
-    const t = transitions.get(r.transition);
-    if (!t) err(p, `Unknown transition “${r.transition}”`);
+    const t = r.transition ? transitions.get(r.transition) : undefined;
+    if (r.transition && !t) err(p, `Unknown transition “${r.transition}”`);
+    if (r.action && !entity.actions.some((a) => a.id === r.action)) err(p, `Unknown action “${r.action}”`);
+    if (!r.transition && !r.action) err(p, 'A rule needs an action or a transition');
+    if (r.requires.length && !r.transition) warn(p, 'Conditions are checked only on a transition: add one so the rule gets scenarios');
     for (const c of r.requires) {
       if (c.kind === 'roles') {
         for (const id of c.roles) if (!roles.has(id)) err(p, `Unknown role “${id}”`);

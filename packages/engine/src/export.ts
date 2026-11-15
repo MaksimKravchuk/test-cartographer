@@ -1,5 +1,5 @@
 import { mkdir, writeFile } from 'node:fs/promises';
-import { buildPlan, renderMarkdown, type Workspace } from '@tc/model';
+import { buildPlan, disagreements, renderMarkdown, renderSpec, type Workspace } from '@tc/model';
 
 export async function exportMarkdown(ws: Workspace): Promise<string[]> {
   const project = await ws.project();
@@ -14,4 +14,16 @@ export async function exportMarkdown(ws: Workspace): Promise<string[]> {
     files.push(file);
   }
   return files;
+}
+
+// The product specification (see renderSpec) as workspace/export/spec.md.
+export async function specMarkdown(ws: Workspace): Promise<string> {
+  const { sources, usePriority } = await ws.sourceRegistry();
+  return renderSpec(await ws.project(), Object.values(await ws.catalog()), disagreements(await ws.proposals(), sources, usePriority), sources);
+}
+
+export async function exportSpec(ws: Workspace): Promise<string> {
+  await mkdir(ws.path('export'), { recursive: true });
+  await writeFile(ws.path('export/spec.md'), await specMarkdown(ws));
+  return 'export/spec.md';
 }

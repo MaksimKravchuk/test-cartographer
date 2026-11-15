@@ -1,0 +1,66 @@
+# Deterministic script for "Review the model" (provider=scripted): checks the
+# order's cancel and expire actions against the product overview and the code.
+steps:
+  - say: Listing the sources and their priorities.
+    call: sources
+  - say: Reading the current model.
+    call: model
+  - say: Looking for where the shop implements order actions.
+    call: files
+    input:
+      source: shop-code
+  - call: read
+    input:
+      source: shop-code
+      path: domain.ts
+      offset: 40
+      limit: 20
+  - say: The requirement on cancelling.
+    call: quote
+    input:
+      source: product-overview
+      text: A buyer can cancel an order only until it has been paid.
+  - say: The code lets the buyer cancel a paid order too.
+    call: quote
+    input:
+      source: shop-code
+      path: domain.ts
+      text: "{ id: 'cancel', label: 'Cancel order', side: 'client', from: ['paid', 'accepted'], to: 'cancelled', variants: ['standard'], payment: 'refunded' }"
+  - say: The expiry, in the docs and in the code.
+    call: quote
+    input:
+      source: product-overview
+      text: an order that has not been paid within 30 minutes of being placed is cancelled automatically by the shop backend
+  - call: quote
+    input:
+      source: shop-code
+      path: domain.ts
+      text: private static EXPIRE_AFTER_MS = 30 * 60 * 1000;
+  - say: Proposing the rules and reporting the disagreement.
+    call: propose
+    input:
+      rationale: "The model's cancel and expire actions hold up against the product overview. The code disagrees on one point: it lets a buyer cancel a standard order after payment, which the overview forbids. The overview is the higher-priority source, so the rule stands and the code looks wrong."
+      entities:
+        order:
+          ops:
+            - op: add
+              kind: rule
+              value:
+                id: buyer-cancels-until-paid
+                title: A buyer cancels only until payment
+                text: A buyer can cancel an order only until it has been paid.
+                action: cancel
+              evidence: [e1]
+            - op: add
+              kind: rule
+              value:
+                id: unpaid-expires-after-30-minutes
+                title: An unpaid order expires after 30 minutes
+                text: An order that isn't paid within 30 minutes of being placed is cancelled by the shop backend.
+                action: expire
+              evidence: [e3, e4]
+          findings:
+            - kind: contradiction
+              note: "Requirements (priority 1) say a buyer can cancel only until payment; the code (priority 2) lets the buyer cancel a paid or accepted standard order, with a refund. The requirement wins: this looks like a bug in the code."
+              refs: ["action:order.cancel", "rule:order.buyer-cancels-until-paid"]
+              evidence: [e1, e2]

@@ -1,0 +1,21 @@
+name: Bug report
+description: Something doesn't work as described
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what you got instead. Include error output if there is any.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: How to reproduce
+      description: Steps, ideally against the demo shop and the example workspace.
+  - type: input
+    id: env
+    attributes:
+      label: Environment
+      description: OS, Node version, agent runtime (Claude Code, Codex, Copilot, Cursor) if relevant

@@ -1,0 +1,106 @@
+// The engine's HTTP API over a real workspace on disk: what the GUI relies on.
+import { after, before, describe, test } from 'node:test';
+import assert from 'node:assert/strict';
+import { existsSync } from 'node:fs';
+import { mkdtemp } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { Workspace } from '@tc/model';
+import { copyWorkspace } from '../../../../tests/fixtures.ts';
+import { createApp } from '../../src/server.ts';
+
+process.env.TC_HOME = await mkdtemp(join(tmpdir(), 'tc-home-')); // keep the recent-projects list out of ~
+
+let ws: Awaited<ReturnType<typeof copyWorkspace>>;
+let app: ReturnType<typeof createApp>;
+const json = (method: string, body?: unknown) => ({ method, headers: { 'content-type': 'application/json' }, body: body === undefined ? undefined : JSON.stringify(body) });
+const get = async (path: string) => {
+  const res = await app.request(path);
+  assert.equal(res.status, 200, `${path}: ${res.status}`);
+  return res.json() as Promise<any>;
+};
+
+before(async () => {
+  ws = await copyWorkspace();
+  app = createApp(new Workspace(ws.root));
+});
+after(() => ws.remove());
+
+describe('project and entities', () => {
+  test('GET /api/project describes the workspace', async () => {
+    const p = await get('/api/project');
+    assert.equal(p.root, ws.root);
+    assert.deepEqual([...p.entities].sort(), ['line-item', 'listing', 'order']);
+    assert.ok(p.actions.length > 0, 'the action library is loaded');
+  });
+
+  test('GET /api/entities lists every entity with a test plan', async () => {
+    const list = await get('/api/entities');
+    const order = list.find((e: any) => e.id === 'order');
+    assert.ok(order.totals.scenarios > 0);
+    assert.ok(order.counts.states > 0);
+    assert.equal(list.find((e: any) => e.id === 'line-item').parent, 'order');
+  });
+
+  test('saving an entity with a stale revision is refused', async () => {
+    const { entity, revision } = await get('/api/entities/listing');
+    const ok = await app.request('/api/entities/listing', json('PUT', { entity: { ...entity, title: 'Listing (renamed)' }, revision }));
+    assert.equal(ok.status, 200);
+    assert.equal((await ok.json()).entity.title, 'Listing (renamed)');
+    const stale = await app.request('/api/entities/listing', json('PUT', { entity, revision }));
+    assert.equal(stale.status, 409);
+  });
+
+  test('creating an entity validates the id and refuses duplicates', async () => {
+    assert.equal((await app.request('/api/entities', json('POST', { id: 'Bad Id', title: 'x' }))).status, 400);
+    const created = await app.request('/api/entities', json('POST', { id: 'review', title: 'Review', partOf: 'order' }));
+    assert.equal(created.status, 200);
+    assert.equal((await app.request('/api/entities', json('POST', { id: 'review', title: 'Review' }))).status, 409);
+    assert.equal((await app.request('/api/entities', json('POST', { id: 'ghost', title: 'Ghost', partOf: 'nope' }))).status, 400);
+    assert.equal((await app.request('/api/entities/review', { method: 'DELETE' })).status, 200);
+    assert.ok(!(await get('/api/project')).entities.includes('review'));
+  });
+});
+
+describe('knowledge sources, backlog, export', () => {
+  test('a source can be added, read and removed', async () => {
+    const added = await app.request('/api/sources', json('POST', { name: 'refunds.md', content: '# Refunds\nA refund is issued within 14 days.' }));
+    assert.equal(added.status, 200);
+    const { id } = await added.json();
+    assert.match((await get(`/api/sources/${id}`)).text, /14 days/);
+    assert.ok((await get('/api/sources')).sources.some((s: any) => s.id === id && s.lines === 2));
+    assert.equal((await app.request(`/api/sources/${id}`, { method: 'DELETE' })).status, 200);
+    assert.equal((await app.request(`/api/sources/${id}`)).status, 404);
+  });
+
+  test('the backlog comes with its coverage over the model', async () => {
+    const b = await get('/api/backlog');
+    assert.ok(b.revision !== undefined);
+    assert.ok(Array.isArray(b.issues));
+    assert.ok(b.coverage);
+  });
+
+  test('Markdown export writes one file per entity into export/', async () => {
+    const { files } = await (await app.request('/api/export/markdown', { method: 'POST' })).json();
+    assert.ok(files.length > 0);
+    for (const f of files) assert.ok(existsSync(join(ws.root, f.path)), f.path);
+    assert.ok(files.some((f: any) => /order/.test(f.path) && f.content.includes('#')));
+  });
+});
+
+describe('input checks', () => {
+  test('evidence files cannot escape evidence/', async () => {
+    const res = await app.request('/api/files/evidence/..%2F..%2Fcartographer.yaml');
+    assert.equal(res.status, 400);
+  });
+
+  test('a malformed body is a 400 with a readable message', async () => {
+    const res = await app.request('/api/project', json('PUT', { project: { name: 42 } }));
+    assert.equal(res.status, 400);
+    assert.ok((await res.json()).error);
+  });
+
+  test('an unknown agent is a 404', async () => {
+    assert.equal((await app.request('/api/agents/nobody/run', json('POST', { provider: 'scripted' }))).status, 404);
+  });
+});

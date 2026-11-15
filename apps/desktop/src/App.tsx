@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Entity } from '@tc/model';
+import { resolveRuntime } from '@tc/model/schema';
 import { api, ApiError, subscribe, type EntityState, type EntitySummary, type Job, type ProjectDecideResult, type ProjectState, type ProposalState } from './api.ts';
 import type { Selection } from './graph.ts';
 import { MapView } from './views/MapView.tsx';
@@ -10,6 +11,9 @@ import { ExportView } from './views/ExportView.tsx';
 import { OverviewView } from './views/OverviewView.tsx';
 import { ObjectsView } from './views/ObjectsView.tsx';
 import { OnboardingView } from './views/OnboardingView.tsx';
+import { ModelView } from './views/ModelView.tsx';
+import { ReportView } from './views/ReportView.tsx';
+import { SpecView } from './views/SpecView.tsx';
 import { BacklogView } from './views/BacklogView.tsx';
 import { ScenariosView } from './views/ScenariosView.tsx';
 import { AgentsView } from './views/AgentsView.tsx';
@@ -20,6 +24,9 @@ import { ProjectsView } from './views/ProjectsView.tsx';
 type EntityTab = 'map' | 'scenarios' | 'coverage';
 type Route =
   | { page: 'overview' }
+  | { page: 'model' }
+  | { page: 'report' }
+  | { page: 'spec' }
   | { page: 'objects' }
   | { page: 'entity'; id: string; tab: EntityTab }
   | { page: 'onboarding' }
@@ -35,7 +42,7 @@ const tabTitles: Record<EntityTab, string> = { map: 'Map', scenarios: 'Scenarios
 export function App() {
   const [project, setProject] = useState<ProjectState | null>(null);
   const [entities, setEntities] = useState<EntitySummary[]>([]);
-  const [route, setRoute] = useState<Route>({ page: 'overview' });
+  const [route, setRoute] = useState<Route>({ page: 'model' });
   const [state, setState] = useState<EntityState | null>(null);
   const [draft, setDraft] = useState<Entity | null>(null);
   const [proposals, setProposals] = useState<ProposalState[]>([]);
@@ -218,13 +225,19 @@ export function App() {
           onError={(m) => notify(m, true)}
         />
         <div className="nav-scroll">
+        <button aria-current={route.page === 'onboarding' ? 'page' : undefined} onClick={() => go({ page: 'onboarding' })}>Sources</button>
+        <button aria-current={route.page === 'model' ? 'page' : undefined} onClick={() => go({ page: 'model' })}>
+          Model {pending.length > 0 && <span className="count">{pending.length}</span>}
+        </button>
+        <button aria-current={route.page === 'report' ? 'page' : undefined} onClick={() => go({ page: 'report' })}>Disagreements</button>
+        <button aria-current={route.page === 'spec' ? 'page' : undefined} onClick={() => go({ page: 'spec' })}>Specification</button>
+        <h4>Tests</h4>
         <button aria-current={route.page === 'overview' ? 'page' : undefined} onClick={() => go({ page: 'overview' })}>Overview</button>
         <button aria-current={route.page === 'objects' || route.page === 'entity' ? 'page' : undefined} onClick={() => go({ page: 'objects' })}>
           Objects <span className="muted">{entities.length}</span>
         </button>
 
         <h4>Project</h4>
-        <button aria-current={route.page === 'onboarding' ? 'page' : undefined} onClick={() => go({ page: 'onboarding' })}>Onboarding</button>
         <button aria-current={route.page === 'proposals' ? 'page' : undefined} onClick={() => go({ page: 'proposals' })}>
           Proposals {pending.length > 0 && <span className="count">{pending.length}</span>}
         </button>
@@ -261,6 +274,28 @@ export function App() {
             onError={(m) => notify(m, true)}
           />
         )}
+
+        {route.page === 'model' && (
+          <ModelView
+            project={project}
+            proposals={proposals}
+            reloadToken={reloadToken}
+            running={running}
+            onResearch={async (mode) => {
+              try {
+                const live = !!resolveRuntime(project.project, project.project.agents.find((a) => a.kind === 'onboard'));
+                await api.runOnboarding(live ? 'live' : 'scripted', mode);
+              } catch (e) {
+                notify((e as Error).message, true);
+              }
+            }}
+            onOpenEntity={(id) => go({ page: 'entity', id, tab: 'map' })}
+            onChanged={() => void reloadAll()}
+            onError={(m) => notify(m, true)}
+          />
+        )}
+        {route.page === 'report' && <ReportView proposals={proposals} reloadToken={reloadToken} onChanged={() => void reloadAll()} onError={(m) => notify(m, true)} />}
+        {route.page === 'spec' && <SpecView reloadToken={reloadToken} onError={(m) => notify(m, true)} />}
 
         {route.page === 'onboarding' && (
           <OnboardingView

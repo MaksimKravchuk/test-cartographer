@@ -8,7 +8,7 @@ import {
   checkRoles, dataContext, dataValues, Finding, Op, Proposal, redactFields, resolveRuntime, scrubSecrets, secretValues, toYaml, type Evidence, type Workspace,
 } from '@tc/model';
 import { McpPool, getPath, template } from '../mcp.ts';
-import { runAgent, type Tool } from './runtime.ts';
+import { listOf, runAgent, type Tool } from './runtime.ts';
 import { loadActions } from '../actions-loader.ts';
 
 export type ExploreOptions = {
@@ -238,8 +238,8 @@ export async function explore(ws: Workspace, agentId: string, opts: ExploreOptio
       description: 'Finish the exploration: submit a proposal of model changes.',
       input: z.object({
         rationale: z.string(),
-        ops: z.array(z.record(z.string(), z.unknown())),
-        findings: z.array(z.record(z.string(), z.unknown())).default([]),
+        ops: listOf(Op),
+        findings: listOf(Finding).default([]),
       }),
       run: async ({ rationale, ops, findings }) => {
         const parsedOps = z.array(Op).safeParse(ops);

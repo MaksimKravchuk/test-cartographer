@@ -6,3 +6,4 @@ workspace/export/
 test-results/
 playwright-report/
 .DS_Store
+.tc-test-*/
