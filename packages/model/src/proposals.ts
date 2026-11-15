@@ -148,10 +148,13 @@ function buildProvenance(proposal: Proposal, evidenceIds: string[], note?: strin
   };
 }
 
+const statusOf = { accept: 'confirmed', observe: 'observed', reject: 'rejected', plan: 'planned' } as const;
+
 // Applies a person's decisions to the model and returns the new model.
 // accept  → the element becomes a requirement (confirmed);
 // observe → the element is recorded as observed behavior (observed);
-// reject  → for add, the element is kept as rejected so agents don't propose it again.
+// reject  → for add, the element is kept as rejected so agents don't propose it again;
+// plan    → a requirement not built yet (planned): no tests until someone confirms it.
 export function applyDecisions(entity: Entity, proposal: Proposal, decisions: Decision[], project: Project): Entity {
   const next: Entity = structuredClone(entity);
   for (const d of decisions) {
@@ -172,7 +175,7 @@ export function applyDecisions(entity: Entity, proposal: Proposal, decisions: De
 
     const list = collection(next, op.kind);
     const provenance = buildProvenance(proposal, op.evidence, d.note);
-    const status = d.verdict === 'accept' ? 'confirmed' : d.verdict === 'observe' ? 'observed' : 'rejected';
+    const status = statusOf[d.verdict];
 
     if (op.op === 'add') {
       const parsed = elementSchemas[op.kind].parse({ ...op.value, status, provenance });
@@ -181,7 +184,7 @@ export function applyDecisions(entity: Entity, proposal: Proposal, decisions: De
       const i = list.findIndex((x) => x.id === op.id);
       const merged = { ...list[i], ...op.set, provenance };
       // A change accepted as an “observation” does not raise the element's status.
-      if (d.verdict === 'observe') merged.status = 'observed';
+      if (d.verdict === 'observe' || d.verdict === 'plan') merged.status = statusOf[d.verdict];
       list[i] = elementSchemas[op.kind].parse(merged) as AnyElement;
     } else {
       const i = list.findIndex((x) => x.id === op.id);
@@ -206,7 +209,7 @@ export function applyProjectDecisions(
   const created: Entity[] = [];
 
   const applySimple = <T extends { id: string }>(list: T[], schema: { parse: (v: unknown) => T }, op: Op, verdict: Decision['verdict'], index: number, label: string) => {
-    if (verdict === 'observe') throw new Error(`Operation #${index}: "observe" is not a valid verdict for a ${label}`);
+    if (verdict === 'observe' || verdict === 'plan') throw new Error(`Operation #${index}: "${verdict}" is not a valid verdict for a ${label}`);
     if (verdict === 'reject') return;
     if (op.op === 'add') list.push(schema.parse(op.value));
     else if (op.op === 'update') {
@@ -227,7 +230,7 @@ export function applyProjectDecisions(
     if (op.kind === 'role') applySimple(project.roles, Role, op, d.verdict, d.op, 'role');
     else if (op.kind === 'interface') applySimple(project.interfaces, Interface, op, d.verdict, d.op, 'interface');
     else if (op.kind === 'entity') {
-      if (d.verdict === 'observe') throw new Error(`Operation #${d.op}: "observe" is not a valid verdict for an entity`);
+      if (d.verdict === 'observe' || d.verdict === 'plan') throw new Error(`Operation #${d.op}: "${d.verdict}" is not a valid verdict for an entity`);
       if (op.op === 'remove') throw new Error(`Operation #${d.op}: entities can't be removed through a proposal`);
       if (d.verdict === 'reject') continue;
       if (op.op === 'add') {
@@ -253,13 +256,13 @@ export function applyProjectDecisions(
       const list = backlog[listKey] as AnyElement[];
       if (d.verdict === 'reject' && op.op !== 'add') continue;
       const provenance = buildProvenance(proposal, op.evidence, d.note);
-      const status = d.verdict === 'accept' ? 'confirmed' : d.verdict === 'observe' ? 'observed' : 'rejected';
+      const status = statusOf[d.verdict];
       if (op.op === 'add') {
         list.push(schema.parse({ ...op.value, status, provenance }) as AnyElement);
       } else if (op.op === 'update') {
         const i = list.findIndex((x) => x.id === op.id);
         const merged = { ...list[i], ...op.set, provenance };
-        if (d.verdict === 'observe') merged.status = 'observed';
+        if (d.verdict === 'observe' || d.verdict === 'plan') merged.status = statusOf[d.verdict];
         list[i] = schema.parse(merged) as AnyElement;
       } else {
         const i = list.findIndex((x) => x.id === op.id);

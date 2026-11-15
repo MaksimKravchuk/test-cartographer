@@ -50,6 +50,7 @@ function Decide({ busy, noObserve, onDecide }: { busy: boolean; noObserve?: bool
     <span className="row" style={{ gap: 4, marginLeft: 'auto' }}>
       <button className="btn small" title="True: make it part of the model" disabled={busy} onClick={() => onDecide('accept')}>✓</button>
       {!noObserve && <button className="btn small" title="That's how it works, but it isn't a requirement" disabled={busy} onClick={() => onDecide('observe')}>≈</button>}
+      {!noObserve && <button className="btn small" title="Required, but not built yet: no tests until it is" disabled={busy} onClick={() => onDecide('plan')}>⏳</button>}
       <button className="btn small" title="Strike out: agents won't propose it again" disabled={busy} onClick={() => onDecide('reject')}>✕</button>
     </span>
   );
@@ -316,7 +317,7 @@ export function ModelView({ project, proposals, reloadToken, running, onResearch
       </div>
       <p className="lede">
         Who acts, on what, and under which rules. Write what you know; agents check it against the sources and add what they find.
-        Their findings appear here with a dashed border: ✓ true, ≈ that's how it works but not a requirement, ✕ strike out.
+        Their findings appear here with a dashed border: ✓ true, ≈ that's how it works but not a requirement, ⏳ required but not built yet, ✕ strike out.
         {otherOpen > 0 && <> {otherOpen} more findings (states, transitions, backlog) are on the Proposals page.</>}
       </p>
 

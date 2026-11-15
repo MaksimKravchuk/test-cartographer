@@ -287,6 +287,25 @@ test('accessMatrix: allowed / undecided / denied, `@new` for create actions, and
   assert.equal(cell('seller', 'pay', 'new')?.decision, 'denied');
   // Only a proposed permit allows it — undecided, not allowed.
   assert.equal(cell('seller', 'view', 'paid')?.decision, 'undecided');
+  // A planned permit isn't built yet: undecided too, so no deny test asserts the opposite.
+  const planned = Entity.parse({ ...e, permits: [{ ...e.permits[0], status: 'planned' }] });
+  assert.equal(accessMatrix(planned, withAuth, 'a').find((c) => c.role === 'seller' && c.action === 'view' && c.state === 'paid')?.decision, 'undecided');
+});
+
+test('plan: a planned action is not performed, even by a confirmed permit or transition', () => {
+  const e = Entity.parse({
+    ...entity(),
+    actions: [...baseActions(), { id: 'view', title: 'View', kind: 'read', run: 'o.view', status: 'planned' }],
+    permits: [{ id: 'seller-view', title: 'Seller view', action: 'view', by: ['seller'], states: ['paid'] }],
+  });
+  const view = buildPlan(e, withAuth).scenarios.find((s) => s.target === 'seller-view')!;
+  assert.equal(view.blocked, 'The action is planned, not built yet');
+  assert.deepEqual(view.steps, []);
+  const pay = Entity.parse({ ...entity(), actions: entity().actions.map((a) => (a.id === 'pay' ? { ...a, status: 'planned' } : a)) });
+  const scenarios = buildPlan(pay, withAuth).scenarios;
+  assert.ok(scenarios.filter((s) => s.kind === 'transition' && s.target === 'pay').every((s) => s.blocked));
+  // Nor is it used to set up a state for another test.
+  assert.ok(scenarios.every((s) => !s.steps.some((st) => 'action' in st && st.action === 'pay')));
 });
 
 test('plan: a deny scenario per denied cell, blocked when the state can’t be reached', () => {
@@ -408,6 +427,7 @@ test('proposals: accept → requirement, observe → observation, reject is kept
   assert.equal(refund.provenance?.note, 'looks like a bug');
   assert.deepEqual(next.states.find((s) => s.id === 'shipped')!.variants, ['a', 'b']);
   assert.equal(next.variants.find((v) => v.id === 'c')!.status, 'rejected');
+  assert.equal(applyDecisions(entity(), proposal, [{ op: 0, verdict: 'plan' }], project).transitions.find((t) => t.id === 'cancel')!.status, 'planned');
   // A read back of the entity (probe evidence) marks the element as seen in the app.
   const probed = Proposal.parse({ ...proposal, evidence: [{ id: 'e1', kind: 'probe', summary: 'read order: {"status":"new"}' }] });
   assert.equal(applyDecisions(entity(), probed, [{ op: 0, verdict: 'accept' }], project).transitions.find((t) => t.id === 'cancel')!.provenance?.seen, true);

@@ -97,7 +97,8 @@ export type Performer = { role: string; run?: string; invoke?: ToolCall };
 // human, matching Role.kind's default — see roleKind() above.
 export function performer(entity: Entity, t: Transition | Permit, role?: string, project?: Project): Performer | null {
   const action = entity.actions.find((a) => a.id === t.action);
-  if (!action) return null;
+  // A planned action isn't built yet: nothing can perform it, in a test or in setup.
+  if (!action || action.status === 'planned') return null;
   const candidates = role ? (t.by.includes(role) ? [role] : []) : t.by;
   for (const r of candidates) {
     const kind = roleKind(project, r);

@@ -51,6 +51,7 @@ const MODE_GOAL = {
 action and rule in model(), look for confirmation or contradiction in the sources; propose what the model is missing.
 Report each disagreement as a finding (kind=contradiction) whose refs name the element ("rule:<entity>.<id>",
 "action:<entity>.<id>") and whose evidence quotes every side; say in the note which side wins by priority and why.
+An element with status "planned" is required but not built yet: code that lacks it is not a contradiction.
 A rule found only in the code is behavior, not a requirement: propose it and say so in a finding (kind=gap).
 Cover every element, so the review fills a table of element × source: where a source says the same as the model,
 add a finding (kind=confirmation) with that element in refs and the quote as evidence; where you looked and found

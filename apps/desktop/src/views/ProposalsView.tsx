@@ -31,7 +31,7 @@ const kindText: Record<string, string> = {
   role: 'role', interface: 'interface', entity: 'entity', epic: 'epic', feature: 'feature', story: 'story',
 };
 const findingText = { gap: 'Gap', contradiction: 'Contradiction', question: 'Question', confirmation: 'Confirmed by a source' };
-const verdictText: Record<Verdict, string> = { accept: 'Accepted as a requirement', observe: 'Recorded as an observation', reject: 'Rejected' };
+const verdictText: Record<Verdict, string> = { accept: 'Accepted as a requirement', observe: 'Recorded as an observation', reject: 'Rejected', plan: 'Planned: required, not built yet' };
 
 const fieldText: Record<string, string> = {
   from: 'from', to: 'to', by: 'performed by', action: 'action', kind: 'kind', run: 'run', invoke: 'invoke tool', trigger: 'trigger',
@@ -360,6 +360,11 @@ export function ProposalsView(props: Props) {
                         {!noObserve && (
                           <button className={`btn small observe ${verdicts[i] === 'observe' ? 'on' : ''}`} aria-pressed={verdicts[i] === 'observe'} disabled={!!conflict} onClick={() => setVerdicts({ ...verdicts, [i]: 'observe' })}>
                             Observation
+                          </button>
+                        )}
+                        {!noObserve && (
+                          <button className={`btn small ${verdicts[i] === 'plan' ? 'on' : ''}`} title="Required, but not built yet: no tests until it is" aria-pressed={verdicts[i] === 'plan'} disabled={!!conflict} onClick={() => setVerdicts({ ...verdicts, [i]: 'plan' })}>
+                            Planned
                           </button>
                         )}
                         <button className={`btn small reject ${verdicts[i] === 'reject' ? 'on' : ''}`} aria-pressed={verdicts[i] === 'reject'} onClick={() => setVerdicts({ ...verdicts, [i]: 'reject' })}>
