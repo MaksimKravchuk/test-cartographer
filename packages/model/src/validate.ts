@@ -67,6 +67,7 @@ export function validateEntity(entity: Entity, project: Project, actions?: Set<s
     ['permits', entity.permits],
     ['scenarios', entity.scenarios],
     ['rules', entity.rules],
+    ['invariants', entity.invariants],
     ['relations', entity.relations],
     ['fields', entity.fields],
   ] as const)
@@ -131,6 +132,13 @@ export function validateEntity(entity: Entity, project: Project, actions?: Set<s
     if (action && action.kind !== 'create' && t.from === NEW) err(p, `A transition from “${NEW}” must use a create action`);
     if (isActive(t) && ((from && !isActive(from)) || (to && !isActive(to))))
       warn(p, "A confirmed transition references a state that isn't a requirement — it won't be planned");
+  }
+
+  for (const inv of entity.invariants) {
+    const p = `invariants.${inv.id}`;
+    checkVariants(p, inv.variants);
+    for (const id of inv.states ?? []) if (!states.has(id)) err(p, `Unknown state “${id}”`);
+    if (inv.holds && !Object.keys(inv.holds).length) err(p, "Empty holds: nothing to check — list field values or drop holds");
   }
 
   for (const permit of entity.permits) {

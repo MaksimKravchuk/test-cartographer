@@ -17,7 +17,7 @@ type Props = {
 
 type Verdict = Decision['verdict'];
 
-const emptyEntity = { variants: [], states: [], actions: [], transitions: [], permits: [], scenarios: [], rules: [] } as unknown as Entity;
+const emptyEntity = { variants: [], states: [], actions: [], transitions: [], permits: [], scenarios: [], rules: [], invariants: [] } as unknown as Entity;
 
 // Project-level ops (see schema.ts ProjectOpKind) patch the project or the
 // backlog instead of one entity's own collections.
@@ -27,7 +27,7 @@ const projectKinds = new Set(['role', 'interface', 'entity', 'epic', 'feature', 
 const noStatusKinds = new Set(['role', 'interface', 'entity']);
 
 const kindText: Record<string, string> = {
-  variant: 'variant', state: 'state', action: 'action', transition: 'transition', permit: 'permit', scenario: 'scenario', rule: 'business rule',
+  variant: 'variant', state: 'state', action: 'action', transition: 'transition', permit: 'permit', scenario: 'scenario', rule: 'business rule', invariant: 'invariant',
   role: 'role', interface: 'interface', entity: 'entity', epic: 'epic', feature: 'feature', story: 'story',
 };
 const findingText = { gap: 'Gap', contradiction: 'Contradiction', question: 'Question', confirmation: 'Confirmed by a source' };
@@ -63,7 +63,7 @@ function describe(op: Op, entity: Entity): Described {
       .join('\n');
     return { verb: `Add ${kindText[op.kind]}`, what: `${v.title ?? v.id}${route}`, detail: `id: ${v.id}\n${detail}` };
   }
-  const list = entity[({ variant: 'variants', state: 'states', action: 'actions', transition: 'transitions', permit: 'permits', scenario: 'scenarios', rule: 'rules' } as const)[op.kind as 'variant' | 'state' | 'action' | 'transition' | 'permit' | 'scenario' | 'rule']] as { id: string; title?: string }[];
+  const list = entity[({ variant: 'variants', state: 'states', action: 'actions', transition: 'transitions', permit: 'permits', scenario: 'scenarios', rule: 'rules', invariant: 'invariants' } as const)[op.kind as 'variant' | 'state' | 'action' | 'transition' | 'permit' | 'scenario' | 'rule' | 'invariant']] as { id: string; title?: string }[];
   const title = list.find((x) => x.id === op.id)?.title ?? op.id;
   if (op.op === 'update') {
     const current = list.find((x) => x.id === op.id) as Record<string, unknown> | undefined;

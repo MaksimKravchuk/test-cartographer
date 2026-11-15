@@ -31,6 +31,8 @@ export function renderMarkdown(
         return `${role(s.role)}: “${s.title}” in “${state(s.state)}”, action \`${s.action}\` (${via(s)})`;
       case 'expectState':
         return `State “${state(s.state)}” confirmed by reading: ${matchText(s.match)}`;
+      case 'expectInvariant':
+        return `Invariant “${s.title}” holds: ${matchText(s.match)}`;
       case 'expectField':
         return `${s.description}: \`${s.field}\` = ${fmt(s.equals)}`;
       case 'expectUnavailable':

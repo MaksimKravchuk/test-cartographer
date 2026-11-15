@@ -395,5 +395,18 @@ export function buildPlan(entity: Entity, project?: Project, catalog?: Catalog):
         if (cell.decision === 'denied') scenarios.push(denyScenario(entity, v.id, cell, project, ctx, tags.get(`${cell.action}@${cell.state}|${cell.role}`) ?? []));
     }
   }
-  return { entity: entity.id, scenarios };
+  return { entity: entity.id, scenarios: scenarios.map((sc) => withInvariants(entity, sc)) };
+}
+
+// After each read of the instance in a state, check every invariant that covers it.
+// shortcut: only the scenario's own instance; related instances' invariants aren't checked yet.
+function withInvariants(entity: Entity, sc: Scenario): Scenario {
+  const inv = entity.invariants.filter((i) => isActive(i) && i.holds && appliesTo(i, sc.variant));
+  if (!inv.length || !sc.steps.length) return sc;
+  const steps = sc.steps.flatMap((st): Scenario['steps'] =>
+    st.do !== 'expectState'
+      ? [st]
+      : [st, ...inv.filter((i) => !i.states || i.states.includes(st.state)).map((i) => ({ do: 'expectInvariant' as const, invariant: i.id, title: i.title, state: st.state, match: i.holds!, phase: st.phase }))],
+  );
+  return { ...sc, steps };
 }

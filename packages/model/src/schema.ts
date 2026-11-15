@@ -327,6 +327,21 @@ export const Rule = z.object({
 });
 export type Rule = z.infer<typeof Rule>;
 
+// What always holds for the object, whatever happened before: "a shipped
+// order is always paid for". `holds` (reader field values) makes it checkable:
+// every test checks it each time the instance is read in one of `states`
+// (all states when omitted). Without `holds` it is knowledge for the spec.
+export const Invariant = z.object({
+  id: Id,
+  title: z.string(),
+  text: z.string(),
+  states: z.array(Id).optional(),
+  variants: z.array(Id).optional(),
+  holds: z.record(z.string(), z.unknown()).optional(),
+  ...meta,
+});
+export type Invariant = z.infer<typeof Invariant>;
+
 // A reference to another entity. `field` holds the related key in this
 // entity's reader result. `requires` is the state the related instance must be
 // in when this one is created; setup prepares it first and passes its key as
@@ -379,6 +394,7 @@ export const Entity = z.object({
   permits: z.array(Permit).default([]),
   scenarios: z.array(Journey).default([]),
   rules: z.array(Rule).default([]),
+  invariants: z.array(Invariant).default([]),
   relations: z.array(Relation).default([]),
   // Data a person attached to the object for agents and tests: a test card
   // number, a promo code, an existing instance to start from.
@@ -386,7 +402,7 @@ export const Entity = z.object({
 });
 export type Entity = z.infer<typeof Entity>;
 
-export type ElementKind = 'variant' | 'state' | 'action' | 'transition' | 'permit' | 'scenario' | 'rule';
+export type ElementKind = 'variant' | 'state' | 'action' | 'transition' | 'permit' | 'scenario' | 'rule' | 'invariant';
 export const elementCollections = {
   variant: 'variants',
   state: 'states',
@@ -395,9 +411,10 @@ export const elementCollections = {
   permit: 'permits',
   scenario: 'scenarios',
   rule: 'rules',
+  invariant: 'invariants',
 } as const satisfies Record<ElementKind, keyof Entity>;
 
-export const elementSchemas = { variant: Variant, state: State, action: Action, transition: Transition, permit: Permit, scenario: Journey, rule: Rule };
+export const elementSchemas = { variant: Variant, state: State, action: Action, transition: Transition, permit: Permit, scenario: Journey, rule: Rule, invariant: Invariant };
 
 // ── Knowledge sources ── workspace/sources.yaml + files in workspace/sources/
 // doc / backlog / contract / note — an uploaded text file in workspace/sources/
@@ -515,7 +532,7 @@ export const Evidence = z.object({
 export type Evidence = z.infer<typeof Evidence>;
 
 // Entity-level op kinds patch an entity's own collections (unchanged).
-export const ElementOpKind = z.enum(['variant', 'state', 'action', 'transition', 'permit', 'scenario', 'rule']);
+export const ElementOpKind = z.enum(['variant', 'state', 'action', 'transition', 'permit', 'scenario', 'rule', 'invariant']);
 // Project-level op kinds patch the project or the backlog — a proposal with no
 // `entity` (see Proposal below) is a project-level proposal.
 export const ProjectOpKind = z.enum(['role', 'interface', 'entity', 'epic', 'feature', 'story']);

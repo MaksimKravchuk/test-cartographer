@@ -100,6 +100,16 @@ export function renderSpec(project: Project, entities: Entity[], findings: Disag
       if (!ts.length && !rules.length) lines.push('- No rules yet.');
       lines.push('');
     }
+    const invariants = e.invariants.filter(isActive);
+    if (invariants.length) {
+      lines.push('### Always true', '');
+      for (const i of invariants) {
+        const where = i.states?.length ? ` _(in ${i.states.map((id) => e.states.find((s) => s.id === id)?.title ?? id).join(', ')})_` : '';
+        // Without `holds` nothing can check it: it's knowledge, not a gap in the tests.
+        lines.push(`- ${i.text}${where}${i.holds ? tests(e, `invariant “${i.text}”`, (s) => s.steps.some((st) => st.do === 'expectInvariant' && st.invariant === i.id)) : ' _(not checkable yet: no field values)_'}`);
+      }
+      lines.push('');
+    }
     const open = findings.filter((f) => f.entity === e.id && !f.resolution);
     if (open.length) {
       lines.push('### Open questions', '');
@@ -114,6 +124,7 @@ export function renderSpec(project: Project, entities: Entity[], findings: Disag
       ...e.permits.filter((p) => p.status === 'planned').map((p) => `${p.by.map((id) => roleTitle(project, id)).join(', ')} may ${e.actions.find((a) => a.id === p.action)?.title ?? p.action}${p.states?.length ? ` in ${p.states.map((id) => e.states.find((s) => s.id === id)?.title ?? id).join(', ')}` : ''}`),
       ...e.variants.filter((v) => v.status === 'planned').map((v) => `Variant: ${v.title}`),
       ...e.scenarios.filter((j) => j.status === 'planned').map((j) => `Scenario: ${j.title}`),
+      ...e.invariants.filter((i) => i.status === 'planned').map((i) => `Always true: ${i.text}`),
     ];
     if (planned.length) lines.push('### Planned, not built yet', '', ...planned.map((x) => `- ${x}`), '');
     const settled = findings.filter((f) => f.entity === e.id && f.resolution?.verdict === 'bug');
