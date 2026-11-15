@@ -32,6 +32,7 @@ const roleTitle = (project: Project | undefined, id: string) => project?.roles.f
 // Without a reader, no state can be verified after setup or an act — every
 // scenario of the entity is blocked, not just the ones that would use it directly.
 export const NO_READER = 'No reader: add entity.reader so states can be verified';
+const PLANNED = 'The action is planned, not built yet';
 
 // Why a state can't be reached: its own setup, or a related instance that can't be prepared.
 function unreachable(entity: Entity, state: string, variant: string): string {
@@ -75,6 +76,7 @@ function transitionScenario(entity: Entity, variant: string, t: Transition, role
   if (!entity.reader) return { ...base, preparation: null, steps: [], blocked: NO_READER };
   const action = entity.actions.find((a) => a.id === t.action);
   if (!action) return { ...base, preparation: null, steps: [], blocked: `Unknown action “${t.action}”` };
+  if (action.status === 'planned') return { ...base, preparation: null, steps: [], blocked: PLANNED };
   const reason = bindingReason(action, roleKind(project, role));
   if (reason) return { ...base, preparation: null, steps: [], blocked: reason };
   const a = arrange(entity, variant, t.from, new Set(), ctx);
@@ -109,6 +111,7 @@ function permitScenario(entity: Entity, variant: string, p: Permit, role: string
   if (!entity.reader) return { ...base, preparation: null, steps: [], blocked: NO_READER };
   const action = entity.actions.find((a) => a.id === p.action);
   if (!action) return { ...base, preparation: null, steps: [], blocked: `Unknown action “${p.action}”` };
+  if (action.status === 'planned') return { ...base, preparation: null, steps: [], blocked: PLANNED };
   const reason = bindingReason(action, roleKind(project, role));
   if (reason) return { ...base, preparation: null, steps: [], blocked: reason };
   if (!stateId) return { ...base, preparation: null, steps: [], blocked: `No state of variant “${variant}” to check this permit in` };

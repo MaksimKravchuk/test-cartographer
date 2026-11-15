@@ -111,4 +111,8 @@ test('planned elements: listed in the spec as not built yet, no tests', () => {
   const md = renderSpec(project, [e], [], [], [{ entity: 'order', scenarios: [] }] as never);
   assert.match(md, /### Planned, not built yet\n\n- Rule: A cancelled paid order is refunded in full\./);
   assert.doesNotMatch(md, /Not checked by any test\n\n- Order: rule “A cancelled paid order/);
+  const more = Entity.parse({ ...order, states: [{ id: 'refunded', title: 'Refunded', match: { status: 'refunded' }, status: 'planned' }], permits: [{ id: 'see', title: 'See', action: 'cancel', by: ['buyer'], status: 'planned' }] });
+  const md2 = renderSpec(project, [more], [], []);
+  assert.match(md2, /- State: Refunded/);
+  assert.match(md2, /- Buyer may Cancel/);
 });

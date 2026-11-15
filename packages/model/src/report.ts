@@ -106,6 +106,10 @@ export function renderSpec(project: Project, entities: Entity[], findings: Disag
       ...e.actions.filter((a) => a.status === 'planned').map((a) => `Action: ${a.title}`),
       ...e.transitions.filter((t) => t.status === 'planned').map((t) => `${t.title}: ${e.states.find((s) => s.id === t.from)?.title ?? t.from} → ${e.states.find((s) => s.id === t.to)?.title ?? t.to}`),
       ...e.rules.filter((r) => r.status === 'planned').map((r) => `Rule: ${r.text}`),
+      ...e.states.filter((s) => s.status === 'planned').map((s) => `State: ${s.title}`),
+      ...e.permits.filter((p) => p.status === 'planned').map((p) => `${p.by.map((id) => roleTitle(project, id)).join(', ')} may ${e.actions.find((a) => a.id === p.action)?.title ?? p.action}${p.states?.length ? ` in ${p.states.map((id) => e.states.find((s) => s.id === id)?.title ?? id).join(', ')}` : ''}`),
+      ...e.variants.filter((v) => v.status === 'planned').map((v) => `Variant: ${v.title}`),
+      ...e.scenarios.filter((j) => j.status === 'planned').map((j) => `Scenario: ${j.title}`),
     ];
     if (planned.length) lines.push('### Planned, not built yet', '', ...planned.map((x) => `- ${x}`), '');
     const settled = findings.filter((f) => f.entity === e.id && f.resolution?.verdict === 'bug');

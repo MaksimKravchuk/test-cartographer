@@ -22,6 +22,7 @@ export function StatusField({ value, onChange }: { value: Status; onChange(s: St
         <option value="confirmed">Requirement — included in the test plan</option>
         <option value="observed">Observation — the app behaves this way, but it is not a requirement</option>
         <option value="proposed">Proposed — awaiting a decision</option>
+        <option value="planned">Planned — required, but not built yet: no tests</option>
         <option value="rejected">Rejected</option>
       </select>
     </label>

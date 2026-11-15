@@ -292,6 +292,22 @@ test('accessMatrix: allowed / undecided / denied, `@new` for create actions, and
   assert.equal(accessMatrix(planned, withAuth, 'a').find((c) => c.role === 'seller' && c.action === 'view' && c.state === 'paid')?.decision, 'undecided');
 });
 
+test('plan: a planned action is not performed, even by a confirmed permit or transition', () => {
+  const e = Entity.parse({
+    ...entity(),
+    actions: [...baseActions(), { id: 'view', title: 'View', kind: 'read', run: 'o.view', status: 'planned' }],
+    permits: [{ id: 'seller-view', title: 'Seller view', action: 'view', by: ['seller'], states: ['paid'] }],
+  });
+  const view = buildPlan(e, withAuth).scenarios.find((s) => s.target === 'seller-view')!;
+  assert.equal(view.blocked, 'The action is planned, not built yet');
+  assert.deepEqual(view.steps, []);
+  const pay = Entity.parse({ ...entity(), actions: entity().actions.map((a) => (a.id === 'pay' ? { ...a, status: 'planned' } : a)) });
+  const scenarios = buildPlan(pay, withAuth).scenarios;
+  assert.ok(scenarios.filter((s) => s.kind === 'transition' && s.target === 'pay').every((s) => s.blocked));
+  // Nor is it used to set up a state for another test.
+  assert.ok(scenarios.every((s) => !s.steps.some((st) => 'action' in st && st.action === 'pay')));
+});
+
 test('plan: a deny scenario per denied cell, blocked when the state can’t be reached', () => {
   const plan = buildPlan(entity(), withAuth);
   const deny = plan.scenarios.find((s) => s.id === 'order/deny-pay-seller-new/a')!;
