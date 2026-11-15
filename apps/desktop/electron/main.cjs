@@ -96,8 +96,15 @@ function ensureWorkspace() {
 
 // Test runs need Playwright's browser; this is a quick no-op once it's there.
 function installBrowser() {
-  if (!packaged) return;
-  spawn(process.execPath, [path.join(root, 'node_modules/playwright/cli.js'), 'install', 'chromium'], { env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' }, stdio: 'inherit' });
+  if (!packaged) return Promise.resolve();
+  return new Promise((resolve, reject) => {
+    let output = '';
+    const child = spawn(process.execPath, [path.join(root, 'node_modules/playwright/cli.js'), 'install', 'chromium'], { env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' } });
+    child.stdout.on('data', (d) => process.stdout.write(d));
+    child.stderr.on('data', (d) => (output += d));
+    child.on('error', reject);
+    child.on('exit', (code) => (code === 0 ? resolve() : reject(new Error(`Couldn't download the browser that tests run in.\n\n${output.trim().split('\n').slice(-6).join('\n')}`))));
+  });
 }
 
 async function startShop() {
@@ -108,7 +115,7 @@ async function startShop() {
 async function engineUrl() {
   if (process.env.TC_UI_URL) return process.env.TC_UI_URL;
   ensureWorkspace();
-  installBrowser();
+  await installBrowser();
   await startShop();
   if (await runningEngine(preferredPort)) return `http://127.0.0.1:${preferredPort}`;
   const port = (await portIsFree(preferredPort)) ? preferredPort : await freePort();
@@ -116,7 +123,7 @@ async function engineUrl() {
   return `http://127.0.0.1:${port}`;
 }
 
-async function createWindow(url) {
+function createWindow() {
   const win = new BrowserWindow({
     width: 1440,
     height: 900,
@@ -130,12 +137,17 @@ async function createWindow(url) {
     void shell.openExternal(target);
     return { action: 'deny' };
   });
-  await win.loadURL(url);
+  return win;
 }
+
+// The first launch downloads a browser, so the window says what's happening meanwhile.
+const starting = `data:text/html,${encodeURIComponent('<body style="font:15px system-ui;display:grid;place-items:center;height:90vh;color:#334">Starting Test Cartographer… The first launch also downloads the browser tests run in.</body>')}`;
 
 app.whenReady().then(async () => {
   try {
-    await createWindow(await engineUrl());
+    const win = createWindow();
+    await win.loadURL(starting);
+    await win.loadURL(await engineUrl());
   } catch (e) {
     dialog.showErrorBox('Test Cartographer could not start', e.message);
     app.quit();

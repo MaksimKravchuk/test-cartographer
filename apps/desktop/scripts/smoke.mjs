@@ -18,7 +18,7 @@ const until = async (what, fn, seconds) => {
 };
 
 try {
-  const { root } = await until('the engine', async () => (await fetch(`${api}/api/project`)).json(), 90);
+  const { root } = await until('the engine', async () => (await fetch(`${api}/api/project`)).json(), 300);
   assert.match(root, /Test Cartographer[\\/]Demo shop$/);
   assert.match(await (await fetch(api)).text(), /<!doctype html>/i);
   assert.equal((await until('the demo shop', () => fetch('http://localhost:4400/client/'), 30)).status, 200);
