@@ -131,6 +131,7 @@ export function lintModel(entities: Entity[]): Lint[] {
 // the source overrides it, except that the side which stands by priority confirms. No cell means the source said nothing either way.
 export type ReviewCell = 'confirms' | 'contradicts' | 'gap' | 'question';
 export type ReviewRow = { entity: string; ref: string; title: string; cells: Record<string, ReviewCell> };
+const rank: Record<ReviewCell, number> = { confirms: 0, question: 1, gap: 2, contradicts: 3 };
 const findingCell = { contradiction: 'contradicts', gap: 'gap', question: 'question' } as const;
 
 export function reviewMatrix(entities: Entity[], findings: Disagreement[]): ReviewRow[] {
@@ -147,8 +148,16 @@ export function reviewMatrix(entities: Entity[], findings: Disagreement[]): Revi
     return elements.map(({ x, ref, title }) => {
       const cells: Record<string, ReviewCell> = {};
       for (const s of x.provenance?.sources ?? []) cells[s] = 'confirms';
+      const found: Record<string, ReviewCell> = {};
       for (const f of open.filter((f) => f.finding.refs.includes(ref)))
-        for (const q of f.quotes) if (q.evidence.source) cells[q.evidence.source] = q.evidence.source === f.winner ? 'confirms' : findingCell[f.finding.kind];
+        for (const q of f.quotes) {
+          const s = q.evidence.source;
+          if (!s) continue;
+          const cell = s === f.winner ? 'confirms' : findingCell[f.finding.kind];
+          // Several findings may quote one source: the strongest stands, whatever their order.
+          if (!found[s] || rank[cell] > rank[found[s]]) found[s] = cell;
+        }
+      Object.assign(cells, found);
       return { entity: e.id, ref, title: `${e.title} · ${title}`, cells };
     });
   });

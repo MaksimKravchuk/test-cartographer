@@ -59,11 +59,14 @@ test('reviewMatrix: provenance confirms, an open finding quoting a source overri
     quotes: [{ evidence: { id: 'e1', kind: 'source' as const, summary: 'cancel()', source: 'code' } }],
     resolution: resolution as never,
   });
-  const row = (fs: ReturnType<typeof finding>[]) => reviewMatrix([e], fs).find((r) => r.ref === 'rule:order.until-paid')!;
+  const row = (fs: Parameters<typeof reviewMatrix>[1]) => reviewMatrix([e], fs).find((r) => r.ref === 'rule:order.until-paid')!;
   assert.deepEqual(row([]).cells, { wiki: 'confirms', code: 'confirms' });
   assert.deepEqual(row([finding()]).cells, { wiki: 'confirms', code: 'contradicts' });
   assert.deepEqual(row([finding({ finding: 0, verdict: 'fine' })]).cells, { wiki: 'confirms', code: 'confirms' });
   const both = { ...finding(), winner: 'wiki', quotes: [...finding().quotes, { evidence: { id: 'e2', kind: 'source' as const, summary: 'until paid', source: 'wiki' } }] };
   assert.deepEqual(row([both]).cells, { wiki: 'confirms', code: 'contradicts' });
+  const question = { ...finding(), finding: { ...finding().finding, kind: 'question' as const } };
+  assert.deepEqual(row([finding(), question]).cells, { wiki: 'confirms', code: 'contradicts' }, 'an older question does not mask a contradiction');
+  assert.deepEqual(row([finding(), { ...finding(), winner: 'code' }]).cells, { wiki: 'confirms', code: 'contradicts' });
   assert.deepEqual(reviewMatrix([e], []).find((r) => r.ref === 'action:order.cancel')!.cells, {});
 });
