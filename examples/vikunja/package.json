@@ -5,9 +5,9 @@
   "license": "Apache-2.0",
   "type": "module",
   "dependencies": {
-    "@tc/engine": "workspace:*",
+    "@modelcontextprotocol/sdk": "^1.32.2",
     "@playwright/test": "^1.56.0",
-    "@modelcontextprotocol/sdk": "^1.32.0",
-    "zod": "^4.6.6"
+    "@tc/engine": "workspace:*",
+    "zod": "^4.6.7"
   }
 }
