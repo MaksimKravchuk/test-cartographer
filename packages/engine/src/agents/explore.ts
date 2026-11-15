@@ -139,6 +139,12 @@ export async function explore(ws: Workspace, agentId: string, opts: ExploreOptio
   // Single-page apps render after `load`: let the network go quiet first, but
   // don't wait on apps that poll forever.
   const settle = () => page.waitForLoadState('networkidle', { timeout: 3_000 }).catch(() => {});
+  // A click or a key press may follow a link off the interface: go back and refuse.
+  const stayInside = async () => {
+    if (new URL(page.url()).origin === origin) return;
+    await page.goBack();
+    throw new Error('Navigation outside the interface was cancelled');
+  };
 
   const evidence: Evidence[] = [];
   const addEvidence = (e: Omit<Evidence, 'id'>) => {
@@ -234,10 +240,7 @@ export async function explore(ws: Workspace, agentId: string, opts: ExploreOptio
         await loc.first().click({ timeout: 5_000 });
         await page.waitForLoadState();
         await settle();
-        if (new URL(page.url()).origin !== origin) {
-          await page.goBack();
-          throw new Error('Navigation outside the interface was cancelled');
-        }
+        await stayInside();
         return `ok, url: ${page.url()}`;
       },
     },
@@ -278,7 +281,9 @@ export async function explore(ws: Workspace, agentId: string, opts: ExploreOptio
       input: z.object({ key: z.string() }),
       run: async ({ key: k }) => {
         await page.keyboard.press(k);
+        await page.waitForLoadState();
         await settle();
+        await stayInside();
         return `pressed ${k}, url: ${page.url()}`;
       },
     },
