@@ -1,0 +1,507 @@
+id: 2026-11-15-11-56-07-onboarding
+agent: onboarding
+createdAt: 2026-11-15T12:08:39.326Z
+baseRevision: ""
+rationale: |-
+  Read all five help pages in full and the parts of pkg/models that implement project and task behaviour (project.go, project_permissions.go, project_trash.go, project_access.go, project_duplicate.go, project_users*/project_team*/link_sharing_permissions.go, tasks.go, tasks_permissions.go, task_trash.go, task_assignees.go, task_duplicate.go, task_delete_cron.go, permissions.go). Skipped tests, views/filters/CalDAV/labels/attachments per scope.
+
+  Proposed: two roles the model lacked (a link-share recipient without an account, and the scheduled trash cleanup as a system subject), the project and task entities, and for each one its states (active/archived/in trash/deleted permanently; open/done/in trash/deleted permanently), actions, transitions with who may move them, permits for the actions that change nothing but need a permission level, and the rules the help pages state in their own words. Permission-level wording follows the help pages (Read only / Read & Write / Admin), mapped onto the existing reader/writer/admin/owner roles. Where only the code states a condition (reparenting needs Admin on both projects, archiving a default project is refused, duplicate needs read + write on the parent, permission cascades down the project tree) the rule cites the code and is paired with a finding that the help pages are silent, so a reviewer can decide. The backlog is a thin slice over these actions: three epics (Projects and tasks, Sharing and permissions, Trash and recovery), six features by action, eight stories whose acceptance comes straight from the help pages; there is no tracker export among the sources, so no story carries a key/url and none invents a ref.
+
+  Reported disagreements: help-projects says duplicating a project copies its sub-projects and settings, while the code copies tasks, views and background, copies shares only when asked, and does not copy sub-projects (contradiction, docs outrank code but the behaviour differs). Also raised as questions: which permission archives/edits a project, whether a link-share recipient with Admin can trash a project at all given link shares have no trash, and whether a restored task keeps its done state.
+
+  Open questions from model(): none were left by earlier runs (openQuestions was empty), so there is nothing to answer back; the questions in this proposal are new ones.
+evidence:
+  - id: e3
+    kind: source
+    summary: You can create as many projects as you need and arrange them in a hierarchy.
+    path: projects.mdx#L13-L13
+    source: help-projects
+  - id: e4
+    kind: source
+    summary: Tasks are the core building blocks in Vikunja.
+    path: tasks.mdx#L11-L11
+    source: help-tasks
+  - id: e5
+    kind: source
+    summary: Link shares create a URL that gives access to a project without requiring a Vikunja account.
+    path: sharing-and-teams.mdx#L46-L46
+    source: help-sharing
+  - id: e6
+    kind: source
+    summary: Items in the trash are deleted permanently 30 days after they were deleted. Vikunja checks for expired items every hour.
+    path: trash.mdx#L124-L124
+    source: help-trash
+  - id: e7
+    kind: source
+    summary: "There are three levels of access:"
+    path: permissions.mdx#L17-L17
+    source: help-permissions
+  - id: e8
+    kind: source
+    summary: Teams let you group users so you can share projects with the whole group at once.
+    path: sharing-and-teams.mdx#L86-L86
+    source: help-sharing
+  - id: e9
+    kind: source
+    summary: Vikunja creates a new project with copies of its tasks, views, sub-projects, and settings.
+    path: projects.mdx#L84-L84
+    source: help-projects
+  - id: e10
+    kind: source
+    summary: People who use a [link share](/help/sharing-and-teams#link-shares) don't have a trash and can't open it.
+    path: trash.mdx#L120-L120
+    source: help-trash
+  - id: e11
+    kind: source
+    summary: User/team permissions and link shares are only copied when duplicate_shares is set to true.
+    path: project_duplicate.go#L68-L68
+    source: vikunja-models
+  - id: e12
+    kind: source
+    summary: Inherited admin is sticky (it could unshare the parent anyway); below that the nearest grant wins.
+    path: project_access.go#L66-L66
+    source: vikunja-models
+  - id: e13
+    kind: source
+    summary: When you share a project directly with another user, the permission level applies to that user.
+    path: permissions.mdx#L34-L34
+    source: help-permissions
+  - id: e14
+    kind: source
+    summary: It stays there for 30 days. Until then, you can restore it. After 30 days, Vikunja deletes it permanently.
+    path: trash.mdx#L12-L12
+    source: help-trash
+  - id: e15
+    kind: source
+    summary: "**Admins only:** You need **Admin** permission on the project to delete it."
+    path: trash.mdx#L59-L59
+    source: help-trash
+  - id: e16
+    kind: source
+    summary: The person or team can view everything in the project (tasks, labels, etc.) but cannot make any changes.
+    path: permissions.mdx#L21-L21
+    source: help-permissions
+  - id: e17
+    kind: source
+    summary: Click it again to reopen the task.
+    path: tasks.mdx#L50-L50
+    source: help-tasks
+  - id: e18
+    kind: source
+    summary: Archiving hides a project from the main working views and makes it read-only.
+    path: projects.mdx#L78-L78
+    source: help-projects
+  - id: e19
+    kind: source
+    summary: Assign one or more users who are responsible for completing the task.
+    path: tasks.mdx#L104-L104
+    source: help-tasks
+  - id: e20
+    kind: source
+    summary: "| Delete forever or empty the trash | Admin | Admin |"
+    path: trash.mdx#L116-L116
+    source: help-trash
+  - id: e21
+    kind: source
+    summary: You need **Read & Write** permission on the project to delete a task.
+    path: trash.mdx#L44-L44
+    source: help-trash
+  - id: e107
+    kind: source
+    summary: // Permission defines the permissions users/teams can have for projects
+    path: permissions.go#L25-L25
+    source: vikunja-models
+  - id: e108
+    kind: source
+    summary: Each team member can optionally be a **team admin**.
+    path: sharing-and-teams.mdx#L106-L106
+    source: help-sharing
+ops:
+  - op: add
+    kind: role
+    value:
+      id: link_share_user
+      title: Link share recipient (no account)
+      kind: human
+      interface: web
+    evidence:
+      - e5
+  - op: add
+    kind: role
+    value:
+      id: trash_cleanup
+      title: Vikunja scheduled trash cleanup
+      kind: system
+    evidence:
+      - e6
+  - op: add
+    kind: entity
+    value:
+      id: project
+      title: Project
+      description: The place where tasks live. Projects can be nested under one another, shared with users, teams or a link, archived, and moved to the trash.
+      variants:
+        - id: top_level
+          title: Top-level project
+        - id: sub_project
+          title: Sub-project (has a parent project)
+    evidence:
+      - e3
+  - op: add
+    kind: entity
+    value:
+      id: task
+      title: Task
+      description: A single to-do item inside a project. It can be marked done and reopened, moved to another project, duplicated and moved to the trash.
+    evidence:
+      - e4
+  - op: add
+    kind: epic
+    value:
+      id: projects_and_tasks
+      title: Projects and tasks
+      description: Creating, editing and organising projects and the tasks inside them.
+    evidence:
+      - e3
+  - op: add
+    kind: epic
+    value:
+      id: sharing
+      title: Sharing and permissions
+      description: Giving users, teams and link shares access to a project at Read, Read & Write or Admin level.
+    evidence:
+      - e7
+  - op: add
+    kind: epic
+    value:
+      id: trash
+      title: Trash and recovery
+      description: Deleted tasks and projects stay in the trash for 30 days and can be restored or deleted forever.
+    evidence:
+      - e14
+  - op: add
+    kind: feature
+    value:
+      id: project_lifecycle
+      title: Project lifecycle
+      description: Create a project, change its settings, archive and unarchive it, duplicate it.
+      epic: projects_and_tasks
+      actions:
+        - project.create
+        - project.update
+        - project.archive
+        - project.unarchive
+        - project.duplicate
+    evidence:
+      - e3
+      - e18
+  - op: add
+    kind: feature
+    value:
+      id: project_hierarchy
+      title: Project hierarchy
+      description: Place a project under another project or move it back to the top level.
+      epic: projects_and_tasks
+      actions:
+        - project.move
+    evidence:
+      - e3
+  - op: add
+    kind: feature
+    value:
+      id: task_lifecycle
+      title: Task lifecycle
+      description: Create a task, edit it, mark it done and reopen it, move it to another project, duplicate it.
+      epic: projects_and_tasks
+      actions:
+        - task.create
+        - task.update
+        - task.mark_done
+        - task.reopen
+        - task.move
+        - task.duplicate
+    evidence:
+      - e4
+      - e17
+  - op: add
+    kind: feature
+    value:
+      id: task_assignees
+      title: Task assignees
+      description: Assign and un-assign the users responsible for a task.
+      epic: projects_and_tasks
+      actions:
+        - task.assign
+        - task.unassign
+    evidence:
+      - e19
+  - op: add
+    kind: feature
+    value:
+      id: project_sharing
+      title: Project sharing
+      description: Share a project with a user, a team or a link, and change or revoke what they may do.
+      epic: sharing
+      actions:
+        - project.share_user
+        - project.share_team
+        - project.change_share_permission
+        - project.create_link_share
+        - project.delete_link_share
+    evidence:
+      - e13
+  - op: add
+    kind: feature
+    value:
+      id: trash_and_restore
+      title: Trash and restore
+      description: Move projects and tasks to the trash, restore them within 30 days, or delete them forever.
+      epic: trash
+      actions:
+        - project.trash
+        - project.restore
+        - project.delete_permanently
+        - task.trash
+        - task.restore
+        - task.delete_permanently
+    evidence:
+      - e14
+  - op: add
+    kind: story
+    value:
+      id: delete_project_needs_admin
+      title: Only a project admin can move a project to the trash
+      text: As someone sharing a project, I want deletion restricted to admins so that a writer cannot remove the whole project.
+      acceptance:
+        - A user with Admin permission on the project can delete it and the project, its sub-projects and their tasks move to the trash
+        - A user with Read & Write permission is not able to delete the project
+        - A user with Read only permission is not able to delete the project
+      feature: trash_and_restore
+      epic: trash
+      covers:
+        - transition:project.trash
+        - rule:project.delete_needs_admin
+        - rule:project.delete_takes_sub_projects
+    evidence:
+      - e15
+  - op: add
+    kind: story
+    value:
+      id: reader_cannot_change_anything
+      title: A Read only share can view but not change
+      text: As a project owner, I want a Read only share to be able to look at everything without being able to change it.
+      acceptance:
+        - A user with Read only permission can open the project and its tasks
+        - A user with Read only permission cannot change the project settings
+        - A user with Read only permission cannot create, update or delete a task in the project
+      feature: project_sharing
+      epic: sharing
+      covers:
+        - rule:project.read_only_cannot_change
+        - rule:task.read_only_cannot_change
+        - permit:project.read
+        - permit:task.read
+    evidence:
+      - e16
+  - op: add
+    kind: story
+    value:
+      id: task_done_toggle
+      title: Mark a task done and reopen it
+      text: As a user with Read & Write permission, I want to mark a task as completed and undo that.
+      acceptance:
+        - Pressing Done on an open task marks it as completed
+        - Pressing Done again on a completed task reopens it
+      feature: task_lifecycle
+      epic: projects_and_tasks
+      covers:
+        - transition:task.mark_done
+        - transition:task.reopen
+    evidence:
+      - e17
+  - op: add
+    kind: story
+    value:
+      id: archived_project_read_only
+      title: An archived project is read-only
+      text: As a project admin, I want to archive a finished project so that nobody changes it any more, and be able to bring it back.
+      acceptance:
+        - Archiving a project hides it from the main working views
+        - No changes can be made in an archived project
+        - The project can be unarchived from the same menu and becomes editable again
+      feature: project_lifecycle
+      epic: projects_and_tasks
+      covers:
+        - transition:project.archive
+        - transition:project.unarchive
+        - rule:project.archived_is_read_only
+    evidence:
+      - e18
+  - op: add
+    kind: story
+    value:
+      id: task_trash_and_restore
+      title: A deleted task can be restored for 30 days
+      text: As a user with Read & Write permission, I want a deleted task to be recoverable so that an accidental delete is not final.
+      acceptance:
+        - Deleting a task moves it to the trash and the message offers Undo
+        - A user with Read & Write permission sees the task in the trash and can restore it into its project
+        - After 30 days in the trash the task is gone permanently
+      feature: trash_and_restore
+      epic: trash
+      covers:
+        - transition:task.trash_open
+        - transition:task.restore
+        - transition:task.purge_expired
+        - rule:task.delete_needs_write
+        - rule:task.restore_needs_write
+    evidence:
+      - e21
+      - e14
+  - op: add
+    kind: story
+    value:
+      id: permanent_delete_needs_admin
+      title: Deleting forever is for admins only
+      text: As a project admin, I want only admins to be able to empty the trash so that a writer cannot destroy recoverable items.
+      acceptance:
+        - A user with Admin permission can delete a trashed task or project forever
+        - A user with Read & Write permission who can restore a task is not shown the Delete forever button
+        - Emptying the trash only removes items the user is allowed to delete permanently
+      feature: trash_and_restore
+      epic: trash
+      covers:
+        - transition:task.delete_permanently
+        - transition:project.delete_permanently
+        - rule:task.permanent_delete_needs_admin
+        - rule:project.permanent_delete_needs_admin
+    evidence:
+      - e20
+  - op: add
+    kind: story
+    value:
+      id: assignee_needs_project_access
+      title: Only users with access can be assigned
+      text: As a user with Read & Write permission, I want to assign the people responsible for a task.
+      acceptance:
+        - A user who already has access to the project can be assigned to a task
+        - A user without access to the project cannot be assigned to a task
+      feature: task_assignees
+      epic: projects_and_tasks
+      covers:
+        - permit:task.assign
+        - permit:task.unassign
+        - rule:task.assignee_needs_project_access
+    evidence:
+      - e19
+  - op: add
+    kind: story
+    value:
+      id: link_share_has_no_trash
+      title: Link share recipients have no trash
+      text: As a project owner, I want someone using a link share to be unable to reach the trash.
+      acceptance:
+        - Someone using a link share has no trash in the sidebar and cannot open it
+        - Someone using a link share cannot delete a trashed task or project forever
+      feature: trash_and_restore
+      epic: trash
+      covers:
+        - rule:project.link_share_has_no_trash
+        - rule:task.permanent_delete_needs_admin
+    evidence:
+      - e10
+findings:
+  - kind: contradiction
+    note: help-projects says duplicating a project creates copies of its tasks, views, sub-projects and settings, while the code's duplicate copies tasks, views, buckets and the background but never sub-projects, and copies the user/team/link shares only when duplicate_shares is asked for (default off). Requirements outrank code, so the help wording is kept as the rule, but the behaviours differ and need a decision.
+    refs:
+      - project.duplicate
+    evidence:
+      - e9
+      - e11
+    searched:
+      - help-projects 'Duplicating a project'
+      - vikunja-models/project_duplicate.go
+  - kind: gap
+    note: No help page says that a permission granted on a project also applies to its sub-projects; the code resolves access through project ancestors (nearest grant wins, inherited Admin always applies). Searched help-permissions ('Where permissions apply'), help-sharing and help-projects ('Sub-projects') — none mentions inheritance. Proposed as a code-evidenced rule on the project entity.
+    refs:
+      - project.read
+    evidence:
+      - e12
+    searched:
+      - help-permissions
+      - help-sharing
+      - help-projects
+      - vikunja-models/project_access.go
+  - kind: gap
+    note: "Teams themselves (creating a team, adding/removing members, the team admin role) are documented in help-sharing but not modeled: this run's scope is projects and tasks. A separate team entity with its own actions is still missing."
+    evidence:
+      - e8
+      - e108
+    searched:
+      - help-sharing 'Teams', 'Team admin role'
+  - kind: confirmation
+    note: The three permission levels in the help pages (Read only, Read & Write, Admin) match the code's permission enum for projects, so the existing reader/writer/admin roles map one-to-one onto documented share levels.
+    evidence:
+      - e7
+      - e107
+    searched:
+      - help-permissions
+      - vikunja-models/permissions.go
+  - kind: question
+    note: Neither entity has a reader yet, so no state can be verified by reading the object back. The five help pages describe the web UI only (sidebar, three-dot menus, trash screen) and give no field names a tester could assert on. Where should a project or task be read back from — the web app or the API?
+    searched:
+      - help-projects
+      - help-tasks
+      - help-trash
+      - help-sharing
+      - help-permissions
+status: decided
+decisions:
+  - op: 0
+    verdict: reject
+  - op: 1
+    verdict: accept
+  - op: 2
+    verdict: accept
+  - op: 3
+    verdict: accept
+  - op: 4
+    verdict: accept
+  - op: 5
+    verdict: accept
+  - op: 6
+    verdict: accept
+  - op: 7
+    verdict: accept
+  - op: 8
+    verdict: accept
+  - op: 9
+    verdict: accept
+  - op: 10
+    verdict: accept
+  - op: 11
+    verdict: accept
+  - op: 12
+    verdict: accept
+  - op: 13
+    verdict: accept
+  - op: 14
+    verdict: accept
+  - op: 15
+    verdict: accept
+  - op: 16
+    verdict: accept
+  - op: 17
+    verdict: accept
+  - op: 18
+    verdict: accept
+  - op: 19
+    verdict: accept
+  - op: 20
+    verdict: accept
+decidedAt: 2026-11-15T12:09:29.899Z
+resolutions:
+  - finding: 0
+    verdict: bug
+    note: "Checked live: duplicating project 488 made 490 without its sub-project 489. The help page promises sub-projects."
+    at: 2026-11-15T12:50:05.065Z

@@ -1,0 +1,748 @@
+id: 2026-11-15-12-38-13-review-project
+entity: project
+agent: onboarding
+createdAt: 2026-11-15T12:49:10.109Z
+baseRevision: e955e6b0a4f7
+rationale: |-
+  Reviewed every element of the two entities against all five help pages (read in full) and the pkg/models code (project.go, project_permissions.go, project_access.go, project_trash.go, project_purge.go, project_duplicate.go, project_users*.go, link_sharing_permissions.go, tasks.go, tasks_permissions.go, task_trash.go, task_delete_cron.go, task_duplicate.go, task_assignees*.go, favorites.go). Almost all rules are confirmed by a priority-1 help page or, where the help pages are silent about permissions, by the code only. Three real disagreements: (a) both entities' state `match` values name a `status` field that no source knows — the project is observable through `is_archived`/`deleted_at`, the task through `done`/`deleted_at` (the task entity's own invariant already uses `done`), so I propose aligning the matches that the code pins down and left `in_trash`/`purged` as questions; (b) help-permissions/help-sharing say every sharing method, link shares included, gets the same three levels and that Admin manages sharing, while the code refuses a link share any share management at all; (c) the code lets an Admin link share move a project to the trash although help-trash says link-share users have no trash — the project would land where its deleter cannot see it. Requirements win in (b) and (c) by priority; both are flagged for a human. New requirements found in the help pages and missing from the model: the done-bucket toggle marks a task done/undone, Empty trash scope (tab-local, only items you may purge, optional "also delete items other people moved"), favoriting a project, and creating a sub-project. Code-only behaviour proposed and labelled as behaviour, not requirement: no cyclic nesting, no move under an archived parent, sub-project creation needs write on the parent, a repeating task's checklist is unchecked when it reopens. A link-share recipient is added as a role because four existing rules talk about them with no subject to bind to.
+
+  Open questions:
+  1. Read-only sees a deleted task's notice — answered: intended in code ("Readers of the project get ErrTaskIsInTrash"), with CanRestore false; the same holds for projects, so I propose widening read_in_trash_read_write to the reader.
+  2. Task of an archived project readable by Read only — answered: reading a task only resolves project read access; the archived check lives in CanWrite, so the relation's `requires: active` is too strong (contradiction filed).
+  3. Keyboard shortcuts silent for Read only — still open: no source describes shortcut handling; code only gates the write itself.
+  4. Server answer to a Read only "Delete this project" — partly: CanDelete is IsAdmin, so a refusal is expected; no source states the message.
+  5. Duplicating an archived project as a writer — answered: read access plus write on the copy's parent is enough and the copy is re-archived afterwards.
+  6. Copies unreadable by the reader account — answered: the duplicate's owner is set to the duplicating user.
+  7. Extra menu entries (views, backgrounds, webhooks, subscribe, create project) — partly: sub-project creation needs write on the parent (proposed); views/backgrounds/webhooks/subscriptions remain unmodeled (gap filed).
+  8. Permission needed to archive/unarchive/edit — still open as a requirement; code requires write access (confirmed).
+  9. Permission needed to duplicate — still open as a requirement; code-only (confirmed, gap filed).
+  10. Default project cannot be archived — partly: code confirms it, all five help pages are silent.
+  11. Where a project in the trash is observable — partly: `deleted_at` is the only documented signal (code); the UI notice is described but names no field.
+  12. Can an Admin link share trash the project — answered: yes in code, and it then has no trash to see it; contradiction filed against help-trash.
+  13. Permission needed to mark a task done or edit it — still open as a requirement; code requires write access.
+  14. Does a restored task stay done — partly: code restores it into the done bucket without touching `done`; no page states it.
+  15. Where a task in the trash is observable — partly: `deleted_at` (code) plus the "This task is in the trash." notice.
+  16. Repeating tasks only in code — partly: help-tasks mentions "repeat settings" when duplicating, but no sourced page describes repeating behaviour.
+  17. Broad task.update folding comments/labels/dates — still open: a scope decision, nothing new in the sources.
+  18. Permission inheritance to sub-projects — partly: code confirms (inherited Admin sticky, nearest grant otherwise); no help page mentions it.
+  19. Teams unmodeled — still open: help-sharing documents teams and team admins; no team entity exists.
+  20. Where to read entities back — partly: the code names the observable fields (is_archived, done, deleted_at, deleted_by); choosing web vs API stays a human decision.
+evidence:
+  - id: e1
+    kind: source
+    summary: The person or team can view everything in the project (tasks, labels, etc.) but cannot make any changes. This is the default when you share a project.
+    path: permissions.mdx#L21-L22
+    source: help-permissions
+  - id: e3
+    kind: source
+    summary: You need Admin permission on the project to see this list, since the link itself grants whatever permission the share was created with.
+    path: sharing-and-teams.mdx#L64-L64
+    source: help-sharing
+  - id: e4
+    kind: source
+    summary: Link shares cannot be edited after creation. To change the name, password, or permission level, delete the existing share and create a new one.
+    path: sharing-and-teams.mdx#L72-L72
+    source: help-sharing
+  - id: e5
+    kind: source
+    summary: If the link is password-protected, the recipient must enter the password before seeing the project.
+    path: sharing-and-teams.mdx#L78-L78
+    source: help-sharing
+  - id: e8
+    kind: source
+    summary: "admins can also manage sharing: add or remove other users and teams, and change their permission levels."
+    path: permissions.mdx#L30-L30
+    source: help-permissions
+  - id: e9
+    kind: source
+    summary: "**Delete the share**: Remove the link share entirely, immediately revoking access for anyone using it"
+    path: sharing-and-teams.mdx#L70-L70
+    source: help-sharing
+  - id: e10
+    kind: source
+    summary: "Every method uses the same permission levels: **Read**, **Read & Write**, or **Admin**."
+    path: sharing-and-teams.mdx#L26-L26
+    source: help-sharing
+  - id: e11
+    kind: source
+    summary: To delete a project, open the **three-dot menu** and select **Delete**. You need **Admin** permission on the project.
+    path: projects.mdx#L94-L94
+    source: help-projects
+  - id: e12
+    kind: source
+    summary: Archiving hides a project from the main working views and makes it read-only.
+    path: projects.mdx#L78-L78
+    source: help-projects
+  - id: e13
+    kind: source
+    summary: Open the **three-dot menu** and select **Archive**. You can unarchive it later from the same menu.
+    path: projects.mdx#L80-L80
+    source: help-projects
+  - id: e14
+    kind: source
+    summary: To copy a project, open the **three-dot menu** and select **Duplicate**. Vikunja creates a new project with copies of its tasks, views, sub-projects, and settings.
+    path: projects.mdx#L84-L84
+    source: help-projects
+  - id: e15
+    kind: source
+    summary: A short code (e.g. `MOVE`) that is combined with task numbers to create unique task references like `MOVE-42`.
+    path: projects.mdx#L51-L51
+    source: help-projects
+  - id: e16
+    kind: source
+    summary: To favorite a project, hover over it in the **sidebar** or on the **project overview** page and click the **star** icon. Favorited projects appear at the top of the sidebar.
+    path: projects.mdx#L90-L90
+    source: help-projects
+  - id: e17
+    kind: source
+    summary: To create a sub-project directly, open the **three-dot menu** next to a project and choose **Create sub-project**.
+    path: projects.mdx#L61-L61
+    source: help-projects
+  - id: e18
+    kind: source
+    summary: They are globally unique across all projects.
+    path: projects.mdx#L51-L51
+    source: help-projects
+  - id: e19
+    kind: source
+    summary: "You can nest projects to create a hierarchy. There are two ways to move a project under another one:"
+    path: projects.mdx#L56-L56
+    source: help-projects
+  - id: e20
+    kind: source
+    summary: "**Sub-projects go with it:** Deleting a project also moves all of its sub-projects to the trash."
+    path: trash.mdx#L58-L58
+    source: help-trash
+  - id: e21
+    kind: source
+    summary: You can delete your own default project. You can't delete a project that another user owns and uses as their default project. If you delete your default project, you no longer have one. Restoring it does not set it as your default again.
+    path: trash.mdx#L60-L60
+    source: help-trash
+  - id: e22
+    kind: source
+    summary: "| See it in the trash | Read & Write | Admin |"
+    path: trash.mdx#L114-L114
+    source: help-trash
+  - id: e23
+    kind: source
+    summary: People who use a [link share](/help/sharing-and-teams#link-shares) don't have a trash and can't open it.
+    path: trash.mdx#L120-L120
+    source: help-trash
+  - id: e24
+    kind: source
+    summary: Items in the trash are deleted permanently 30 days after they were deleted. Vikunja checks for expired items every hour. The 30 days are fixed and can't be changed.
+    path: trash.mdx#L124-L124
+    source: help-trash
+  - id: e25
+    kind: source
+    summary: You can't restore a sub-project on its own while its parent project is in the trash. If you open such a sub-project, the notice offers **Restore parent project** instead.
+    path: trash.mdx#L81-L81
+    source: help-trash
+  - id: e26
+    kind: source
+    summary: The button only shows up if you have **Admin** permission on that parent project.
+    path: trash.mdx#L81-L81
+    source: help-trash
+  - id: e27
+    kind: source
+    summary: "The same goes for a project whose parent project is archived: unarchive the parent, then restore the project."
+    path: trash.mdx#L87-L87
+    source: help-trash
+  - id: e28
+    kind: source
+    summary: "**A project** is deleted with its sub-projects, tasks, views, and shares."
+    path: trash.mdx#L94-L94
+    source: help-trash
+  - id: e29
+    kind: source
+    summary: "**Project identifiers stay reserved:** A deleted project keeps its identifier. You can't give the same identifier to another project until the deleted one is gone for good."
+    path: trash.mdx#L134-L134
+    source: help-trash
+  - id: e30
+    kind: source
+    summary: "**Link shares stop working:** Link shares of a deleted project stop working while it is in the trash. They work again after you restore the project. Deleting the project forever removes them."
+    path: trash.mdx#L130-L130
+    source: help-trash
+  - id: e31
+    kind: source
+    summary: Each entry shows who deleted it, when, and how many days are left before it is deleted permanently.
+    path: trash.mdx#L30-L30
+    source: help-trash
+  - id: e40
+    kind: source
+    summary: If you open a deleted task or project, for example from a bookmark or a notification, Vikunja shows a notice like "This task is in the trash." It tells you when it was deleted and how many days are left. If you are allowed to restore it, the notice has a **Restore** button and an **Open trash** button.
+    path: trash.mdx#L69-L69
+    source: help-trash
+  - id: e48
+    kind: source
+    summary: // Owners are always admins if originalProject.isOwner(u) { return true, nil }
+    path: project_permissions.go#L323-L326
+    source: vikunja-models
+  - id: e49
+    kind: source
+    summary: // Inherited admin is sticky (it could unshare the parent anyway); below that the nearest grant wins.
+    path: project_access.go#L66-L66
+    source: vikunja-models
+  - id: e50
+    kind: source
+    summary: // Check if we're dealing with a share auth _, is := a.(*LinkSharing) if is { return false, nil } return true, nil
+    path: project_permissions.go#L289-L294
+    source: vikunja-models
+  - id: e51
+    kind: source
+    summary: "if isDefaultProject { return &ErrCannotArchiveDefaultProject{ProjectID: project.ID} }"
+    path: project.go#L1220-L1222
+    source: vikunja-models
+  - id: e52
+    kind: source
+    summary: if project.IsArchived != storedProject.IsArchived { err = SetArchiveStateForProjectDescendants(s, project.ID, project.IsArchived)
+    path: project.go#L1227-L1228
+    source: vikunja-models
+  - id: e53
+    kind: source
+    summary: // Trashed projects keep theirs so a restore can't collide
+    path: project.go#L977-L977
+    source: vikunja-models
+  - id: e54
+    kind: source
+    summary: // Attaching under a new parent additionally requires Admin on // that parent; detaching to the top level (0) has no new parent.
+    path: project.go#L1174-L1175
+    source: vikunja-models
+  - id: e55
+    kind: source
+    summary: "if parent.IsArchived { return ErrParentProjectIsArchived{ProjectID: project.ID, ParentProjectID: parent.ID} }"
+    path: project.go#L1185-L1187
+    source: vikunja-models
+  - id: e56
+    kind: source
+    summary: if parentID == project.ID { return &ErrProjectCannotBeChildOfItself{
+    path: project.go#L922-L923
+    source: vikunja-models
+  - id: e57
+    kind: source
+    summary: // Check if there's a cycle in the parent relation
+    path: project.go#L950-L950
+    source: vikunja-models
+  - id: e58
+    kind: source
+    summary: The user needs read access in the project and write access in the parent of the new project.
+    path: project_duplicate.go#L68-L68
+    source: vikunja-models
+  - id: e59
+    kind: source
+    summary: if wasArchived { pd.Project.IsArchived = true err = UpdateProject(s, pd.Project, doer, false)
+    path: project_duplicate.go#L179-L181
+    source: vikunja-models
+  - id: e60
+    kind: source
+    summary: // Set the owner to the current user pd.Project.OwnerID = doer.GetID() pd.Project.Title += " - duplicate"
+    path: project_duplicate.go#L91-L93
+    source: vikunja-models
+  - id: e61
+    kind: source
+    summary: // CanRestore requires admin access to the trashed project.
+    path: project_trash.go#L382-L382
+    source: vikunja-models
+  - id: e62
+    kind: source
+    summary: // Readers who could reach the project get ErrProjectIsInTrash; everyone else keeps notFound.
+    path: project_trash.go#L295-L295
+    source: vikunja-models
+  - id: e63
+    kind: source
+    summary: // Owners may trash their own default project, nobody else's.
+    path: project_trash.go#L55-L55
+    source: vikunja-models
+  - id: e64
+    kind: source
+    summary: // Restore brings back all trashed sub-projects, whenever they were trashed; trashed tasks stay.
+    path: project_trash.go#L419-L419
+    source: vikunja-models
+  - id: e65
+    kind: source
+    summary: // Topmost trashed projects the user is admin of; trashed sub-projects are folded into their trashed ancestor. func trashedProjectsCond(s *xorm.Session, a web.Auth) (builder.Cond, error) { if _, isShare := a.(*LinkSharing); isShare { return nil, ErrGenericForbidden{} }
+    path: project_trash.go#L496-L500
+    source: vikunja-models
+  - id: e66
+    kind: source
+    summary: // Link shares aren't allowed to do anything if _, is := a.(*LinkSharing); is { return false, nil }
+    path: project_users_permissions.go#L40-L43
+    source: vikunja-models
+  - id: e67
+    kind: source
+    summary: return originalProject.ID == shareAuth.ProjectID && shareAuth.Permission == PermissionAdmin, nil
+    path: project_permissions.go#L316-L316
+    source: vikunja-models
+  - id: e68
+    kind: source
+    summary: IsArchived bool `xorm:"not null default false" json:"is_archived" query:"is_archived" doc:"Whether the project is archived. Archived projects are read-only."`
+    path: project.go#L60-L60
+    source: vikunja-models
+  - id: e69
+    kind: source
+    summary: // When this project was moved to the trash. Trashed projects are removed permanently 30 days later.
+    path: project.go#L88-L88
+    source: vikunja-models
+  - id: e85
+    kind: source
+    summary: // TrashRetention is how long trashed tasks and projects are kept before permanent // removal. Hard-coded like the user deletion grace period. const TrashRetention = 30 * 24 * time.Hour
+    path: task_delete_cron.go#L31-L33
+    source: vikunja-models
+  - id: e89
+    kind: source
+    summary: "if project.IsArchived { return ErrProjectIsArchived{ProjectID: id} }"
+    path: project.go#L908-L910
+    source: vikunja-models
+  - id: e90
+    kind: source
+    summary: "if pid := p.parentID(); pid > 0 { parent := &Project{ID: pid} return parent.CanWrite(s, a) }"
+    path: project_permissions.go#L285-L288
+    source: vikunja-models
+  - id: e91
+    kind: source
+    summary: func (share *LinkSharing) canDoLinkShare(s *xorm.Session, a web.Auth) (bool, error) { if _, is := a.(*LinkSharing); is { return false, nil } p, err := GetProjectSimpleByID(s, share.ProjectID) if err != nil { return false, err } return p.IsAdmin(s, a) }
+    path: link_sharing_permissions.go#L62-L72
+    source: vikunja-models
+  - id: e92
+    kind: source
+    summary: "if !canRead { return nil, 0, 0, ErrNeedToHaveProjectReadAccess{UserID: a.GetID(), ProjectID: lu.ProjectID} }"
+    path: project_users.go#L204-L206
+    source: vikunja-models
+  - id: e93
+    kind: source
+    summary: Open the trash, find the task or project, and click **Restore** (the arrow icon).
+    path: trash.mdx#L64-L64
+    source: help-trash
+  - id: e94
+    kind: source
+    summary: To delete something before the 30 days are up, click **Delete forever** (the trash can icon) next to it in the trash. Vikunja asks you to confirm.
+    path: trash.mdx#L91-L91
+    source: help-trash
+  - id: e95
+    kind: source
+    summary: "Click **Trash** in the left sidebar. The trash has two tabs:"
+    path: trash.mdx#L25-L25
+    source: help-trash
+  - id: e96
+    kind: source
+    summary: "Open the **three-dot menu** next to the project title, select **Share**, then choose one of these methods:"
+    path: sharing-and-teams.mdx#L16-L16
+    source: help-sharing
+  - id: e97
+    kind: source
+    summary: Open **Projects** in the sidebar, then use the button in the top right to create a new project.
+    path: projects.mdx#L34-L34
+    source: help-projects
+  - id: e102
+    kind: source
+    summary: "**Parent project:** Assign this project as a sub-project of another project. You can also change this by dragging and dropping the project in the sidebar."
+    path: projects.mdx#L49-L49
+    source: help-projects
+  - id: e103
+    kind: source
+    summary: // Like regular reads, link shares never reach a trashed project.
+    path: project_trash.go#L272-L272
+    source: vikunja-models
+  - id: e104
+    kind: source
+    summary: // CanDelete checks if the user can delete a project func (p *Project) CanDelete(s *xorm.Session, a web.Auth) (bool, error) {
+    path: project_permissions.go#L274-L275
+    source: vikunja-models
+  - id: e105
+    kind: source
+    summary: To open project settings, click the **three-dot menu** next to the project title and select **Edit**.
+    path: projects.mdx#L40-L40
+    source: help-projects
+ops:
+  - op: update
+    kind: state
+    id: active
+    set:
+      match:
+        is_archived: false
+    evidence:
+      - e68
+  - op: update
+    kind: state
+    id: archived
+    set:
+      match:
+        is_archived: true
+    evidence:
+      - e68
+      - e12
+  - op: update
+    kind: permit
+    id: read_in_trash_read_write
+    set:
+      by:
+        - writer
+        - reader
+      title: See that a shared project is in the trash (any share level)
+    evidence:
+      - e62
+  - op: add
+    kind: action
+    value:
+      id: favorite
+      title: Add the project to your favorites
+      kind: command
+    evidence:
+      - e16
+  - op: add
+    kind: rule
+    value:
+      id: create_sub_project_needs_write
+      title: Creating a sub-project needs write access to the parent
+      text: A sub-project can be created directly from the three-dot menu of another project, and doing so needs Read & Write or Admin permission on that parent project.
+      action: create
+      requires:
+        - kind: roles
+          roles:
+            - owner
+            - admin
+            - writer
+    evidence:
+      - e17
+      - e90
+  - op: add
+    kind: rule
+    value:
+      id: no_cyclic_nesting
+      title: A project cannot be nested inside itself
+      text: A project cannot be made a sub-project of itself or of any project that is already nested below it.
+      action: move
+      requires: []
+    evidence:
+      - e56
+      - e57
+  - op: add
+    kind: rule
+    value:
+      id: cannot_move_under_archived_parent
+      title: A project cannot be moved under an archived parent
+      text: A project cannot be placed under a parent project that is archived; the parent has to be unarchived first.
+      action: move
+      requires: []
+    evidence:
+      - e55
+findings:
+  - kind: contradiction
+    note: "The states name a field no source knows. The model matches project states on `status` (active/archived/trashed/purged), while the only source that says what is observable — the code — exposes `is_archived` (boolean) and `deleted_at`; there is no `status` field on a project anywhere, and the five help pages describe only the UI (project list, archived notice, trash listing) without naming fields. The code wins here by default because no priority-1 source speaks about observable values at all, so I propose matching active/archived on `is_archived`. in_trash and purged are left untouched: `deleted_at` is a timestamp, not a value a match can pin, and nothing describes a purged project at all."
+    refs:
+      - state:project.active
+      - state:project.archived
+      - state:project.in_trash
+      - state:project.purged
+    evidence:
+      - e68
+      - e69
+  - kind: contradiction
+    note: "Who may manage shares. The model's permits share_user/share_team/change_share_permission are limited to owner and admin, and rule share_management_needs_admin says Admin is enough; help-permissions (priority 1) says Admin level includes managing sharing and help-sharing says every sharing method, link shares included, uses the same three levels — so an Admin link share should be able to manage shares. The code (priority 2) refuses any link share outright: 'Link shares aren't allowed to do anything'. The help pages win by priority, so the requirement is that an Admin share manages sharing regardless of how it was granted; the code's extra restriction on link shares should be confirmed as intended or treated as a defect. The model currently states neither side because it has no link-share role (one is proposed)."
+    refs:
+      - permit:project.share_user
+      - permit:project.share_team
+      - permit:project.change_share_permission
+      - rule:project.share_management_needs_admin
+    evidence:
+      - e8
+      - e10
+      - e66
+  - kind: contradiction
+    note: An Admin link share can move the project to the trash, but has no trash. transition:project.trash lists only owner and admin and rule link_share_has_no_trash says link-share users have no trash at all (help-trash, priority 1); the code treats an Admin link share as project admin and CanDelete is exactly that admin check, so such a recipient can delete the project, while the trash listing and getReadableTrashedProject explicitly exclude link shares — the project lands somewhere its deleter cannot see or restore. help-trash wins by priority (a link-share recipient should not reach the trash); either the delete must be refused for link shares or the rule needs an exception. This answers the open question on the subject.
+    refs:
+      - transition:project.trash
+      - rule:project.link_share_has_no_trash
+      - rule:project.delete_needs_admin
+    evidence:
+      - e23
+      - e67
+      - e104
+      - e103
+  - kind: confirmation
+    note: "Deleting a project moves it (and its sub-projects and their tasks) to the trash and needs Admin permission: stated by help-projects and help-trash and implemented as the project admin check."
+    refs:
+      - transition:project.trash
+      - action:project.trash
+      - rule:project.delete_needs_admin
+      - rule:project.delete_takes_sub_projects
+    evidence:
+      - e11
+      - e20
+      - e104
+  - kind: confirmation
+    note: Archiving hides the project from the main working views and makes it read-only, and it can be unarchived from the same menu; the code refuses any write to an archived project with ErrProjectIsArchived.
+    refs:
+      - transition:project.archive
+      - transition:project.unarchive
+      - action:project.archive
+      - action:project.unarchive
+      - rule:project.archived_is_read_only
+    evidence:
+      - e12
+      - e13
+      - e89
+  - kind: confirmation
+    note: Archiving or unarchiving cascades to every sub-project — code only (SetArchiveStateForProjectDescendants runs when the archived state actually changes). Matches the rule's observed status.
+    refs:
+      - rule:project.archive_cascades_to_sub_projects
+    evidence:
+      - e52
+  - kind: confirmation
+    note: A project used as someone's own default project cannot be archived — code only; no help page mentions it (searched help-projects 'The inbox project'/'Archiving a project' and help-trash 'Default projects'), so this stays behaviour rather than a stated requirement.
+    refs:
+      - rule:project.cannot_archive_default_project
+    evidence:
+      - e51
+  - kind: confirmation
+    note: "Own default project may be trashed, another user's may not, and restoring does not make it default again: help-trash states it and trashProject blocks exactly the other-owner case."
+    refs:
+      - rule:project.cannot_delete_other_users_default_project
+    evidence:
+      - e21
+      - e63
+  - kind: confirmation
+    note: Seeing a project in the trash and restoring it needs Admin permission (help-trash 'Who can do what' table; CanRestore requires admin access to the trashed project), and restoring brings back the sub-projects that are in the trash while tasks deleted on their own stay there.
+    refs:
+      - transition:project.restore
+      - action:project.restore
+      - permit:project.view_trash
+      - rule:project.restore_needs_admin
+    evidence:
+      - e22
+      - e61
+      - e64
+      - e93
+  - kind: confirmation
+    note: A sub-project cannot be restored while its parent is in the trash — the notice offers Restore parent project instead, and that button needs Admin on the parent.
+    refs:
+      - rule:project.restore_blocked_by_trashed_parent
+      - rule:project.restore_parent_needs_admin
+    evidence:
+      - e25
+      - e26
+  - kind: confirmation
+    note: A project whose parent is archived cannot be restored until the parent is unarchived (help-trash, 'Archived projects'); the same archived-parent guard blocks un-archiving in the code.
+    refs:
+      - rule:project.restore_blocked_by_archived_parent
+      - transition:project.restore
+      - transition:project.unarchive
+    evidence:
+      - e27
+      - e55
+  - kind: confirmation
+    note: Deleting a project forever needs Admin permission, takes its sub-projects, tasks, views and shares, and cannot be undone.
+    refs:
+      - transition:project.delete_permanently
+      - action:project.delete_permanently
+      - rule:project.permanent_delete_needs_admin
+    evidence:
+      - e22
+      - e28
+      - e8
+      - e94
+  - kind: confirmation
+    note: "Thirty-day retention, checked hourly and not configurable: help-trash states it, the code hard-codes TrashRetention at 30 days and schedules the project purge every hour."
+    refs:
+      - transition:project.purge_expired
+      - action:project.purge_expired
+      - rule:project.trash_retention_30_days
+      - role:trash_cleanup
+    evidence:
+      - e24
+      - e85
+  - kind: confirmation
+    note: "Someone using a link share has no trash and cannot open it: stated by help-trash and enforced in code (the project trash query refuses link shares outright)."
+    refs:
+      - rule:project.link_share_has_no_trash
+      - action:project.view_trash
+    evidence:
+      - e23
+      - e65
+      - e95
+  - kind: confirmation
+    note: Link shares of a trashed project stop working while it is in the trash, work again after a restore, and are removed when the project is deleted forever.
+    refs:
+      - rule:project.link_shares_stop_while_trashed
+    evidence:
+      - e30
+  - kind: confirmation
+    note: The identifier is a short code combined with task numbers (MOVE-42), globally unique across all projects, and a trashed project keeps it reserved until it is gone for good — all three parts confirmed by help-projects, help-trash and the uniqueness check that deliberately includes trashed projects.
+    refs:
+      - rule:project.identifier_globally_unique
+      - rule:project.identifier_stays_reserved_in_trash
+      - action:project.update
+      - action:project.create
+    evidence:
+      - e15
+      - e18
+      - e29
+      - e53
+  - kind: confirmation
+    note: A Read only share can view everything in the project but change nothing, and Read only is the default for a new share.
+    refs:
+      - rule:project.read_only_cannot_change
+      - permit:project.read
+      - action:project.read
+    evidence:
+      - e1
+  - kind: confirmation
+    note: "Link shares: the list is only visible with Admin permission, a share cannot be edited after creation, a password must be entered before the project is shown, and deleting a share revokes access immediately. The code gates creating, listing, updating and deleting link shares on project admin."
+    refs:
+      - permit:project.create_link_share
+      - permit:project.delete_link_share
+      - action:project.create_link_share
+      - action:project.delete_link_share
+      - rule:project.link_share_list_needs_admin
+      - rule:project.link_share_not_editable
+      - rule:project.link_share_password
+      - rule:project.delete_link_share_revokes_access
+    evidence:
+      - e3
+      - e4
+      - e5
+      - e9
+      - e91
+  - kind: confirmation
+    note: Projects can be nested to build a hierarchy, set from the project settings or by dragging in the sidebar, which also confirms both variants (top-level and sub-project) and the move action.
+    refs:
+      - rule:project.nesting_builds_hierarchy
+      - action:project.move
+      - variant:project.top_level
+      - variant:project.sub_project
+    evidence:
+      - e19
+      - e102
+  - kind: confirmation
+    note: Moving a project under a different parent needs Admin on the moved project and on the new parent, detaching to the top level needs Admin on the project — code only (the reparent gate added for CVE-2026-35595 / CVE-2026-55064). No help page states it.
+    refs:
+      - rule:project.move_needs_admin_on_both
+      - permit:project.move
+    evidence:
+      - e54
+  - kind: confirmation
+    note: "Permission inheritance and ownership: a grant on a project applies to everything nested below it (nearest grant wins, inherited Admin always applies) and the owner always has Admin — code only, as the rules' observed status says."
+    refs:
+      - rule:project.permission_inherited_by_sub_projects
+      - rule:project.owner_is_always_admin
+    evidence:
+      - e49
+      - e48
+  - kind: confirmation
+    note: "Creating a project: help-projects documents the create button for signed-in users, and the code refuses project creation to anyone authenticated through a link share."
+    refs:
+      - action:project.create
+      - rule:project.link_share_cannot_create_project
+    evidence:
+      - e97
+      - e50
+  - kind: confirmation
+    note: Duplicating copies the tasks, views, sub-projects and settings; it needs read access to the project plus write access to the parent the copy is placed under; the copy's owner becomes the user who duplicated it (which is why the original owner's reader cannot see it) and an archived original yields an archived copy — the code re-applies the archived flag after the copy is built. This answers two open questions.
+    refs:
+      - action:project.duplicate
+      - transition:project.duplicate_from_active
+      - transition:project.duplicate_from_archived
+      - rule:project.duplicate_needs_read_and_write_on_parent
+    evidence:
+      - e14
+      - e58
+      - e59
+      - e60
+  - kind: confirmation
+    note: While a project is in the trash it stays restorable by an admin and every trash entry shows who deleted it, when, and how many days are left; opening a deleted project shows the same notice.
+    refs:
+      - invariant:project.trashed_project_recoverable
+      - state:project.in_trash
+    evidence:
+      - e31
+      - e40
+  - kind: confirmation
+    note: Project settings (title, parent, description, identifier, colour) are edited from the three-dot menu's Edit entry, and the Share page is reached from the same menu — confirming the update and view_shares actions exist as described.
+    refs:
+      - action:project.update
+      - action:project.view_shares
+    evidence:
+      - e105
+      - e96
+  - kind: gap
+    note: "Sharing visibility is wider in the code than the model says: permit view_shares_read_write and rule shares_visible_to_read_and_write give the Share page's user/team list to a Read & Write share, but the code only requires read access to list a project's users, so a Read only share would see it too (link shares are excluded). No help page says who may see the list of users and teams (help-sharing only covers the Admin-only link-share list). Proposed as behaviour to verify, not as a requirement; searched help-sharing, help-permissions, help-projects."
+    refs:
+      - permit:project.view_shares_read_write
+      - rule:project.shares_visible_to_read_and_write
+      - action:project.view_shares
+    evidence:
+      - e92
+      - e3
+  - kind: gap
+    note: "Code-only behaviour (not a requirement): a project cannot be nested in itself or in one of its own descendants, and it cannot be moved under an archived parent. Both are refusals a tester can see when editing the parent project; proposed as rules no_cyclic_nesting and cannot_move_under_archived_parent. Searched help-projects ('Sub-projects'), help-permissions, help-trash — none mentions either case."
+    refs:
+      - rule:project.no_cyclic_nesting
+      - rule:project.cannot_move_under_archived_parent
+      - action:project.move
+    evidence:
+      - e56
+      - e57
+      - e55
+  - kind: gap
+    note: Favoriting a project is documented in help-projects (star icon in the sidebar or the overview, favorites pinned to the top) but the model has no favorite action for a project, even though the task entity has one. Proposed as action project.favorite. No source says which permission level it needs, and the code stores it per user, so no `by` is proposed. Searched help-projects, help-permissions.
+    refs:
+      - action:project.favorite
+    evidence:
+      - e16
+  - kind: gap
+    note: "Permission levels for update/archive/unarchive and duplicate remain unstated in the requirements: help-permissions only says Read & Write may change 'the project's content' and help-projects only describes the menu entries. The code requires write access for edit/archive/unarchive and read+write-on-parent for duplicate, which is what the permits and rules already say. Searched help-projects ('Project settings', 'Archiving a project', 'Duplicating a project'), help-permissions, help-trash."
+    refs:
+      - permit:project.update
+      - transition:project.archive
+      - transition:project.unarchive
+      - rule:project.duplicate_needs_read_and_write_on_parent
+    evidence:
+      - e8
+      - e89
+  - kind: question
+    note: "state:project.purged has no observable at all: no source says what a tester sees after a project is deleted forever beyond its disappearance, and the code simply removes the row. Should purged be matched by the reader failing to find the project, and if so where should that be written down? Searched help-trash ('Deleting permanently', 'Automatic deletion after 30 days'), help-projects."
+    refs:
+      - state:project.purged
+      - transition:project.purge_expired
+    evidence:
+      - e28
+      - e24
+  - kind: question
+    note: state:project.in_trash is observable only through the trash listing and the notice on the project's page; the only field any source names is deleted_at (plus deleted_by on trashed projects). Should the match assert on deleted_at being set, once a reader is fixed?
+    refs:
+      - state:project.in_trash
+    evidence:
+      - e69
+      - e40
+status: decided
+decisions:
+  - op: 0
+    verdict: reject
+    note: The test-bed reader derives status from is_archived/deleted_at; match stays on status
+  - op: 1
+    verdict: reject
+    note: The test-bed reader derives status from is_archived/deleted_at; match stays on status
+  - op: 2
+    verdict: observe
+  - op: 3
+    verdict: accept
+  - op: 4
+    verdict: accept
+  - op: 5
+    verdict: observe
+  - op: 6
+    verdict: observe
+decidedAt: 2026-11-15T12:49:28.101Z
+resolutions:
+  - finding: 0
+    verdict: fine
+    note: The test-bed reader derives status.
+    at: 2026-11-15T12:50:05.194Z
+  - finding: 1
+    verdict: fine
+    note: Link shares are out of this case's scope.
+    at: 2026-11-15T12:50:05.238Z
+  - finding: 2
+    verdict: outdated
+    note: help-permissions and help-trash disagree on Admin link shares; the docs need one rule. Out of scope for tests.
+    at: 2026-11-15T12:50:05.295Z

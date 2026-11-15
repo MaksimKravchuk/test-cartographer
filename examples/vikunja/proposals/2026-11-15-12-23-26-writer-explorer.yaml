@@ -1,0 +1,350 @@
+id: 2026-11-15-12-23-26-writer-explorer
+entity: project
+agent: writer-explorer
+role: writer
+createdAt: 2026-11-15T12:28:13.826Z
+baseRevision: 5898a639a96b
+rationale: |-
+  As "User with Read & Write share" on a project owned by `owner` (project 19, shared with admin/writer/reader), I walked the project settings menu in each state and then tried every action, also via its direct address, reading the project back after each attempt.
+
+  Active: the menu offers Edit, Views, Background settings, Share, Duplicate, Archive, Subscribe, Webhooks, Create project — no Delete. Edit works (e6). Archive works (e12). Duplicate works and creates a copy the user can manage themselves (e9, e27). Share opens but is read-only: user and team lists with no add/remove/permission controls and no link-share section (e7), in contrast with a project the user owns (e27). Delete is absent from the menu; /settings/delete opens the confirmation, but confirming leaves the project active (e23–e25).
+
+  Archived: only Un-Archive is offered, and it works (e19). Edit is reachable by address but saving fails with "The project is archived and can therefore only be accessed read only" and the title is unchanged (e14–e16). Share stays viewable read-only (e18). Duplicate reached by address succeeds and the copy is created already archived (e17).
+
+  In the trash: the project is not listed in Trash → Projects (empty, e21) and there is no project menu, but opening the project address shows "This project is in the trash. owner deleted it 2 minutes ago / Deleted permanently in 30 days" (e22) — a read the model's read permit (active, archived) does not cover.
+
+  New ops: a read action for seeing who a project is shared with, a permit to read a project while it is in the trash, and two duplicate transitions (copy of an active project starts active, copy of an archived project starts archived). What could not be done is left out, since the model denies it by default; those are recorded as findings.
+evidence:
+  - id: e1
+    kind: screenshot
+    summary: Home page as writer
+    path: evidence/2026-11-15-12-23-26-writer-explorer/e1.png
+    url: http://localhost:3456/
+  - id: e2
+    kind: probe
+    summary: 'read 19: {"status":"active"}'
+    path: evidence/2026-11-15-12-23-26-writer-explorer/e2.json
+  - id: e3
+    kind: screenshot
+    summary: Projects list page as writer
+    path: evidence/2026-11-15-12-23-26-writer-explorer/e3.png
+    url: http://localhost:3456/projects
+  - id: e4
+    kind: screenshot
+    summary: Project settings menu for active shared project 19
+    path: evidence/2026-11-15-12-23-26-writer-explorer/e4.png
+    url: http://localhost:3456/projects
+  - id: e5
+    kind: screenshot
+    summary: Edit dialog for active shared project 19
+    path: evidence/2026-11-15-12-23-26-writer-explorer/e5.png
+    url: http://localhost:3456/projects/19/settings/edit
+  - id: e6
+    kind: probe
+    summary: 'read 19: {"status":"active"}'
+    path: evidence/2026-11-15-12-23-26-writer-explorer/e6.json
+  - id: e7
+    kind: screenshot
+    summary: Share page for active shared project 19 as writer
+    path: evidence/2026-11-15-12-23-26-writer-explorer/e7.png
+    url: http://localhost:3456/projects/19/settings/share
+  - id: e8
+    kind: screenshot
+    summary: Duplicate dialog for project 19
+    path: evidence/2026-11-15-12-23-26-writer-explorer/e8.png
+    url: http://localhost:3456/projects/19/settings/duplicate
+  - id: e9
+    kind: screenshot
+    summary: After clicking Duplicate as writer
+    path: evidence/2026-11-15-12-23-26-writer-explorer/e9.png
+    url: http://localhost:3456/projects/22/105
+  - id: e10
+    kind: screenshot
+    summary: Archive confirmation dialog for project 19
+    path: evidence/2026-11-15-12-23-26-writer-explorer/e10.png
+    url: http://localhost:3456/projects/19/settings/archive
+  - id: e11
+    kind: screenshot
+    summary: Result of archive attempt as writer
+    path: evidence/2026-11-15-12-23-26-writer-explorer/e11.png
+    url: http://localhost:3456/projects/19/93
+  - id: e12
+    kind: probe
+    summary: 'read 19: {"status":"archived"}'
+    path: evidence/2026-11-15-12-23-26-writer-explorer/e12.json
+  - id: e13
+    kind: screenshot
+    summary: Settings menu of archived project 19 as writer
+    path: evidence/2026-11-15-12-23-26-writer-explorer/e13.png
+    url: http://localhost:3456/projects/19/93
+  - id: e14
+    kind: screenshot
+    summary: Edit dialog opened directly on archived project 19
+    path: evidence/2026-11-15-12-23-26-writer-explorer/e14.png
+    url: http://localhost:3456/projects/19/settings/edit
+  - id: e15
+    kind: probe
+    summary: 'read 19: {"status":"archived"}'
+    path: evidence/2026-11-15-12-23-26-writer-explorer/e15.json
+  - id: e16
+    kind: screenshot
+    summary: Error after trying to save edit on archived project 19
+    path: evidence/2026-11-15-12-23-26-writer-explorer/e16.png
+    url: http://localhost:3456/projects/19/settings/edit
+  - id: e17
+    kind: screenshot
+    summary: Result of duplicating an archived project as writer
+    path: evidence/2026-11-15-12-23-26-writer-explorer/e17.png
+    url: http://localhost:3456/projects/23/109
+  - id: e18
+    kind: screenshot
+    summary: Share page of archived project 19 as writer
+    path: evidence/2026-11-15-12-23-26-writer-explorer/e18.png
+    url: http://localhost:3456/projects/19/settings/share
+  - id: e19
+    kind: probe
+    summary: 'read 19: {"status":"active"}'
+    path: evidence/2026-11-15-12-23-26-writer-explorer/e19.json
+  - id: e20
+    kind: screenshot
+    summary: Trash page as writer
+    path: evidence/2026-11-15-12-23-26-writer-explorer/e20.png
+    url: http://localhost:3456/trash/tasks
+  - id: e21
+    kind: screenshot
+    summary: Trash → Projects section as writer
+    path: evidence/2026-11-15-12-23-26-writer-explorer/e21.png
+    url: http://localhost:3456/trash/projects
+  - id: e22
+    kind: screenshot
+    summary: Opening trashed project 21 directly as writer
+    path: evidence/2026-11-15-12-23-26-writer-explorer/e22.png
+    url: http://localhost:3456/projects/21/0
+  - id: e23
+    kind: screenshot
+    summary: Delete dialog reached by URL on active project 19 as writer
+    path: evidence/2026-11-15-12-23-26-writer-explorer/e23.png
+    url: http://localhost:3456/projects/19/settings/delete
+  - id: e24
+    kind: probe
+    summary: 'read 19: {"status":"active"}'
+    path: evidence/2026-11-15-12-23-26-writer-explorer/e24.json
+  - id: e25
+    kind: screenshot
+    summary: Error after writer confirms Delete on active project 19
+    path: evidence/2026-11-15-12-23-26-writer-explorer/e25.png
+    url: http://localhost:3456/projects/19/settings/delete
+  - id: e26
+    kind: screenshot
+    summary: New sub-project dialog under shared project 19 as writer
+    path: evidence/2026-11-15-12-23-26-writer-explorer/e26.png
+    url: http://localhost:3456/projects/19/new
+  - id: e27
+    kind: screenshot
+    summary: Share dialog of project 22 (the duplicate, owned by writer) — contrast with shared project
+    path: evidence/2026-11-15-12-23-26-writer-explorer/e27.png
+    url: http://localhost:3456/projects/22/settings/share
+ops:
+  - op: add
+    kind: action
+    value:
+      id: view_shares
+      title: See who the project is shared with
+      kind: read
+      run: project.view_shares
+    evidence:
+      - e4
+      - e7
+      - e18
+      - e27
+  - op: add
+    kind: permit
+    value:
+      id: view_shares_read_write
+      title: See the project's user and team shares without being able to change them
+      action: view_shares
+      by:
+        - writer
+      states:
+        - active
+        - archived
+      effects:
+        - description: The Share page lists the users and teams the project is shared with, but offers no field to add someone, no permission dropdown and no remove button, and the list of link shares is not shown at all.
+    evidence:
+      - e4
+      - e7
+      - e18
+      - e27
+  - op: add
+    kind: rule
+    value:
+      id: shares_visible_to_read_and_write
+      title: A Read & Write share can see who the project is shared with
+      text: Someone shared at Read & Write can open the project's Share page and see which users and teams it is shared with, but gets no controls to add, remove or change a share and does not see its link shares.
+      action: view_shares
+      requires: []
+    evidence:
+      - e7
+      - e18
+      - e27
+  - op: add
+    kind: permit
+    value:
+      id: read_in_trash_read_write
+      title: See that a shared project is in the trash
+      action: read
+      by:
+        - writer
+      states:
+        - in_trash
+      effects:
+        - description: Opening the project's address shows only that the project is in the trash, who deleted it and how long until it is deleted permanently; there is no project settings menu and no Restore, and the project is not listed in the user's Trash.
+    evidence:
+      - e21
+      - e22
+  - op: update
+    kind: action
+    id: duplicate
+    set:
+      run: project.duplicate
+    evidence:
+      - e8
+      - e9
+      - e17
+  - op: add
+    kind: transition
+    value:
+      id: duplicate_from_active
+      title: Duplicate an active project
+      from: "@new"
+      to: active
+      action: duplicate
+      by:
+        - writer
+      guards:
+        - The project being copied is active
+      effects:
+        - description: A new active project named '<original title> - duplicate' appears in the user's project list with the original's views and tasks; the message says the project was successfully duplicated.
+        - description: The user who duplicated it can manage the copy's sharing, so the copy belongs to them and not to the original owner.
+        - description: With 'Copy shares (users, teams and link shares) to the duplicate' left checked, the original's user shares appear on the copy.
+    evidence:
+      - e8
+      - e9
+      - e27
+  - op: add
+    kind: transition
+    value:
+      id: duplicate_from_archived
+      title: Duplicate an archived project
+      from: "@new"
+      to: archived
+      action: duplicate
+      by:
+        - writer
+      guards:
+        - The project being copied is archived
+        - "Reached from the project's address: the menu of an archived project offers only Un-Archive"
+      effects:
+        - description: "The copy is created already archived: its page carries the notice that the project is archived and it stays out of the project list until it is unarchived."
+    evidence:
+      - e13
+      - e17
+findings:
+  - kind: confirmation
+    note: "Edit, Archive and Un-Archive really work for a Read & Write share: the title of active project 19 changed to 'w-edit-active' after saving, archiving turned it archived, and Un-Archive turned it active again."
+    refs:
+      - update
+      - archive
+      - unarchive
+    evidence:
+      - e5
+      - e6
+      - e10
+      - e11
+      - e12
+      - e19
+  - kind: confirmation
+    note: "Delete is not offered to a Read & Write share: the project settings menu of the shared active project has no Delete entry, and although /projects/19/settings/delete opens the 'Delete this project' confirmation, confirming it leaves the project active."
+    refs:
+      - trash
+      - delete_needs_admin
+    evidence:
+      - e4
+      - e23
+      - e24
+      - e25
+  - kind: contradiction
+    note: The read permit covers only the active and archived states, but a Read & Write share can still open a trashed project's address and read that it is in the trash, who deleted it and that it will be deleted permanently in 30 days - while the same user's Trash -> Projects list is empty. Proposed as permit read_in_trash_read_write; a person should decide whether reading a trashed project this way is intended.
+    refs:
+      - read
+      - view_trash
+      - restore_needs_admin
+    evidence:
+      - e21
+      - e22
+  - kind: contradiction
+    note: The model gives every sharing action to owner and admin only, yet the web app offers 'Share' in the project menu to a Read & Write share and shows the lists of users and teams. Nothing can be changed there (no add field, no permission dropdown, no remove button, no link shares), so it is a view rather than a change - proposed as the new view_shares action and permit. The same dialog on a project the user owns does show all those controls.
+    refs:
+      - share_user
+      - share_team
+      - change_share_permission
+      - share_management_needs_admin
+      - link_share_list_needs_admin
+    evidence:
+      - e4
+      - e7
+      - e18
+      - e27
+  - kind: question
+    note: On an archived project the menu offers only Un-Archive, but the Edit, Share and Duplicate pages are still reachable from the address bar. Edit then fails with 'The project is archived and can therefore only be accessed read only...' and nothing changes, Share shows read-only, but Duplicate succeeds. Is duplicating an archived project meant to be possible for a Read & Write share, given the menu hides it?
+    refs:
+      - duplicate
+      - archived_is_read_only
+    evidence:
+      - e13
+      - e14
+      - e16
+      - e17
+  - kind: question
+    note: "Neither duplicate could be verified with the model's reader: reading project 22 (copy of the active project) and project 23 (copy of the archived project) both answer 'You don't have the permission to see this', apparently because the copy belongs to the user who duplicated it and not to the account the reader uses. The copies' states are evidenced only from the web app: 22 appears in the project list as an ordinary project, 23 shows the archived notice and stays out of the list."
+    refs:
+      - duplicate_from_active
+      - duplicate_from_archived
+    evidence:
+      - e9
+      - e17
+      - e27
+  - kind: question
+    note: "Besides the six actions in scope, the project menu of the shared active project also offers a Read & Write share: Views, Background settings, Webhooks, Subscribe and 'Create project' (a sub-project under the shared project). None of these are in the model and none were tried in this run."
+    refs:
+      - create
+      - move
+    evidence:
+      - e4
+status: decided
+decisions:
+  - op: 0
+    verdict: accept
+  - op: 1
+    verdict: observe
+  - op: 2
+    verdict: observe
+  - op: 3
+    verdict: observe
+  - op: 4
+    verdict: reject
+    note: No library entry for duplicate yet
+  - op: 5
+    verdict: observe
+  - op: 6
+    verdict: observe
+decidedAt: 2026-11-15T12:35:45.774Z
+resolutions:
+  - finding: 2
+    verdict: fine
+    note: Reading a trashed project's notice is expected; not a requirement.
+    at: 2026-11-15T12:50:05.147Z
+  - finding: 3
+    verdict: fine
+    note: Share shows a read-only list to Read & Write; harmless.
+    at: 2026-11-15T12:50:05.168Z

@@ -32,3 +32,14 @@ test('review (scripted): reads code, quotes both sides, and the requirement wins
     await rm(dir, { recursive: true, force: true });
   }
 });
+
+test('model() lists entities; model({ entity }) gives one, and an unknown id says which exist', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'tc-model-'));
+  try {
+    await cp(join(repo, 'workspace'), dir, { recursive: true, filter: (src) => !src.includes('node_modules') });
+    await writeFile(join(dir, 'agents/onboarding.yaml'), 'steps:\n  - call: model\n  - call: model\n    input: { entity: order }\n  - call: model\n    input: { entity: nope }\n');
+    await assert.rejects(onboard(new Workspace(dir), undefined, { provider: 'scripted' }), /No entity “nope”: there are .*order/);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});

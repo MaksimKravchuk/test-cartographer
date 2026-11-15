@@ -1,0 +1,119 @@
+name: Vikunja case study
+interfaces:
+  - id: web
+    title: Vikunja web app
+    baseUrl: http://localhost:3456
+# Test accounts. Every project the setup tools create is owned by `owner` and
+# shared with admin / writer / reader at the matching permission level.
+roles:
+  - id: guest
+    title: Guest (signed out)
+    kind: human
+    interface: web
+  - id: owner
+    title: Project owner
+    kind: human
+    interface: web
+    login:
+      action: auth.login
+      args:
+        username: "{{roles.owner.login}}"
+        password: "{{roles.owner.password}}"
+    fields:
+      - id: login
+        value: owner
+      - id: password
+        value: owner-pass-123
+        secret: true
+  - id: admin
+    title: User with Admin share
+    kind: human
+    interface: web
+    login:
+      action: auth.login
+      args:
+        username: "{{roles.admin.login}}"
+        password: "{{roles.admin.password}}"
+    fields:
+      - id: login
+        value: admin
+      - id: password
+        value: admin-pass-123
+        secret: true
+  - id: writer
+    title: User with Read & Write share
+    kind: human
+    interface: web
+    login:
+      action: auth.login
+      args:
+        username: "{{roles.writer.login}}"
+        password: "{{roles.writer.password}}"
+    fields:
+      - id: login
+        value: writer
+      - id: password
+        value: writer-pass-123
+        secret: true
+  - id: reader
+    title: User with Read only share
+    kind: human
+    interface: web
+    login:
+      action: auth.login
+      args:
+        username: "{{roles.reader.login}}"
+        password: "{{roles.reader.password}}"
+    fields:
+      - id: login
+        value: reader
+      - id: password
+        value: reader-pass-123
+        secret: true
+  - id: outsider
+    title: Signed-in user without a share
+    kind: human
+    interface: web
+    login:
+      action: auth.login
+      args:
+        username: "{{roles.outsider.login}}"
+        password: "{{roles.outsider.password}}"
+    fields:
+      - id: login
+        value: outsider
+      - id: password
+        value: outsider-pass-123
+        secret: true
+  - id: trash_cleanup
+    title: Vikunja scheduled trash cleanup
+    kind: system
+mcp:
+  vikunja:
+    command: node
+    args: [mcp/server.ts]
+    env:
+      VIKUNJA_URL: http://localhost:3456
+    allow:
+      prepare: [create_project, create_task]
+      read: [get_project, get_task]
+runtime:
+  provider: claude
+  model: claude-opus-5
+  effort: high
+  maxSteps: 250
+agents:
+  - id: onboarding
+    kind: onboard
+    title: First research from the help pages and the code
+    goal: Read the Vikunja help pages and pkg/models, and propose roles, the project and task entities with their states, actions, who may perform them, and rules. Scope is projects and tasks under sharing permissions; ignore views, filters, CalDAV, labels, attachments.
+  - id: reader-explorer
+    title: Read-only share explorer
+    role: reader
+    entity: task
+    goal: In a project shared with you Read only, find every task and project action the web app offers or refuses you, in each task state (open, done, in the trash) and with the project active or archived. Try the ones that look available and record what the server answers.
+  - id: writer-explorer
+    title: Read & Write share explorer
+    role: writer
+    entity: project
+    goal: In a project shared with you Read & Write, find which project actions (edit, archive, unarchive, delete, share, duplicate) the web app offers you and which really work, in each project state (active, archived, in the trash).

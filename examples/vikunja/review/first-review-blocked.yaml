@@ -1,0 +1,824 @@
+id: 2026-11-15-12-11-00-review
+agent: onboarding
+createdAt: 2026-11-15T12:21:40.290Z
+baseRevision: f360e9820f9b
+rationale: "BLOCKER FIRST: I could not read the model. model() returns 67.8 KB, which this session truncates to a 2 KB preview, and there is no paging parameter; the Read and Bash tools are disabled here, so the persisted tool-result file is unreachable; and read()/files() on the code source refuse to leave the code folder (\"is outside the code folder\"). The only part of the model I ever saw is the beginning of project.roles: guest, owner, admin, writer, reader, outsider. I therefore did NOT propose any ops: with the entities, actions, transitions, permits, rules, invariants and backlog invisible, every add would risk duplicating something the model already has, and every \"contradiction\" against an element I cannot read would be guesswork. What I did instead, with all five help pages read end to end and the relevant parts of pkg/models read (permissions.go, project_permissions.go, project.go, project_trash.go, project_duplicate.go, task_trash.go, tasks_permissions.go, task_delete_cron.go, task_assignees.go, link_sharing.go, link_sharing_permissions.go, teams_permissions.go, team_members_permissions.go, admin_bypass.go, time_tracking.go, kanban_task_bucket.go, models.go): a full requirements-vs-code matrix, every cell quoted on both sides, so the reviewer can map each row onto their own elements in one pass. 24 rows agree (confirmations), 2 disagree (contradictions), 4 are code-only behavior (gaps), and the roles I could see are confirmed or flagged. Highlights: help-projects says duplicating a project copies its sub-projects, the code copies tasks, views, buckets, background and (optionally) shares but never child projects — docs win by priority, so this is a product bug or a doc bug, not a model change; help-permissions (\"Admin = full access, same levels for link shares\") collides with help-trash (\"People who use a link share don't have a trash\"), two priority-1 pages, and the code sides with the more specific trash page. Code-only behavior worth a decision: an instance-admin bypass gated by the admin-panel license that no help page mentions, a link-share auth that can never create projects or see a trash, and a \" - duplicate\" suffix on a duplicated project's title. Open questions: the model's openQuestions list was inside the truncated part of model(), so I could not read it and could not answer any of them — still open, for the tooling reason above, and I recommend a paged or per-entity model() (e.g. model({ entity }) or a 20 KB page) before the next review run."
+evidence:
+  - id: e1
+    kind: source
+    summary: The person or team can view everything in the project (tasks, labels, etc.) but cannot make any changes.
+    path: permissions.mdx#L21-L21
+    source: help-permissions
+  - id: e2
+    kind: source
+    summary: They can create, update, and delete tasks, add labels, and make other changes to the project's content.
+    path: permissions.mdx#L26-L26
+    source: help-permissions
+  - id: e3
+    kind: source
+    summary: "Full access to the project. In addition to everything Read & Write allows, admins can also manage sharing: add or remove other users and teams, and change their permission levels."
+    path: permissions.mdx#L30-L30
+    source: help-permissions
+  - id: e4
+    kind: source
+    summary: Admins can also delete the project and delete items from the [trash](/help/trash) permanently.
+    path: permissions.mdx#L30-L30
+    source: help-permissions
+  - id: e6
+    kind: source
+    summary: Permission defines the permissions users/teams can have for projects
+    path: permissions.go#L25-L25
+    source: vikunja-models
+  - id: e7
+    kind: source
+    summary: Can write in a like projects and tasks. Cannot create new projects.
+    path: permissions.go#L33-L33
+    source: vikunja-models
+  - id: e8
+    kind: source
+    summary: IsAdmin returns whether the user has admin permissions on the project or not
+    path: project_permissions.go#L297-L297
+    source: vikunja-models
+  - id: e9
+    kind: source
+    summary: // CanDelete checks if the user can delete a project func (p *Project) CanDelete(s *xorm.Session, a web.Auth) (bool, error) { // IsAdmin covers the instance admin bypass, but only after denying pseudo projects. return p.IsAdmin(s, a) }
+    path: project_permissions.go#L274-L278
+    source: vikunja-models
+  - id: e10
+    kind: source
+    summary: Owners are always admins
+    path: project_permissions.go#L323-L323
+    source: vikunja-models
+  - id: e11
+    kind: source
+    summary: Projects the user cannot access are absent from the result.
+    path: project_permissions.go#L357-L357
+    source: vikunja-models
+  - id: e12
+    kind: source
+    summary: return originalProject.ID == shareAuth.ProjectID && (shareAuth.Permission == PermissionWrite || shareAuth.Permission == PermissionAdmin), errIsArchived
+    path: project_permissions.go#L55-L56
+    source: vikunja-models
+  - id: e13
+    kind: source
+    summary: // Check if we're dealing with a share auth _, is := a.(*LinkSharing) if is { return false, nil } return true, nil }
+    path: project_permissions.go#L289-L295
+    source: vikunja-models
+  - id: e14
+    kind: source
+    summary: Link shares create a URL that gives access to a project without requiring a Vikunja account.
+    path: sharing-and-teams.mdx#L46-L46
+    source: help-sharing
+  - id: e15
+    kind: source
+    summary: You need Admin permission on the project to see this list, since the link itself grants whatever permission the share was created with.
+    path: sharing-and-teams.mdx#L64-L64
+    source: help-sharing
+  - id: e16
+    kind: source
+    summary: isInstanceAdmin gates cross-user access on both is_admin and the admin-panel
+    path: admin_bypass.go#L27-L27
+    source: vikunja-models
+  - id: e17
+    kind: source
+    summary: if !license.IsFeatureEnabled(license.FeatureAdminPanel) { return false }
+    path: admin_bypass.go#L32-L34
+    source: vikunja-models
+  - id: e18
+    kind: source
+    summary: Link shares cannot be edited after creation. To change the name, password, or permission level, delete the existing share and create a new one.
+    path: sharing-and-teams.mdx#L72-L72
+    source: help-sharing
+  - id: e19
+    kind: source
+    summary: If the link is password-protected, the recipient must enter the password before seeing the project.
+    path: sharing-and-teams.mdx#L78-L78
+    source: help-sharing
+  - id: e20
+    kind: source
+    summary: Add and remove members from the team
+    path: sharing-and-teams.mdx#L108-L108
+    source: help-sharing
+  - id: e21
+    kind: source
+    summary: Change whether other members are team admins
+    path: sharing-and-teams.mdx#L109-L109
+    source: help-sharing
+  - id: e22
+    kind: source
+    summary: Update shadows the embedded web.CRUDable method (link shares are immutable).
+    path: link_sharing.go#L223-L223
+    source: vikunja-models
+  - id: e23
+    kind: source
+    summary: "The password protecting this link share. Write-only: it can be set on create but is never returned."
+    path: link_sharing.go#L62-L62
+    source: vikunja-models
+  - id: e24
+    kind: source
+    summary: Share a project via link. The user needs to be admin of the project to be able do this.
+    path: link_sharing.go#L149-L149
+    source: vikunja-models
+  - id: e25
+    kind: source
+    summary: Don't allow creating link shares if the user itself authenticated with a link share
+    path: link_sharing_permissions.go#L26-L26
+    source: vikunja-models
+  - id: e26
+    kind: source
+    summary: IsAdmin returns true when the user is admin of a team
+    path: teams_permissions.go#L44-L44
+    source: vikunja-models
+  - id: e27
+    kind: source
+    summary: A user can add a member to a team if he is admin of that team
+    path: team_members_permissions.go#L68-L68
+    source: vikunja-models
+  - id: e28
+    kind: source
+    summary: // CanUpdate checks if the user can modify a team member's permission func (tm *TeamMember) CanUpdate(s *xorm.Session, a web.Auth) (bool, error) { return tm.IsAdmin(s, a) }
+    path: team_members_permissions.go#L52-L55
+    source: vikunja-models
+  - id: e29
+    kind: source
+    summary: You need **Read & Write** permission on the project to delete a task.
+    path: trash.mdx#L44-L44
+    source: help-trash
+  - id: e30
+    kind: source
+    summary: "| See it in the trash | Read & Write | Admin |"
+    path: trash.mdx#L114-L114
+    source: help-trash
+  - id: e31
+    kind: source
+    summary: "| Delete forever or empty the trash | Admin | Admin |"
+    path: trash.mdx#L116-L116
+    source: help-trash
+  - id: e32
+    kind: source
+    summary: "| Restore | Read & Write | Admin |"
+    path: trash.mdx#L115-L115
+    source: help-trash
+  - id: e33
+    kind: source
+    summary: People who use a [link share](/help/sharing-and-teams#link-shares) don't have a trash and can't open it.
+    path: trash.mdx#L120-L120
+    source: help-trash
+  - id: e34
+    kind: source
+    summary: Items in the trash are deleted permanently 30 days after they were deleted. Vikunja checks for expired items every hour. The 30 days are fixed and can't be changed.
+    path: trash.mdx#L124-L124
+    source: help-trash
+  - id: e35
+    kind: source
+    summary: You can delete your own default project. You can't delete a project that another user owns and uses as their default project.
+    path: trash.mdx#L60-L60
+    source: help-trash
+  - id: e36
+    kind: source
+    summary: come back with all of their sub-projects that are in the trash, including sub-projects that were deleted on their own before. Tasks that were deleted on their own stay in the trash.
+    path: trash.mdx#L67-L67
+    source: help-trash
+  - id: e37
+    kind: source
+    summary: You can't restore a sub-project on its own while its parent project is in the trash.
+    path: trash.mdx#L81-L81
+    source: help-trash
+  - id: e38
+    kind: source
+    summary: You can't restore a task while its project is [archived](/help/projects#archiving-a-project), and those tasks don't show up on the **Tasks** tab.
+    path: trash.mdx#L85-L85
+    source: help-trash
+  - id: e39
+    kind: source
+    summary: In a [Kanban view](/help/views#kanban-view), a restored task goes into the default bucket, or into the done bucket if the task is done.
+    path: trash.mdx#L66-L66
+    source: help-trash
+  - id: e40
+    kind: source
+    summary: This empties the tab you are on, so emptying the **Tasks** tab does not touch the **Projects** tab.
+    path: trash.mdx#L100-L100
+    source: help-trash
+  - id: e41
+    kind: source
+    summary: Uncheck it to delete only items you moved to the trash yourself.
+    path: trash.mdx#L102-L102
+    source: help-trash
+  - id: e42
+    kind: source
+    summary: Time entries for deleted tasks or projects are marked **In trash** and can't be edited. While a project is in the trash, only the person who logged a time entry can see it.
+    path: trash.mdx#L133-L133
+    source: help-trash
+  - id: e43
+    kind: source
+    summary: A deleted project keeps its identifier. You can't give the same identifier to another project until the deleted one is gone for good.
+    path: trash.mdx#L134-L134
+    source: help-trash
+  - id: e44
+    kind: source
+    summary: Deleting a project also moves all of its sub-projects to the trash.
+    path: trash.mdx#L58-L58
+    source: help-trash
+  - id: e46
+    kind: source
+    summary: If someone has a timer running on a task when it is deleted, the timer stops.
+    path: trash.mdx#L132-L132
+    source: help-trash
+  - id: e47
+    kind: source
+    summary: If you can restore a task but not delete it forever, the **Delete forever** button is not shown.
+    path: trash.mdx#L118-L118
+    source: help-trash
+  - id: e48
+    kind: source
+    summary: Whether the requesting user may permanently delete this task, which needs admin access to its project. Write access is enough to see and restore it.
+    path: task_trash.go#L210-L210
+    source: vikunja-models
+  - id: e49
+    kind: source
+    summary: Restore brings a trashed task back into its default or done bucket, positioned like a new task.
+    path: task_trash.go#L111-L111
+    source: vikunja-models
+  - id: e50
+    kind: source
+    summary: func trashedTasksCond(s *xorm.Session, a web.Auth, minPermission Permission) (builder.Cond, *projectAccess, error) { if _, isShare := a.(*LinkSharing); isShare { return nil, nil, ErrGenericForbidden{} }
+    path: task_trash.go#L187-L190
+    source: vikunja-models
+  - id: e51
+    kind: source
+    summary: 'builder.In("tasks.project_id", builder.Select("id").From("projects").Where(builder.Eq{"is_archived": false})),'
+    path: task_trash.go#L203-L203
+    source: vikunja-models
+  - id: e52
+    kind: source
+    summary: EmptyTaskTrash purges the auth's trash in projects it administers. Without includeOthers,
+    path: task_trash.go#L286-L286
+    source: vikunja-models
+  - id: e53
+    kind: source
+    summary: cond, _, err := trashedTasksCond(s, a, PermissionAdmin)
+    path: task_trash.go#L270-L270
+    source: vikunja-models
+  - id: e54
+    kind: source
+    summary: cond, access, err := trashedTasksCond(s, a, PermissionWrite)
+    path: task_trash.go#L215-L215
+    source: vikunja-models
+  - id: e55
+    kind: source
+    summary: // CanDeletePermanently checks whether the auth is admin of the trashed task's project. // Link shares have no trash, so they can't.
+    path: tasks_permissions.go#L94-L95
+    source: vikunja-models
+  - id: e57
+    kind: source
+    summary: "// A user can do a task if it has write acces to its project l := &Project{ID: ot.ProjectID} return l.CanWrite(s, a)"
+    path: tasks_permissions.go#L122-L124
+    source: vikunja-models
+  - id: e58
+    kind: source
+    summary: // CanDelete checks if the user can delete an task func (t *Task) CanDelete(s *xorm.Session, a web.Auth) (bool, error) { return t.canDoTask(s, a) }
+    path: tasks_permissions.go#L24-L27
+    source: vikunja-models
+  - id: e59
+    kind: source
+    summary: const TrashRetention = 30 * 24 * time.Hour
+    path: task_delete_cron.go#L33-L33
+    source: vikunja-models
+  - id: e60
+    kind: source
+    summary: removal. Hard-coded like the user deletion grace period.
+    path: task_delete_cron.go#L32-L32
+    source: vikunja-models
+  - id: e61
+    kind: source
+    summary: err := cron.Schedule("0 * * * *", func() { deleteExpiredTasks(time.Now()) })
+    path: task_delete_cron.go#L38-L40
+    source: vikunja-models
+  - id: e62
+    kind: source
+    summary: err := cron.Schedule("30 * * * *", func() { deleteExpiredProjects(time.Now()) })
+    path: project_trash.go#L662-L664
+    source: vikunja-models
+  - id: e63
+    kind: source
+    summary: RegisterProjectCleanupCron purges projects trashed more than TrashRetention ago.
+    path: project_trash.go#L660-L660
+    source: vikunja-models
+  - id: e64
+    kind: source
+    summary: Owners may trash their own default project, nobody else's.
+    path: project_trash.go#L55-L55
+    source: vikunja-models
+  - id: e65
+    kind: source
+    summary: Restore brings back all trashed sub-projects, whenever they were trashed; trashed tasks stay.
+    path: project_trash.go#L419-L419
+    source: vikunja-models
+  - id: e66
+    kind: source
+    summary: CanRestore requires admin access to the trashed project.
+    path: project_trash.go#L382-L382
+    source: vikunja-models
+  - id: e67
+    kind: source
+    summary: "case !parent.DeletedAt.IsZero(): return ErrParentProjectIsInTrash{"
+    path: project_trash.go#L405-L406
+    source: vikunja-models
+  - id: e68
+    kind: source
+    summary: "case parent.IsArchived: return ErrParentProjectIsArchived{"
+    path: project_trash.go#L410-L411
+    source: vikunja-models
+  - id: e69
+    kind: source
+    summary: Topmost trashed projects the user is admin of; trashed sub-projects are folded into their trashed ancestor.
+    path: project_trash.go#L496-L496
+    source: vikunja-models
+  - id: e70
+    kind: source
+    summary: Like regular reads, link shares never reach a trashed project.
+    path: project_trash.go#L272-L272
+    source: vikunja-models
+  - id: e71
+    kind: source
+    summary: EmptyProjectTrash purges every project in the auth's trash. Without includeOthers,
+    path: project_trash.go#L631-L631
+    source: vikunja-models
+  - id: e72
+    kind: source
+    summary: Whether the project is archived. Archived projects are read-only.
+    path: project.go#L60-L60
+    source: vikunja-models
+  - id: e73
+    kind: source
+    summary: When this project was moved to the trash. Trashed projects are removed permanently 30 days later.
+    path: project.go#L88-L88
+    source: vikunja-models
+  - id: e74
+    kind: source
+    summary: Trashed projects keep theirs so a restore can't collide
+    path: project.go#L977-L977
+    source: vikunja-models
+  - id: e75
+    kind: source
+    summary: "return ErrProjectIdentifierIsNotUnique{Identifier: project.Identifier}"
+    path: project.go#L987-L987
+    source: vikunja-models
+  - id: e76
+    kind: source
+    summary: CreateNewProjectForUser creates a new inbox project for a user.
+    path: project.go#L1084-L1084
+    source: vikunja-models
+  - id: e77
+    kind: source
+    summary: The unique project short identifier. Used to build task identifiers (e.g. PROJ-123).
+    path: project.go#L48-L48
+    source: vikunja-models
+  - id: e78
+    kind: source
+    summary: Every user has an **Inbox** project.
+    path: projects.mdx#L28-L28
+    source: help-projects
+  - id: e79
+    kind: source
+    summary: Archiving hides a project from the main working views and makes it read-only.
+    path: projects.mdx#L78-L78
+    source: help-projects
+  - id: e80
+    kind: source
+    summary: To delete a project, open the **three-dot menu** and select **Delete**. You need **Admin** permission on the project.
+    path: projects.mdx#L94-L94
+    source: help-projects
+  - id: e82
+    kind: source
+    summary: They are globally unique across all projects.
+    path: projects.mdx#L51-L51
+    source: help-projects
+  - id: e83
+    kind: source
+    summary: Vikunja creates a new project with copies of its tasks, views, sub-projects, and settings.
+    path: projects.mdx#L84-L84
+    source: help-projects
+  - id: e84
+    kind: source
+    summary: Copies the project, tasks, files, kanban data, assignees, comments, attachments, labels, relations and backgrounds from one project to a new one.
+    path: project_duplicate.go#L68-L68
+    source: vikunja-models
+  - id: e85
+    kind: source
+    summary: pd.Project.Title += " - duplicate"
+    path: project_duplicate.go#L93-L93
+    source: vikunja-models
+  - id: e86
+    kind: source
+    summary: User/team permissions and link shares are only copied when duplicate_shares is set to true. The user needs read access in the project and write access in the parent of the new project.
+    path: project_duplicate.go#L68-L68
+    source: vikunja-models
+  - id: e87
+    kind: source
+    summary: Only users who already have access to the project can be assigned to a task.
+    path: tasks.mdx#L106-L106
+    source: help-tasks
+  - id: e88
+    kind: source
+    summary: Adds a new assignee to a task. The assignee needs to have access to the project, the doer must be able to edit this task.
+    path: task_assignees.go#L208-L208
+    source: vikunja-models
+  - id: e89
+    kind: source
+    summary: The id of the user to assign to the task. The user must have access to the task's project.
+    path: task_assignees.go#L35-L35
+    source: vikunja-models
+  - id: e90
+    kind: source
+    summary: Whether the entry's task or project is in the trash. Such entries are read-only; while a project is in the trash, only their author sees them.
+    path: time_tracking.go#L47-L47
+    source: vikunja-models
+  - id: e91
+    kind: source
+    summary: Click the **Done** button at the top of the right sidebar to mark the task as completed. Click it again to reopen the task.
+    path: tasks.mdx#L50-L50
+    source: help-tasks
+  - id: e92
+    kind: source
+    summary: moving it into the [done bucket](/help/views#done-bucket) marks the task as done, and moving it back out marks it as not done.
+    path: tasks.mdx#L151-L151
+    source: help-tasks
+  - id: e94
+    kind: source
+    summary: The task as it stands after the move, reflecting any done-state change.
+    path: kanban_task_bucket.go#L43-L43
+    source: vikunja-models
+  - id: e95
+    kind: source
+    summary: Someone opening a link share can use the project according to the permission level you set, without a Vikunja account.
+    path: sharing-and-teams.mdx#L76-L76
+    source: help-sharing
+  - id: e96
+    kind: source
+    summary: This is the default when you share a project.
+    path: permissions.mdx#L22-L22
+    source: help-permissions
+  - id: e97
+    kind: source
+    summary: "There are three levels of access:"
+    path: permissions.mdx#L17-L17
+    source: help-permissions
+  - id: e98
+    kind: source
+    summary: Each entry shows who deleted it, when, and how many days are left before it is deleted permanently.
+    path: trash.mdx#L30-L30
+    source: help-trash
+  - id: e99
+    kind: source
+    summary: The user who moved this project to the trash. Only present on trashed projects.
+    path: project.go#L90-L90
+    source: vikunja-models
+  - id: e100
+    kind: source
+    summary: When a project is in the trash, its tasks are not shown on the **Tasks** tab, even tasks you deleted on their own. To get them back, restore the project first.
+    path: trash.mdx#L75-L75
+    source: help-trash
+  - id: e101
+    kind: source
+    summary: Unreadable trashed tasks are ErrTaskDoesNotExist so their existence doesn't leak.
+    path: task_trash.go#L30-L30
+    source: vikunja-models
+  - id: e103
+    kind: source
+    summary: "The permission this project is shared with: 0 = read only, 1 = read & write, 2 = admin."
+    path: link_sharing.go#L56-L56
+    source: vikunja-models
+  - id: e104
+    kind: source
+    summary: "The kind of this link, derived from whether a password was set: 0 = undefined, 1 = without password, 2 = with password."
+    path: link_sharing.go#L59-L59
+    source: vikunja-models
+  - id: e106
+    kind: source
+    summary: "Delete the share**: Remove the link share entirely, immediately revoking access for anyone using it"
+    path: sharing-and-teams.mdx#L70-L70
+    source: help-sharing
+  - id: e107
+    kind: source
+    summary: GetLinkShareFromClaims resolves a link share JWT against the DB on every
+    path: link_sharing.go#L87-L87
+    source: vikunja-models
+  - id: e108
+    kind: source
+    summary: call so that deletion or permission downgrades take effect immediately
+    path: link_sharing.go#L88-L88
+    source: vikunja-models
+ops: []
+findings:
+  - kind: question
+    note: "TOOLING BLOCKER — the review could not be completed against the model. model() returns 67.8 KB; this session truncates tool output to a 2 KB preview and model() takes no paging argument. Read and Bash are disabled, so the persisted tool-result JSON could not be opened; read({source:'vikunja-models', path:'../../go.mod'}) is refused with \"is outside the code folder\", so the entities/*.yaml files are unreachable too. Visible part: project.roles up to 'outsider'. Consequence: no element x source matrix for entities/actions/transitions/permits/rules/invariants, and no ops proposed in this run (proposing blind would duplicate existing elements). Request: a paged or scoped model tool (model({entity}) or offset/limit) and then re-run this review."
+    searched:
+      - help-permissions
+      - help-sharing
+      - help-projects
+      - help-tasks
+      - help-trash
+      - vikunja-models
+  - kind: confirmation
+    note: "role:reader (User with Read only share) matches the requirements: Read only is view-everything-no-changes and is the default level when sharing."
+    refs:
+      - role:reader
+    evidence:
+      - e1
+      - e96
+      - e97
+  - kind: confirmation
+    note: "role:writer (User with Read & Write share) matches help-permissions: create, update and delete tasks and other content changes. The code's own words for the same level: 'Can write in a like projects and tasks. Cannot create new projects.'"
+    refs:
+      - role:writer
+    evidence:
+      - e2
+      - e7
+  - kind: confirmation
+    note: "role:admin (User with Admin share) matches help-permissions: everything Read & Write allows, plus manage sharing, delete the project, and purge trash items. Code: Project.IsAdmin is the gate for those."
+    refs:
+      - role:admin
+    evidence:
+      - e3
+      - e4
+      - e8
+  - kind: confirmation
+    note: "role:owner (Project owner) is confirmed by the code only: the owner is always treated as a project admin. No help page names an 'owner' as a permission subject — the five help pages describe shares (user/team/link) and never the owner's own level; that asymmetry is worth a doc question but the model element is right."
+    refs:
+      - role:owner
+    evidence:
+      - e10
+  - kind: confirmation
+    note: "role:outsider (signed-in user without a share) is confirmed by the code: a project the user has no share for is simply absent from their access, i.e. not readable. Searched help-permissions and help-sharing for an explicit 'users without access see nothing' statement — not stated there."
+    refs:
+      - role:outsider
+    evidence:
+      - e11
+  - kind: question
+    note: "role:guest (Guest, signed out) — the only access without an account that the requirements describe is via a link share: 'gives access to a project without requiring a Vikunja account' and 'Someone opening a link share can use the project according to the permission level you set, without a Vikunja account'. Is the model's guest role meant to be the link-share recipient, or a signed-out visitor with no link? If it is the signed-out visitor, I found no source stating what they can see. Could not check whether a separate link-share role already exists in the model (output truncated)."
+    refs:
+      - role:guest
+    evidence:
+      - e14
+      - e95
+    searched:
+      - help-sharing
+      - help-permissions
+      - help-trash
+  - kind: gap
+    note: "Possible missing subject: the link-share recipient as a role of its own. The requirements treat it as a distinct subject with its own powers (same three permission levels, no trash at all), and the code treats a link-share auth as a separate auth kind throughout (it can write only on its own project at Write/Admin, can never create a link share, and has no trash). I cannot tell whether the model already has such a role because model() was truncated after 'outsider'."
+    evidence:
+      - e12
+      - e25
+      - e33
+      - e50
+    searched:
+      - help-sharing
+      - help-permissions
+      - help-trash
+      - vikunja-models
+  - kind: gap
+    note: "Code-only subject (behavior, not a requirement): an instance administrator bypass. isInstanceAdmin short-circuits CanWrite/CanRead/IsAdmin for any project, and is gated on the admin-panel license. No help page mentions instance admins or any cross-user bypass (searched help-permissions, help-sharing, help-projects, help-tasks, help-trash). If the reviewer wants it covered, it needs a role plus a decision on whether it is a requirement at all."
+    evidence:
+      - e16
+      - e17
+    searched:
+      - help-permissions
+      - help-sharing
+      - help-projects
+      - help-tasks
+      - help-trash
+  - kind: confirmation
+    note: Deleting a task needs Read & Write on the project. Requirement and code agree (Task.CanDelete -> write access to its project).
+    evidence:
+      - e29
+      - e58
+      - e57
+  - kind: confirmation
+    note: Deleting a project needs Admin on the project, and it moves the project to the trash rather than removing it. Requirement and code agree (Project.CanDelete -> IsAdmin).
+    evidence:
+      - e80
+      - e9
+  - kind: confirmation
+    note: Deleting a project also moves all of its sub-projects to the trash. Requirement and code agree (the trash operation walks the whole live subtree).
+    evidence:
+      - e44
+      - e64
+  - kind: confirmation
+    note: "Trash retention: items are purged 30 days after deletion, the period is fixed, and expiry is checked hourly. Code: TrashRetention = 30*24h, 'Hard-coded like the user deletion grace period', hourly crons for tasks and projects, and the project field doc repeats the 30 days."
+    evidence:
+      - e34
+      - e59
+      - e60
+      - e61
+      - e62
+      - e63
+      - e73
+  - kind: confirmation
+    note: "Who sees and restores trash items: tasks need Read & Write, projects need Admin. Code: the task trash listing is built with write permission and its rows say 'Write access is enough to see and restore it'; the project trash lists only projects the user administers and CanRestore requires admin."
+    evidence:
+      - e30
+      - e32
+      - e54
+      - e48
+      - e69
+      - e66
+  - kind: confirmation
+    note: "Deleting forever and emptying the trash need Admin for both tasks and projects. Code: Task.CanDeletePermanently -> IsAdmin; the task trash count/empty paths use admin permission; the project trash empty path uses the admin-only listing."
+    evidence:
+      - e31
+      - e55
+      - e53
+      - e52
+      - e71
+  - kind: confirmation
+    note: "A user who can restore a task but not purge it is not offered 'Delete forever'. Code: each trashed task carries can_delete_permanently, computed from admin access, alongside write-level visibility."
+    evidence:
+      - e47
+      - e48
+  - kind: confirmation
+    note: "People using a link share have no trash and cannot open it. Code: both trash listings reject a link-share auth outright, and a link-share auth never even reaches a trashed project."
+    evidence:
+      - e33
+      - e50
+      - e70
+      - e55
+  - kind: confirmation
+    note: "Default projects: you may trash your own default project but not one that another user owns and uses as their default. Requirement and code agree, in nearly the same words."
+    evidence:
+      - e35
+      - e64
+  - kind: confirmation
+    note: Restoring a project brings back all of its trashed sub-projects, whenever they were trashed, while tasks that were deleted on their own stay in the trash. Requirement and code agree.
+    evidence:
+      - e36
+      - e65
+  - kind: confirmation
+    note: "A sub-project cannot be restored on its own while its parent is in the trash (and not while the parent is archived either). Code: the restore blocker returns parent-in-trash / parent-archived errors."
+    evidence:
+      - e37
+      - e67
+      - e68
+  - kind: confirmation
+    note: "A task cannot be restored while its project is archived, and such tasks are not listed on the Tasks tab. Code: the task trash listing filters to projects with is_archived = false, and the archived check runs before the permission check."
+    evidence:
+      - e38
+      - e51
+  - kind: confirmation
+    note: "When a project is in the trash its tasks are not listed on the Tasks tab; the project must be restored first. Code: trashed tasks of unreachable (trashed) projects are not readable, and the project trash is the only way back."
+    evidence:
+      - e100
+      - e101
+      - e70
+  - kind: confirmation
+    note: A restored task lands in the default bucket, or in the done bucket when the task is done. Requirement and code agree ('back into its default or done bucket, positioned like a new task').
+    evidence:
+      - e39
+      - e49
+  - kind: confirmation
+    note: "Emptying the trash affects only the tab you are on, and the 'also delete items other people moved to the trash' option can be unchecked to purge only your own. Code: separate empty operations per kind, each with an includeOthers switch and a by-others count."
+    evidence:
+      - e40
+      - e41
+      - e52
+      - e71
+  - kind: confirmation
+    note: "Each trash entry shows who deleted it and when. Code: a trashed project carries deleted_by and deleted_at, present only on trashed items."
+    evidence:
+      - e98
+      - e99
+  - kind: confirmation
+    note: Archiving makes a project read-only. Requirement and code agree (the archived flag's own description says 'Archived projects are read-only', and writes on an archived project are refused).
+    evidence:
+      - e79
+      - e72
+  - kind: confirmation
+    note: "A deleted project keeps its identifier: no other project can take it until the deleted one is gone for good, and identifiers are globally unique. Code: the uniqueness check deliberately includes trashed rows, 'so a restore can't collide'."
+    evidence:
+      - e43
+      - e82
+      - e74
+      - e75
+      - e77
+  - kind: confirmation
+    note: "Every user has an Inbox project, used for tasks created without choosing a project. Code: user registration creates a project titled 'Inbox' and sets it as the user's default."
+    evidence:
+      - e78
+      - e76
+  - kind: confirmation
+    note: "Link shares cannot be edited after creation; to change name, password or level you delete and re-create. Code: Update is explicitly refused — 'link shares are immutable'."
+    evidence:
+      - e18
+      - e22
+  - kind: confirmation
+    note: Creating a link share and seeing the list of a project's link shares both need Admin on the project. Requirement and code agree.
+    evidence:
+      - e15
+      - e24
+      - e25
+  - kind: confirmation
+    note: "A link share can be password-protected and the recipient must enter the password first; the password is never shown again. Code: the password is write-only, and the share's kind records whether one was set."
+    evidence:
+      - e19
+      - e23
+      - e104
+  - kind: confirmation
+    note: "Deleting a link share immediately revokes access for anyone using the link. Code: the share token is resolved against the stored share on every call so deletion and permission downgrades take effect at once."
+    evidence:
+      - e106
+      - e107
+      - e108
+  - kind: confirmation
+    note: "The three permission levels are the same for users, teams and link shares, Read being the default. Code: one Permission type for users/teams, and the link share's level uses the same 0/1/2 scale with 0 as default."
+    evidence:
+      - e97
+      - e96
+      - e6
+      - e103
+  - kind: confirmation
+    note: "A team admin can add and remove team members and change whether other members are team admins; this is separate from project permissions. Code: TeamMember create/update/delete all require team-admin."
+    evidence:
+      - e20
+      - e21
+      - e27
+      - e28
+      - e26
+  - kind: confirmation
+    note: Only users who already have access to the project can be assigned to a task, and the person assigning must be able to edit the task. Requirement and code agree.
+    evidence:
+      - e87
+      - e88
+      - e89
+  - kind: confirmation
+    note: Time entries of deleted tasks or projects are marked 'In trash' and cannot be edited; while a project is in the trash only the person who logged the entry can see it. Requirement and code agree.
+    evidence:
+      - e42
+      - e90
+  - kind: confirmation
+    note: "Moving a task into the done bucket marks it done and moving it out marks it not done (same as the Done button). Code: the bucket-move result explicitly reflects the done-state change."
+    evidence:
+      - e92
+      - e91
+      - e94
+  - kind: contradiction
+    note: "Duplicating a project: help-projects says the copy includes sub-projects; the code copies the project, its tasks, files, kanban data, assignees, comments, attachments, labels, relations and backgrounds (shares only when asked for) and never walks child projects. help-projects (priority 1) wins over the code (priority 2), so the requirement stands as written and the code is the side that is wrong — the model should keep/get the requirement, and this is a product defect to raise, not a model edit. Could not check whether the model already states either version (model() truncated)."
+    evidence:
+      - e83
+      - e84
+      - e86
+  - kind: contradiction
+    note: "Two priority-1 pages disagree about an Admin link share and the trash. help-permissions says Admin is 'full access to the project', including deleting the project and purging trash items, and says the same levels apply to link shares; help-trash says people using a link share have no trash at all and cannot open it. The code sides with help-trash (both trash listings reject a link-share auth, and permanent deletion of a task is refused for link shares) while still letting an Admin link share move a project to the trash. Same priority, so neither wins by rank: the specific trash statement should be read as the exception to the general Admin description, and the model needs that exception explicit on the trash actions."
+    evidence:
+      - e3
+      - e4
+      - e33
+      - e50
+      - e55
+      - e12
+  - kind: gap
+    note: "Code-only behavior, not a requirement: a link-share auth can never create a project (and never create another link share), independent of its permission level. The code states it twice ('Cannot create new projects' for the write level; create returns false for a share auth). No help page says this — searched help-permissions, help-sharing, help-projects. Propose it as behavior to confirm with the product owner before it becomes a rule."
+    evidence:
+      - e7
+      - e13
+      - e25
+    searched:
+      - help-permissions
+      - help-sharing
+      - help-projects
+  - kind: gap
+    note: "Code-only behavior, not a requirement: a duplicated project's title gets ' - duplicate' appended, it gets a fresh identifier, the person who duplicates becomes its owner, and an archived project's copy stays archived. help-projects describes duplication without any of this (searched help-projects, help-tasks). Observable by a tester, so worth recording as behavior rather than as a requirement."
+    evidence:
+      - e85
+      - e84
+      - e83
+    searched:
+      - help-projects
+      - help-tasks
+  - kind: gap
+    note: "Code-only behavior, not a requirement: duplicating a project needs read access to the source project and write access to the chosen parent, and copies user/team/link shares only when explicitly asked. help-projects says nothing about who may duplicate (searched help-projects, help-permissions)."
+    evidence:
+      - e86
+    searched:
+      - help-projects
+      - help-permissions
+  - kind: gap
+    note: "Looked for, not found: nothing in any source describes sign-in itself, although the model's roles log in through an 'auth.login' action. Searched all five help pages (permissions, sharing, projects, tasks, trash) — none covers login, registration or sessions — and the code source is limited to pkg/models, which has no login handler (the user package is not part of the source). The auth.login action therefore has no requirement backing in these sources."
+    searched:
+      - help-permissions
+      - help-sharing
+      - help-projects
+      - help-tasks
+      - help-trash
+      - vikunja-models
+  - kind: gap
+    note: "Looked for, not found: no source states what the app shows for a 'running timer stops when its task is deleted' outcome beyond the requirement sentence itself; I read time_tracking.go (TimeEntry, Create, the in_trash flag) and found the in-trash/read-only rule but no stop-on-delete code in the files I read. Searched vikunja-models (time_tracking.go, task_trash.go, project_trash.go). Treat the requirement as unverified against code rather than contradicted."
+    evidence:
+      - e46
+      - e90
+    searched:
+      - help-trash
+      - vikunja-models
+status: pending
+decisions: []
+resolutions: []

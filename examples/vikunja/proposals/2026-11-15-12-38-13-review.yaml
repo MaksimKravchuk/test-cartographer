@@ -1,0 +1,280 @@
+id: 2026-11-15-12-38-13-review
+agent: onboarding
+createdAt: 2026-11-15T12:49:10.109Z
+baseRevision: f360e9820f9b
+rationale: |-
+  Reviewed every element of the two entities against all five help pages (read in full) and the pkg/models code (project.go, project_permissions.go, project_access.go, project_trash.go, project_purge.go, project_duplicate.go, project_users*.go, link_sharing_permissions.go, tasks.go, tasks_permissions.go, task_trash.go, task_delete_cron.go, task_duplicate.go, task_assignees*.go, favorites.go). Almost all rules are confirmed by a priority-1 help page or, where the help pages are silent about permissions, by the code only. Three real disagreements: (a) both entities' state `match` values name a `status` field that no source knows — the project is observable through `is_archived`/`deleted_at`, the task through `done`/`deleted_at` (the task entity's own invariant already uses `done`), so I propose aligning the matches that the code pins down and left `in_trash`/`purged` as questions; (b) help-permissions/help-sharing say every sharing method, link shares included, gets the same three levels and that Admin manages sharing, while the code refuses a link share any share management at all; (c) the code lets an Admin link share move a project to the trash although help-trash says link-share users have no trash — the project would land where its deleter cannot see it. Requirements win in (b) and (c) by priority; both are flagged for a human. New requirements found in the help pages and missing from the model: the done-bucket toggle marks a task done/undone, Empty trash scope (tab-local, only items you may purge, optional "also delete items other people moved"), favoriting a project, and creating a sub-project. Code-only behaviour proposed and labelled as behaviour, not requirement: no cyclic nesting, no move under an archived parent, sub-project creation needs write on the parent, a repeating task's checklist is unchecked when it reopens. A link-share recipient is added as a role because four existing rules talk about them with no subject to bind to.
+
+  Open questions:
+  1. Read-only sees a deleted task's notice — answered: intended in code ("Readers of the project get ErrTaskIsInTrash"), with CanRestore false; the same holds for projects, so I propose widening read_in_trash_read_write to the reader.
+  2. Task of an archived project readable by Read only — answered: reading a task only resolves project read access; the archived check lives in CanWrite, so the relation's `requires: active` is too strong (contradiction filed).
+  3. Keyboard shortcuts silent for Read only — still open: no source describes shortcut handling; code only gates the write itself.
+  4. Server answer to a Read only "Delete this project" — partly: CanDelete is IsAdmin, so a refusal is expected; no source states the message.
+  5. Duplicating an archived project as a writer — answered: read access plus write on the copy's parent is enough and the copy is re-archived afterwards.
+  6. Copies unreadable by the reader account — answered: the duplicate's owner is set to the duplicating user.
+  7. Extra menu entries (views, backgrounds, webhooks, subscribe, create project) — partly: sub-project creation needs write on the parent (proposed); views/backgrounds/webhooks/subscriptions remain unmodeled (gap filed).
+  8. Permission needed to archive/unarchive/edit — still open as a requirement; code requires write access (confirmed).
+  9. Permission needed to duplicate — still open as a requirement; code-only (confirmed, gap filed).
+  10. Default project cannot be archived — partly: code confirms it, all five help pages are silent.
+  11. Where a project in the trash is observable — partly: `deleted_at` is the only documented signal (code); the UI notice is described but names no field.
+  12. Can an Admin link share trash the project — answered: yes in code, and it then has no trash to see it; contradiction filed against help-trash.
+  13. Permission needed to mark a task done or edit it — still open as a requirement; code requires write access.
+  14. Does a restored task stay done — partly: code restores it into the done bucket without touching `done`; no page states it.
+  15. Where a task in the trash is observable — partly: `deleted_at` (code) plus the "This task is in the trash." notice.
+  16. Repeating tasks only in code — partly: help-tasks mentions "repeat settings" when duplicating, but no sourced page describes repeating behaviour.
+  17. Broad task.update folding comments/labels/dates — still open: a scope decision, nothing new in the sources.
+  18. Permission inheritance to sub-projects — partly: code confirms (inherited Admin sticky, nearest grant otherwise); no help page mentions it.
+  19. Teams unmodeled — still open: help-sharing documents teams and team admins; no team entity exists.
+  20. Where to read entities back — partly: the code names the observable fields (is_archived, done, deleted_at, deleted_by); choosing web vs API stays a human decision.
+evidence:
+  - id: e3
+    kind: source
+    summary: You need Admin permission on the project to see this list, since the link itself grants whatever permission the share was created with.
+    path: sharing-and-teams.mdx#L64-L64
+    source: help-sharing
+  - id: e6
+    kind: source
+    summary: Someone opening a link share can use the project according to the permission level you set, without a Vikunja account.
+    path: sharing-and-teams.mdx#L76-L76
+    source: help-sharing
+  - id: e7
+    kind: source
+    summary: You can share a project with any team you are part of. Search for the team by name, choose the permission level, and add the share. All team members then get access at that level.
+    path: sharing-and-teams.mdx#L40-L40
+    source: help-sharing
+  - id: e10
+    kind: source
+    summary: "Every method uses the same permission levels: **Read**, **Read & Write**, or **Admin**."
+    path: sharing-and-teams.mdx#L26-L26
+    source: help-sharing
+  - id: e16
+    kind: source
+    summary: To favorite a project, hover over it in the **sidebar** or on the **project overview** page and click the **star** icon. Favorited projects appear at the top of the sidebar.
+    path: projects.mdx#L90-L90
+    source: help-projects
+  - id: e23
+    kind: source
+    summary: People who use a [link share](/help/sharing-and-teams#link-shares) don't have a trash and can't open it.
+    path: trash.mdx#L120-L120
+    source: help-trash
+  - id: e24
+    kind: source
+    summary: Items in the trash are deleted permanently 30 days after they were deleted. Vikunja checks for expired items every hour. The 30 days are fixed and can't be changed.
+    path: trash.mdx#L124-L124
+    source: help-trash
+  - id: e38
+    kind: source
+    summary: The dialog tells you how many items will be deleted. If other people moved items to the trash too, the dialog says how many and shows a checked checkbox, for example **Also delete tasks other people moved to the trash**. Uncheck it to delete only items you moved to the trash yourself.
+    path: trash.mdx#L102-L102
+    source: help-trash
+  - id: e39
+    kind: source
+    summary: Click **Empty trash** at the top of the trash. This empties the tab you are on, so emptying the **Tasks** tab does not touch the **Projects** tab.
+    path: trash.mdx#L100-L100
+    source: help-trash
+  - id: e47
+    kind: source
+    summary: moving it into the [done bucket](/help/views#done-bucket) marks the task as done, and moving it back out marks it as not done.
+    path: tasks.mdx#L151-L151
+    source: help-tasks
+  - id: e76
+    kind: source
+    summary: if view.DoneBucketID != 0 && view.DoneBucketID == t.BucketID && !t.Done { t.Done = true
+    path: tasks.go#L1331-L1332
+    source: vikunja-models
+  - id: e83
+    kind: source
+    summary: // EmptyTaskTrash purges the auth's trash in projects it administers. Without includeOthers, // tasks someone else deleted stay.
+    path: task_trash.go#L286-L287
+    source: vikunja-models
+  - id: e95
+    kind: source
+    summary: "Click **Trash** in the left sidebar. The trash has two tabs:"
+    path: trash.mdx#L25-L25
+    source: help-trash
+  - id: e96
+    kind: source
+    summary: "Open the **three-dot menu** next to the project title, select **Share**, then choose one of these methods:"
+    path: sharing-and-teams.mdx#L16-L16
+    source: help-sharing
+  - id: e97
+    kind: source
+    summary: Open **Projects** in the sidebar, then use the button in the top right to create a new project.
+    path: projects.mdx#L34-L34
+    source: help-projects
+  - id: e100
+    kind: source
+    summary: Click **Favorite** to add the task to the **Favorites** project in the sidebar.
+    path: tasks.mdx#L62-L62
+    source: help-tasks
+  - id: e107
+    kind: source
+    summary: The copy includes the title, description, due, start, and end dates, repeat settings, priority, progress, color, assignees, reminders, labels, attachments, and the cover image.
+    path: tasks.mdx#L66-L66
+    source: help-tasks
+  - id: e108
+    kind: source
+    summary: "**Running timers stop:** If someone has a timer running on a task when it is deleted, the timer stops."
+    path: trash.mdx#L132-L132
+    source: help-trash
+  - id: e109
+    kind: source
+    summary: Each team member can optionally be a **team admin**.
+    path: sharing-and-teams.mdx#L106-L106
+    source: help-sharing
+ops:
+  - op: add
+    kind: role
+    value:
+      id: link_share
+      title: Recipient using a link share
+      kind: human
+      interface: web
+    evidence:
+      - e6
+      - e10
+      - e23
+  - op: add
+    kind: feature
+    value:
+      id: favorites
+      title: Favorites
+      description: Mark a project or a task as a favorite so it shows up at the top of the sidebar.
+      epic: projects_and_tasks
+      actions:
+        - project.favorite
+        - task.favorite
+    evidence:
+      - e16
+      - e100
+  - op: update
+    kind: feature
+    id: project_sharing
+    set:
+      actions:
+        - project.share_user
+        - project.share_team
+        - project.change_share_permission
+        - project.create_link_share
+        - project.delete_link_share
+        - project.view_shares
+    evidence:
+      - e96
+      - e3
+  - op: update
+    kind: feature
+    id: trash_and_restore
+    set:
+      actions:
+        - project.trash
+        - project.restore
+        - project.delete_permanently
+        - project.purge_expired
+        - project.view_trash
+        - task.trash
+        - task.restore
+        - task.delete_permanently
+        - task.purge_expired
+        - task.view_trash
+    evidence:
+      - e95
+      - e24
+  - op: add
+    kind: story
+    value:
+      id: done_bucket_toggles_done
+      title: Moving a task into the done bucket marks it done
+      text: As a user with Read & Write permission, I want dragging a task into the done bucket to mark it as completed, and dragging it out to reopen it.
+      acceptance:
+        - Moving a task into the done bucket of a Kanban view marks the task as done
+        - Moving it back out of the done bucket marks the task as not done
+        - The bucket picker in the task detail view has the same effect as dragging the task on the board
+      feature: task_lifecycle
+      epic: projects_and_tasks
+      covers:
+        - rule:task.done_bucket_marks_done
+        - transition:task.mark_done
+        - transition:task.reopen
+    evidence:
+      - e47
+      - e76
+  - op: add
+    kind: story
+    value:
+      id: empty_trash_scope
+      title: Emptying the trash only removes what you may remove
+      text: As a project admin, I want Empty trash to be limited to the tab I am on and to the items I am allowed to delete forever.
+      acceptance:
+        - Emptying the Tasks tab does not touch the Projects tab
+        - The dialog says how many items will be deleted and, when other people moved items to the trash, offers a checked option to also delete those
+        - Unchecking that option deletes only the items the user moved to the trash themselves
+        - Items the user is not allowed to delete permanently are not removed
+      feature: trash_and_restore
+      epic: trash
+      covers:
+        - rule:task.empty_trash_scope
+        - rule:task.permanent_delete_needs_admin
+        - rule:project.permanent_delete_needs_admin
+    evidence:
+      - e38
+      - e39
+      - e83
+findings:
+  - kind: gap
+    note: Four existing rules (project.link_share_has_no_trash, project.link_share_list_needs_admin, project.link_share_password, task.permanent_delete_needs_admin) describe what someone using a link share may do, but the model has no role for that subject — only signed-in users and a guest. help-sharing says a link-share recipient uses the project at the chosen permission level without an account, so the subject exists in the requirements; proposed as role link_share. Searched help-sharing, help-permissions, help-trash.
+    refs:
+      - role:link_share
+      - rule:project.link_share_has_no_trash
+    evidence:
+      - e6
+      - e10
+  - kind: gap
+    note: "Teams are still not modeled: help-sharing documents creating a team, adding/removing members, the team admin role and sharing a project with a team (current and future members get access), and help-permissions says a team share applies the level to every member. The project entity has share_team and change_share_permission, but there is no team entity with its own actions, so nothing covers team creation or membership. Searched help-sharing ('Teams', 'Managing team members', 'Team admin role') and help-permissions."
+    refs:
+      - action:project.share_team
+    evidence:
+      - e7
+      - e109
+  - kind: gap
+    note: "No journeys exist: both entities have `scenarios: []`, so no path through the transitions (e.g. create project -> share -> create task -> mark done -> trash -> restore) is described, and the stories in the backlog cover single rules instead. Searched the whole model; the help pages describe each operation separately and none of them prescribes an end-to-end flow."
+    evidence:
+      - e95
+  - kind: gap
+    note: "Backlog coverage: no feature slices project.read, project.update's archived-project behaviour, or the trash-viewing actions (added project.view_shares and the view_trash/purge_expired actions to the existing features in this proposal). Nothing in the backlog covers the favorite actions either, which is why the favorites feature is proposed. Searched the backlog's three epics and six features."
+    refs:
+      - feature:trash_and_restore
+      - feature:project_sharing
+    evidence:
+      - e95
+      - e100
+  - kind: confirmation
+    note: "The backlog's three epics match the sources' own structure: help-projects for projects and tasks, help-permissions/help-sharing for sharing, help-trash for trash and recovery, including the 30-day retention that the trash epic describes."
+    refs:
+      - epic:trash
+      - epic:sharing
+      - epic:projects_and_tasks
+    evidence:
+      - e24
+      - e10
+      - e97
+  - kind: question
+    note: "Several help-projects and help-tasks features are documented but deliberately unmodeled: project views (list/kanban/gantt/table), background images, webhooks, project and task subscriptions, saved filters, quick add magic, labels, attachments, comments, relations and time tracking (help-trash describes running timers stopping and time entries becoming read-only). Should any of them enter the model, or is the scope projects+tasks only? Searched help-projects, help-tasks, help-trash."
+    evidence:
+      - e108
+      - e107
+status: decided
+decisions:
+  - op: 0
+    verdict: accept
+  - op: 1
+    verdict: accept
+  - op: 2
+    verdict: accept
+  - op: 3
+    verdict: accept
+  - op: 4
+    verdict: accept
+  - op: 5
+    verdict: accept
+decidedAt: 2026-11-15T12:49:27.280Z
+resolutions: []

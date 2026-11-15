@@ -1,0 +1,1104 @@
+id: task
+title: Task
+description: A single to-do item inside a project. It can be marked done and reopened, moved to another project, duplicated and moved to the trash.
+key: id
+variants:
+  - id: one_off
+    title: One-off task
+    status: confirmed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding-task
+      evidence:
+        - e92
+      sources:
+        - vikunja-models
+  - id: repeating
+    title: Repeating task
+    status: observed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding-task
+      evidence:
+        - e92
+      sources:
+        - vikunja-models
+states:
+  - id: open
+    title: Open
+    match:
+      status: open
+    status: confirmed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding-task
+      evidence:
+        - e99
+        - e69
+      sources:
+        - vikunja-models
+        - help-tasks
+    setup:
+      - kind: tool
+        tool: vikunja.create_task
+        args:
+          status: open
+          tag: '{{runTag}}'
+          projectId: '{{rel.project}}'
+  - id: done
+    title: Done
+    match:
+      status: done
+    status: confirmed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding-task
+      evidence:
+        - e69
+        - e99
+      sources:
+        - help-tasks
+        - vikunja-models
+    setup:
+      - kind: tool
+        tool: vikunja.create_task
+        args:
+          status: done
+          tag: '{{runTag}}'
+          projectId: '{{rel.project}}'
+  - id: in_trash
+    title: In the trash
+    match:
+      status: trashed
+    status: confirmed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding-task
+      evidence:
+        - e77
+        - e103
+      sources:
+        - help-tasks
+        - help-trash
+    setup:
+      - kind: tool
+        tool: vikunja.create_task
+        args:
+          status: trashed
+          tag: '{{runTag}}'
+          projectId: '{{rel.project}}'
+  - id: purged
+    title: Deleted permanently
+    match:
+      status: purged
+    status: observed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding-task
+      evidence:
+        - e80
+        - e86
+      sources:
+        - help-trash
+transitions:
+  - id: create
+    title: Create a task
+    from: '@new'
+    to: open
+    action: create
+    by:
+      - owner
+      - admin
+      - writer
+    status: confirmed
+    provenance:
+      source: human
+  - id: mark_done
+    title: Mark the task as done
+    from: open
+    to: done
+    action: mark_done
+    by:
+      - owner
+      - admin
+      - writer
+    effects:
+      - description: The task is shown as completed and records when it was marked done.
+    status: confirmed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding-task
+      evidence:
+        - e69
+        - e100
+        - e94
+      sources:
+        - help-tasks
+        - vikunja-models
+  - id: reopen
+    title: Reopen a completed task
+    from: done
+    to: open
+    action: reopen
+    by:
+      - owner
+      - admin
+      - writer
+    effects:
+      - description: The task is open again and the time it was marked done is cleared.
+    status: confirmed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding-task
+      evidence:
+        - e69
+        - e95
+      sources:
+        - help-tasks
+        - vikunja-models
+  - id: mark_done_repeating
+    title: Mark a repeating task as done
+    from: open
+    to: open
+    action: mark_done
+    by:
+      - owner
+      - admin
+      - writer
+    guards:
+      - The task has a repeat interval set
+    effects:
+      - description: The task reopens for its next occurrence and its due date and reminders move on by the repeat interval.
+    status: observed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding-task
+      evidence:
+        - e92
+      sources:
+        - vikunja-models
+  - id: trash_open
+    title: Move an open task to the trash
+    from: open
+    to: in_trash
+    action: trash
+    by:
+      - owner
+      - admin
+      - writer
+    effects:
+      - description: The task moves to the trash right away, with no confirmation dialog, and the message that appears offers Undo.
+    status: confirmed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding-task
+      evidence:
+        - e77
+        - e78
+        - e106
+      sources:
+        - help-tasks
+        - help-trash
+  - id: trash_done
+    title: Move a completed task to the trash
+    from: done
+    to: in_trash
+    action: trash
+    by:
+      - owner
+      - admin
+      - writer
+    status: confirmed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding-task
+      evidence:
+        - e77
+        - e83
+      sources:
+        - help-tasks
+        - help-trash
+  - id: restore
+    title: Restore the task into its project
+    from: in_trash
+    to: open
+    action: restore
+    by:
+      - owner
+      - admin
+      - writer
+    guards:
+      - The task's project is neither archived nor in the trash
+    effects:
+      - description: The task goes back to its project.
+    status: confirmed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding-task
+      evidence:
+        - e82
+        - e79
+        - e101
+      sources:
+        - help-trash
+        - vikunja-models
+  - id: restore_done
+    title: Restore a task that was done
+    from: in_trash
+    to: done
+    action: restore
+    by:
+      - owner
+      - admin
+      - writer
+    guards:
+      - The task was done when it was deleted
+      - The task's project is neither archived nor in the trash
+    status: observed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding-task
+      evidence:
+        - e83
+        - e82
+      sources:
+        - help-trash
+  - id: delete_permanently
+    title: Delete the task forever
+    from: in_trash
+    to: purged
+    action: delete_permanently
+    by:
+      - owner
+      - admin
+    effects:
+      - description: The task is deleted with its comments, attachments, reminders and relations. This cannot be undone.
+    status: observed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding-task
+      evidence:
+        - e80
+        - e86
+      sources:
+        - help-trash
+  - id: purge_expired
+    title: Delete the task after 30 days in the trash
+    from: in_trash
+    to: purged
+    action: purge_expired
+    by:
+      - trash_cleanup
+    status: observed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding-task
+      evidence:
+        - e87
+      sources:
+        - help-trash
+rules:
+  - id: write_can_create_update_delete
+    title: Read & Write may create, update and delete tasks
+    text: Someone with Read & Write permission on the project can create, update and delete tasks in it.
+    action: update
+    requires:
+      - kind: roles
+        roles:
+          - owner
+          - admin
+          - writer
+    status: confirmed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding-task
+      evidence:
+        - e89
+        - e100
+      sources:
+        - help-permissions
+        - vikunja-models
+  - id: read_only_cannot_change
+    title: A Read only share cannot change tasks
+    text: Someone shared at Read only can view the project's tasks but cannot make any changes to them.
+    action: update
+    requires: []
+    status: confirmed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding-task
+      evidence:
+        - e90
+      sources:
+        - help-permissions
+  - id: task_access_follows_project
+    title: Task access follows the project's permission
+    text: Who may see and change a task is decided by the permission that person has on the project the task belongs to.
+    action: read
+    requires: []
+    status: observed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding-task
+      evidence:
+        - e97
+        - e100
+      sources:
+        - vikunja-models
+  - id: delete_needs_write
+    title: Deleting a task needs Read & Write permission
+    text: You need Read & Write permission on the project to delete a task.
+    action: trash
+    transition: trash_open
+    requires:
+      - kind: roles
+        roles:
+          - owner
+          - admin
+          - writer
+    status: confirmed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding-task
+      evidence:
+        - e78
+      sources:
+        - help-trash
+  - id: delete_has_no_confirmation
+    title: Deleting a task is immediate but undoable
+    text: A deleted task moves to the trash right away, without a confirmation dialog, and the message that appears has an Undo button that brings it straight back.
+    action: trash
+    transition: trash_open
+    requires: []
+    status: confirmed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding-task
+      evidence:
+        - e77
+      sources:
+        - help-tasks
+  - id: restore_needs_write
+    title: Seeing and restoring a trashed task needs Read & Write permission
+    text: Read & Write permission on the project is enough to see a task in the trash and restore it; without it the task is not listed.
+    action: restore
+    transition: restore
+    requires:
+      - kind: roles
+        roles:
+          - owner
+          - admin
+          - writer
+    status: confirmed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding-task
+      evidence:
+        - e79
+        - e81
+        - e101
+      sources:
+        - help-trash
+        - vikunja-models
+  - id: permanent_delete_needs_admin
+    title: Deleting a task forever needs Admin permission
+    text: Only someone with Admin permission on the project can delete a task forever or empty the task trash; if you can restore a task but not delete it forever, the Delete forever button is not shown, and someone using a link share cannot do it at all.
+    action: delete_permanently
+    transition: delete_permanently
+    requires:
+      - kind: roles
+        roles:
+          - owner
+          - admin
+    status: confirmed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding-task
+      evidence:
+        - e80
+        - e96
+      sources:
+        - help-trash
+        - vikunja-models
+  - id: purge_removes_related_data
+    title: Deleting a task forever removes everything on it
+    text: A task deleted forever is deleted with its comments, attachments, reminders and relations, and this cannot be undone.
+    action: delete_permanently
+    transition: delete_permanently
+    requires: []
+    status: confirmed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding-task
+      evidence:
+        - e86
+      sources:
+        - help-trash
+  - id: retention_30_days
+    title: A trashed task is deleted permanently after 30 days
+    text: A task in the trash is deleted permanently 30 days after it was deleted. Vikunja checks for expired items every hour.
+    action: purge_expired
+    transition: purge_expired
+    requires: []
+    status: confirmed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding-task
+      evidence:
+        - e87
+      sources:
+        - help-trash
+  - id: restore_blocked_by_archived_project
+    title: A task cannot be restored while its project is archived
+    text: You can't restore a task while its project is archived, and such tasks are not listed in the trash; the project has to be unarchived first.
+    action: restore
+    transition: restore
+    requires: []
+    status: confirmed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding-task
+      evidence:
+        - e84
+      sources:
+        - help-trash
+  - id: restore_blocked_by_trashed_project
+    title: A task cannot be restored while its project is in the trash
+    text: While a project is in the trash its tasks are not listed in the task trash, even tasks that were deleted on their own; the project has to be restored first.
+    action: restore
+    transition: restore
+    requires: []
+    status: confirmed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding-task
+      evidence:
+        - e85
+      sources:
+        - help-trash
+  - id: assignee_needs_project_access
+    title: Only users with project access can be assigned
+    text: Only users who already have access to the project can be assigned to a task.
+    action: assign
+    requires: []
+    status: confirmed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding-task
+      evidence:
+        - e88
+        - e98
+      sources:
+        - help-tasks
+        - vikunja-models
+  - id: move_needs_write_on_target
+    title: Moving a task needs write access to the target project
+    text: Moving a task to another project needs write access to the project it is moved into.
+    action: move
+    requires: []
+    status: observed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding-task
+      evidence:
+        - e91
+      sources:
+        - vikunja-models
+  - id: repeating_task_reopens
+    title: A repeating task reopens when marked done
+    text: Marking a task that has a repeat interval as done reopens it and moves its due date and reminders on by that interval.
+    action: mark_done
+    transition: mark_done_repeating
+    requires: []
+    status: observed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding-task
+      evidence:
+        - e92
+      sources:
+        - vikunja-models
+  - id: title_required
+    title: A task needs a title
+    text: A task cannot be created without a title.
+    action: create
+    requires: []
+    status: observed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding-task
+      evidence:
+        - e93
+      sources:
+        - vikunja-models
+  - id: duplicate_scope
+    title: A duplicated task lands in the same project without comments or relations
+    text: Duplicating a task creates the copy in the same project as the original; comments and relations to other tasks are not copied, and the copy is linked to the original with a copied-from relation.
+    action: duplicate
+    requires: []
+    status: confirmed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding-task
+      evidence:
+        - e75
+        - e76
+      sources:
+        - help-tasks
+  - id: duplicate_needs_write
+    title: Duplicating a task needs write access to its project
+    text: Duplicating a task needs read access to the task and write access to the project it lives in.
+    action: duplicate
+    requires: []
+    status: observed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding-task
+      evidence:
+        - e102
+      sources:
+        - vikunja-models
+  - id: mark_done_needs_active_project
+    title: No “mark_done” in an archived project
+    text: An archived project is read-only, so its tasks cannot be changed until it is unarchived.
+    transition: mark_done
+    requires:
+      - kind: entity-state
+        relation: project
+        states:
+          - active
+    status: confirmed
+    provenance:
+      source: human
+      sources:
+        - help-projects
+  - id: reopen_needs_active_project
+    title: No “reopen” in an archived project
+    text: An archived project is read-only, so its tasks cannot be changed until it is unarchived.
+    transition: reopen
+    requires:
+      - kind: entity-state
+        relation: project
+        states:
+          - active
+    status: confirmed
+    provenance:
+      source: human
+      sources:
+        - help-projects
+  - id: trash_open_needs_active_project
+    title: No “trash_open” in an archived project
+    text: An archived project is read-only, so its tasks cannot be changed until it is unarchived.
+    transition: trash_open
+    requires:
+      - kind: entity-state
+        relation: project
+        states:
+          - active
+    status: confirmed
+    provenance:
+      source: human
+      sources:
+        - help-projects
+  - id: favorite_needs_more_than_read_only
+    title: Favouriting a task is offered to a Read only share but refused
+    text: Every task in a project list carries an "Add to Favorites" button, also for someone whose share on the project is Read only. Pressing it answers with the error "Forbidden" and the task is not added to the favorites.
+    action: favorite
+    requires: []
+    status: observed
+    provenance:
+      source: agent
+      agent: reader-explorer
+      proposal: 2026-11-15-12-23-26-reader-explorer
+      evidence:
+        - e11
+        - e5
+      sources: []
+  - id: read_only_offers_no_task_actions
+    title: A Read only share is offered no task actions
+    text: "On a task in a project shared Read only nothing can be acted on: the done checkbox in the list, table and kanban views is disabled, the task detail view shows no action buttons (no Mark task done, Assign, Labels, Move, Duplicate, Delete), the title and description cannot be edited, there is no comment box, and the keyboard shortcuts of the task page (mark done, delete, favourite) do nothing. The same user's own task shows the full set of those buttons."
+    action: read
+    requires: []
+    status: confirmed
+    provenance:
+      source: agent
+      agent: reader-explorer
+      proposal: 2026-11-15-12-23-26-reader-explorer
+      evidence:
+        - e6
+        - e8
+        - e13
+        - e28
+        - e29
+        - e30
+        - e34
+      sources: []
+      seen: true
+  - id: archived_project_refuses_task_changes_with_message
+    title: Changing a task of an archived project is refused with an archived-project message
+    text: A project that is archived shows the notice "This project is archived. It is not possible to create new or edit tasks for it." above its task list, and an attempt to change one of its tasks is answered with "The project is archived and can therefore only be accessed read only. This is also true for all tasks associated with this project." Its tasks stay readable.
+    action: update
+    requires: []
+    status: confirmed
+    provenance:
+      source: agent
+      agent: reader-explorer
+      proposal: 2026-11-15-12-23-26-reader-explorer
+      evidence:
+        - e24
+        - e25
+        - e26
+      sources: []
+  - id: done_bucket_marks_done
+    title: The done bucket marks a task done
+    text: Moving a task into the done bucket of a Kanban view marks the task as done, and moving it back out marks it as not done; the bucket picker in the task detail view has the same effect as dragging the task on the board.
+    action: mark_done
+    requires: []
+    status: confirmed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-12-38-13-review-task
+      evidence:
+        - e47
+        - e76
+      sources:
+        - help-tasks
+        - vikunja-models
+  - id: empty_trash_scope
+    title: Emptying the trash is limited to one tab and to what you may delete
+    text: Empty trash only empties the tab you are on, so emptying the Tasks tab does not touch the Projects tab. The dialog says how many items will be deleted and, when other people moved items to the trash, offers a checked option to also delete those; unchecking it deletes only the items you moved to the trash yourself. Only items you are allowed to delete permanently are removed.
+    action: delete_permanently
+    requires:
+      - kind: roles
+        roles:
+          - owner
+          - admin
+    status: confirmed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-12-38-13-review-task
+      evidence:
+        - e38
+        - e39
+        - e83
+      sources:
+        - help-trash
+        - vikunja-models
+  - id: repeating_checklist_resets
+    title: A reopened repeating task starts with an unchecked checklist
+    text: When a task with a repeat interval is marked done and reopens for its next occurrence, the checklist items in its description are unchecked again.
+    action: mark_done
+    transition: mark_done_repeating
+    requires: []
+    status: observed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-12-38-13-review-task
+      evidence:
+        - e75
+      sources:
+        - vikunja-models
+invariants:
+  - id: done_task_records_when
+    title: A done task records when it was completed
+    text: A task that is done records the time it was marked done; reopening it clears that time.
+    states:
+      - done
+    holds:
+      done: true
+    status: observed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding-task
+      evidence:
+        - e94
+        - e95
+      sources:
+        - vikunja-models
+relations:
+  - id: project
+    entity: project
+    field: project_id
+    kind: part-of
+    requires: active
+actions:
+  - id: create
+    title: Create a task
+    kind: create
+    run: task.create
+    by:
+      - owner
+      - admin
+      - writer
+    status: confirmed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding-task
+      evidence:
+        - e72
+        - e89
+      sources:
+        - help-tasks
+        - help-permissions
+  - id: read
+    title: Open the task detail view
+    kind: read
+    run: task.view
+    status: confirmed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding-task
+      evidence:
+        - e70
+        - e97
+      sources:
+        - help-tasks
+        - vikunja-models
+  - id: update
+    title: Edit the task (title, description, dates, priority, progress, colour)
+    kind: update
+    run: task.edit
+    status: confirmed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding-task
+      evidence:
+        - e71
+      sources:
+        - help-tasks
+  - id: mark_done
+    title: Mark the task as done
+    kind: command
+    run: task.done
+    status: confirmed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding-task
+      evidence:
+        - e69
+      sources:
+        - help-tasks
+  - id: reopen
+    title: Reopen the task
+    kind: command
+    run: task.undone
+    status: confirmed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding-task
+      evidence:
+        - e69
+      sources:
+        - help-tasks
+  - id: move
+    title: Move the task to another project
+    kind: update
+    status: observed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding-task
+      evidence:
+        - e73
+        - e105
+      sources:
+        - help-tasks
+  - id: duplicate
+    title: Duplicate the task
+    kind: create
+    status: observed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding-task
+      evidence:
+        - e74
+      sources:
+        - help-tasks
+  - id: assign
+    title: Assign a user to the task
+    kind: command
+    status: observed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding-task
+      evidence:
+        - e88
+        - e98
+      sources:
+        - help-tasks
+        - vikunja-models
+  - id: unassign
+    title: Un-assign a user from the task
+    kind: command
+    status: observed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding-task
+      evidence:
+        - e104
+      sources:
+        - vikunja-models
+  - id: trash
+    title: Delete the task (move it to the trash)
+    kind: delete
+    run: task.delete
+    status: confirmed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding-task
+      evidence:
+        - e106
+        - e77
+      sources:
+        - help-trash
+        - help-tasks
+  - id: restore
+    title: Restore the task from the trash
+    kind: command
+    run: task.restore
+    status: confirmed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding-task
+      evidence:
+        - e82
+      sources:
+        - help-trash
+  - id: delete_permanently
+    title: Delete the task forever
+    kind: delete
+    status: observed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding-task
+      evidence:
+        - e80
+      sources:
+        - help-trash
+  - id: purge_expired
+    title: Delete the task after 30 days in the trash
+    kind: delete
+    status: observed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding-task
+      evidence:
+        - e87
+      sources:
+        - help-trash
+  - id: view_trash
+    title: See the task in the trash
+    kind: read
+    status: observed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding-task
+      evidence:
+        - e81
+      sources:
+        - help-trash
+  - id: favorite
+    title: Add the task to your favorites
+    kind: command
+    status: confirmed
+    provenance:
+      source: agent
+      agent: reader-explorer
+      proposal: 2026-11-15-12-23-26-reader-explorer
+      evidence:
+        - e11
+        - e25
+        - e34
+      sources: []
+permits:
+  - id: read
+    title: View the task
+    action: read
+    by:
+      - owner
+      - admin
+      - writer
+      - reader
+    states:
+      - open
+      - done
+    status: confirmed
+    provenance:
+      source: human
+      sources: []
+  - id: update
+    title: Edit the task
+    action: update
+    by:
+      - owner
+      - admin
+      - writer
+    states:
+      - open
+      - done
+    status: confirmed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding-task
+      evidence:
+        - e71
+        - e89
+        - e100
+      sources:
+        - help-tasks
+        - help-permissions
+        - vikunja-models
+  - id: move
+    title: Move the task to another project
+    action: move
+    by:
+      - owner
+      - admin
+      - writer
+    states:
+      - open
+      - done
+    status: observed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding-task
+      evidence:
+        - e73
+        - e91
+      sources:
+        - help-tasks
+        - vikunja-models
+  - id: assign
+    title: Assign a user to the task
+    action: assign
+    by:
+      - owner
+      - admin
+      - writer
+    states:
+      - open
+      - done
+    status: observed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding-task
+      evidence:
+        - e98
+        - e88
+      sources:
+        - vikunja-models
+        - help-tasks
+  - id: unassign
+    title: Un-assign a user from the task
+    action: unassign
+    by:
+      - owner
+      - admin
+      - writer
+    states:
+      - open
+      - done
+    status: observed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding-task
+      evidence:
+        - e104
+        - e98
+      sources:
+        - vikunja-models
+  - id: view_trash
+    title: See the task in the trash
+    action: view_trash
+    by:
+      - owner
+      - admin
+      - writer
+    states:
+      - in_trash
+    status: observed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding-task
+      evidence:
+        - e81
+      sources:
+        - help-trash
+  - id: view_deleted_task_notice
+    title: Open a deleted task by its link and see the deletion notice
+    action: view_trash
+    by:
+      - reader
+    states:
+      - in_trash
+    effects:
+      - description: The page says the task is in the trash, who deleted it and how long ago, and that it will be deleted permanently in 30 days. No title, description, Restore or Delete forever is shown.
+    status: observed
+    provenance:
+      source: agent
+      agent: reader-explorer
+      proposal: 2026-11-15-12-23-26-reader-explorer
+      evidence:
+        - e9
+        - e4
+      sources: []
+      seen: true
+      note: Looks like a leak of who deleted it; not a requirement
+reader:
+  tool: vikunja.get_task
+  args:
+    id: '{{key}}'

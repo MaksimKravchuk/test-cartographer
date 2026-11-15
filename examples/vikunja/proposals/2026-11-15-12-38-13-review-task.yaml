@@ -1,0 +1,581 @@
+id: 2026-11-15-12-38-13-review-task
+entity: task
+agent: onboarding
+createdAt: 2026-11-15T12:49:10.109Z
+baseRevision: 09e695be16f7
+rationale: |-
+  Reviewed every element of the two entities against all five help pages (read in full) and the pkg/models code (project.go, project_permissions.go, project_access.go, project_trash.go, project_purge.go, project_duplicate.go, project_users*.go, link_sharing_permissions.go, tasks.go, tasks_permissions.go, task_trash.go, task_delete_cron.go, task_duplicate.go, task_assignees*.go, favorites.go). Almost all rules are confirmed by a priority-1 help page or, where the help pages are silent about permissions, by the code only. Three real disagreements: (a) both entities' state `match` values name a `status` field that no source knows — the project is observable through `is_archived`/`deleted_at`, the task through `done`/`deleted_at` (the task entity's own invariant already uses `done`), so I propose aligning the matches that the code pins down and left `in_trash`/`purged` as questions; (b) help-permissions/help-sharing say every sharing method, link shares included, gets the same three levels and that Admin manages sharing, while the code refuses a link share any share management at all; (c) the code lets an Admin link share move a project to the trash although help-trash says link-share users have no trash — the project would land where its deleter cannot see it. Requirements win in (b) and (c) by priority; both are flagged for a human. New requirements found in the help pages and missing from the model: the done-bucket toggle marks a task done/undone, Empty trash scope (tab-local, only items you may purge, optional "also delete items other people moved"), favoriting a project, and creating a sub-project. Code-only behaviour proposed and labelled as behaviour, not requirement: no cyclic nesting, no move under an archived parent, sub-project creation needs write on the parent, a repeating task's checklist is unchecked when it reopens. A link-share recipient is added as a role because four existing rules talk about them with no subject to bind to.
+
+  Open questions:
+  1. Read-only sees a deleted task's notice — answered: intended in code ("Readers of the project get ErrTaskIsInTrash"), with CanRestore false; the same holds for projects, so I propose widening read_in_trash_read_write to the reader.
+  2. Task of an archived project readable by Read only — answered: reading a task only resolves project read access; the archived check lives in CanWrite, so the relation's `requires: active` is too strong (contradiction filed).
+  3. Keyboard shortcuts silent for Read only — still open: no source describes shortcut handling; code only gates the write itself.
+  4. Server answer to a Read only "Delete this project" — partly: CanDelete is IsAdmin, so a refusal is expected; no source states the message.
+  5. Duplicating an archived project as a writer — answered: read access plus write on the copy's parent is enough and the copy is re-archived afterwards.
+  6. Copies unreadable by the reader account — answered: the duplicate's owner is set to the duplicating user.
+  7. Extra menu entries (views, backgrounds, webhooks, subscribe, create project) — partly: sub-project creation needs write on the parent (proposed); views/backgrounds/webhooks/subscriptions remain unmodeled (gap filed).
+  8. Permission needed to archive/unarchive/edit — still open as a requirement; code requires write access (confirmed).
+  9. Permission needed to duplicate — still open as a requirement; code-only (confirmed, gap filed).
+  10. Default project cannot be archived — partly: code confirms it, all five help pages are silent.
+  11. Where a project in the trash is observable — partly: `deleted_at` is the only documented signal (code); the UI notice is described but names no field.
+  12. Can an Admin link share trash the project — answered: yes in code, and it then has no trash to see it; contradiction filed against help-trash.
+  13. Permission needed to mark a task done or edit it — still open as a requirement; code requires write access.
+  14. Does a restored task stay done — partly: code restores it into the done bucket without touching `done`; no page states it.
+  15. Where a task in the trash is observable — partly: `deleted_at` (code) plus the "This task is in the trash." notice.
+  16. Repeating tasks only in code — partly: help-tasks mentions "repeat settings" when duplicating, but no sourced page describes repeating behaviour.
+  17. Broad task.update folding comments/labels/dates — still open: a scope decision, nothing new in the sources.
+  18. Permission inheritance to sub-projects — partly: code confirms (inherited Admin sticky, nearest grant otherwise); no help page mentions it.
+  19. Teams unmodeled — still open: help-sharing documents teams and team admins; no team entity exists.
+  20. Where to read entities back — partly: the code names the observable fields (is_archived, done, deleted_at, deleted_by); choosing web vs API stays a human decision.
+evidence:
+  - id: e1
+    kind: source
+    summary: The person or team can view everything in the project (tasks, labels, etc.) but cannot make any changes. This is the default when you share a project.
+    path: permissions.mdx#L21-L22
+    source: help-permissions
+  - id: e2
+    kind: source
+    summary: The person or team can view and edit the project. They can create, update, and delete tasks, add labels, and make other changes to the project's content.
+    path: permissions.mdx#L26-L26
+    source: help-permissions
+  - id: e12
+    kind: source
+    summary: Archiving hides a project from the main working views and makes it read-only.
+    path: projects.mdx#L78-L78
+    source: help-projects
+  - id: e22
+    kind: source
+    summary: "| See it in the trash | Read & Write | Admin |"
+    path: trash.mdx#L114-L114
+    source: help-trash
+  - id: e24
+    kind: source
+    summary: Items in the trash are deleted permanently 30 days after they were deleted. Vikunja checks for expired items every hour. The 30 days are fixed and can't be changed.
+    path: trash.mdx#L124-L124
+    source: help-trash
+  - id: e32
+    kind: source
+    summary: You need **Read & Write** permission on the project to delete a task.
+    path: trash.mdx#L44-L44
+    source: help-trash
+  - id: e33
+    kind: source
+    summary: "**Tasks** go back to their project. In a [Kanban view](/help/views#kanban-view), a restored task goes into the default bucket, or into the done bucket if the task is done."
+    path: trash.mdx#L66-L66
+    source: help-trash
+  - id: e34
+    kind: source
+    summary: "**A task** is deleted with its comments, attachments, reminders, and relations."
+    path: trash.mdx#L93-L93
+    source: help-trash
+  - id: e35
+    kind: source
+    summary: If you can restore a task but not delete it forever, the **Delete forever** button is not shown.
+    path: trash.mdx#L118-L118
+    source: help-trash
+  - id: e36
+    kind: source
+    summary: You can't restore a task while its project is [archived](/help/projects#archiving-a-project), and those tasks don't show up on the **Tasks** tab. Unarchive the project first.
+    path: trash.mdx#L85-L85
+    source: help-trash
+  - id: e37
+    kind: source
+    summary: When a project is in the trash, its tasks are not shown on the **Tasks** tab, even tasks you deleted on their own. To get them back, restore the project first.
+    path: trash.mdx#L75-L75
+    source: help-trash
+  - id: e38
+    kind: source
+    summary: The dialog tells you how many items will be deleted. If other people moved items to the trash too, the dialog says how many and shows a checked checkbox, for example **Also delete tasks other people moved to the trash**. Uncheck it to delete only items you moved to the trash yourself.
+    path: trash.mdx#L102-L102
+    source: help-trash
+  - id: e39
+    kind: source
+    summary: Click **Empty trash** at the top of the trash. This empties the tab you are on, so emptying the **Tasks** tab does not touch the **Projects** tab.
+    path: trash.mdx#L100-L100
+    source: help-trash
+  - id: e40
+    kind: source
+    summary: If you open a deleted task or project, for example from a bookmark or a notification, Vikunja shows a notice like "This task is in the trash." It tells you when it was deleted and how many days are left. If you are allowed to restore it, the notice has a **Restore** button and an **Open trash** button.
+    path: trash.mdx#L69-L69
+    source: help-trash
+  - id: e41
+    kind: source
+    summary: Click the **Done** button at the top of the right sidebar to mark the task as completed. Click it again to reopen the task.
+    path: tasks.mdx#L50-L50
+    source: help-tasks
+  - id: e42
+    kind: source
+    summary: The task moves to the [trash](/help/trash) right away, without a confirmation dialog. Click **Undo** in the message that appears to bring it back.
+    path: tasks.mdx#L74-L74
+    source: help-tasks
+  - id: e43
+    kind: source
+    summary: Only users who already have access to the project can be assigned to a task.
+    path: tasks.mdx#L106-L106
+    source: help-tasks
+  - id: e44
+    kind: source
+    summary: Comments and relations to other tasks are not copied.
+    path: tasks.mdx#L68-L68
+    source: help-tasks
+  - id: e45
+    kind: source
+    summary: The copy is created in the same project as the original.
+    path: tasks.mdx#L70-L70
+    source: help-tasks
+  - id: e46
+    kind: source
+    summary: "**From the detail view:** Use the project field in the right sidebar to select a different project."
+    path: tasks.mdx#L140-L140
+    source: help-tasks
+  - id: e47
+    kind: source
+    summary: moving it into the [done bucket](/help/views#done-bucket) marks the task as done, and moving it back out marks it as not done.
+    path: tasks.mdx#L151-L151
+    source: help-tasks
+  - id: e70
+    kind: source
+    summary: // Whether a task is done or not. Done bool
+    path: tasks.go#L103-L104
+    source: vikunja-models
+  - id: e71
+    kind: source
+    summary: // The time when a task was marked as done. This field is system-controlled and cannot be set via API.
+    path: tasks.go#L105-L105
+    source: vikunja-models
+  - id: e72
+    kind: source
+    summary: if t.Title == "" { return ErrTaskCannotBeEmpty{} }
+    path: tasks.go#L71-L73
+    source: vikunja-models
+  - id: e73
+    kind: source
+    summary: newTask.DoneAt = time.Now() } // When unmarking a task as done, reset the timestamp if oldTask.Done && !newTask.Done { newTask.DoneAt = time.Time{} }
+    path: tasks.go#L2138-L2144
+    source: vikunja-models
+  - id: e74
+    kind: source
+    summary: An amount in seconds this task repeats itself. If this is set, when marking the task as done, it will mark itself as "undone" and then increase all remindes and the due date by its amount.
+    path: tasks.go#L111-L111
+    source: vikunja-models
+  - id: e75
+    kind: source
+    summary: // A recurring task reopens for its next occurrence, so its checklist starts fresh. if oldTask.isRepeating() && !newTask.Done { newTask.Description = resetDescriptionChecklist(newTask.Description) }
+    path: tasks.go#L2133-L2136
+    source: vikunja-models
+  - id: e76
+    kind: source
+    summary: if view.DoneBucketID != 0 && view.DoneBucketID == t.BucketID && !t.Done { t.Done = true
+    path: tasks.go#L1331-L1332
+    source: vikunja-models
+  - id: e77
+    kind: source
+    summary: "// A user can do a task if it has write acces to its project l := &Project{ID: ot.ProjectID} return l.CanWrite(s, a)"
+    path: tasks_permissions.go#L122-L124
+    source: vikunja-models
+  - id: e78
+    kind: source
+    summary: // Check if we're moving the task into a different project to check if the user has sufficient permissions for that on the new project
+    path: tasks_permissions.go#L110-L110
+    source: vikunja-models
+  - id: e79
+    kind: source
+    summary: // CanDeletePermanently checks whether the auth is admin of the trashed task's project. // Link shares have no trash, so they can't.
+    path: tasks_permissions.go#L94-L95
+    source: vikunja-models
+  - id: e80
+    kind: source
+    summary: Whether the requesting user may permanently delete this task, which needs admin access to its project. Write access is enough to see and restore it.
+    path: task_trash.go#L210-L210
+    source: vikunja-models
+  - id: e81
+    kind: source
+    summary: 'builder.In("tasks.project_id", builder.Select("id").From("projects").Where(builder.Eq{"is_archived": false})),'
+    path: task_trash.go#L203-L203
+    source: vikunja-models
+  - id: e82
+    kind: source
+    summary: // Readers of the project get ErrTaskIsInTrash; everyone else keeps notFound.
+    path: task_trash.go#L72-L72
+    source: vikunja-models
+  - id: e83
+    kind: source
+    summary: // EmptyTaskTrash purges the auth's trash in projects it administers. Without includeOthers, // tasks someone else deleted stay.
+    path: task_trash.go#L286-L287
+    source: vikunja-models
+  - id: e84
+    kind: source
+    summary: // Restore brings a trashed task back into its default or done bucket, positioned like a new task.
+    path: task_trash.go#L111-L111
+    source: vikunja-models
+  - id: e85
+    kind: source
+    summary: // TrashRetention is how long trashed tasks and projects are kept before permanent // removal. Hard-coded like the user deletion grace period. const TrashRetention = 30 * 24 * time.Hour
+    path: task_delete_cron.go#L31-L33
+    source: vikunja-models
+  - id: e86
+    kind: source
+    summary: // Need write access on the project to create tasks in it
+    path: task_duplicate.go#L50-L50
+    source: vikunja-models
+  - id: e87
+    kind: source
+    summary: canRead, _, err := project.CanRead(s, newAssignee) if err != nil { return err } if !canRead { return ErrUserDoesNotHaveAccessToProject{project.ID, newAssigneeID} }
+    path: task_assignees.go#L240-L246
+    source: vikunja-models
+  - id: e88
+    kind: source
+    summary: // Check if the current user can edit the project project, err := GetProjectSimpleByTaskID(s, taskID)
+    path: task_assignees_permissions.go#L40-L41
+    source: vikunja-models
+  - id: e89
+    kind: source
+    summary: "if project.IsArchived { return ErrProjectIsArchived{ProjectID: id} }"
+    path: project.go#L908-L910
+    source: vikunja-models
+  - id: e93
+    kind: source
+    summary: Open the trash, find the task or project, and click **Restore** (the arrow icon).
+    path: trash.mdx#L64-L64
+    source: help-trash
+  - id: e94
+    kind: source
+    summary: To delete something before the 30 days are up, click **Delete forever** (the trash can icon) next to it in the trash. Vikunja asks you to confirm.
+    path: trash.mdx#L91-L91
+    source: help-trash
+  - id: e98
+    kind: source
+    summary: "**Create a task:** Use the input at the top of the list view or on the [dashboard](/help/dashboard)."
+    path: tasks.mdx#L16-L16
+    source: help-tasks
+  - id: e99
+    kind: source
+    summary: Click **Duplicate** in the right sidebar to create a copy of the task.
+    path: tasks.mdx#L66-L66
+    source: help-tasks
+  - id: e100
+    kind: source
+    summary: Click **Favorite** to add the task to the **Favorites** project in the sidebar.
+    path: tasks.mdx#L62-L62
+    source: help-tasks
+  - id: e101
+    kind: source
+    summary: The detail view is where you edit the task title, description, dates, labels, assignees, attachments, and everything else.
+    path: tasks.mdx#L26-L26
+    source: help-tasks
+  - id: e106
+    kind: source
+    summary: "// A user can read a task if it has access to the project l := &Project{ID: t.ProjectID} return l.CanRead(s, a)"
+    path: tasks_permissions.go#L54-L56
+    source: vikunja-models
+  - id: e107
+    kind: source
+    summary: The copy includes the title, description, due, start, and end dates, repeat settings, priority, progress, color, assignees, reminders, labels, attachments, and the cover image.
+    path: tasks.mdx#L66-L66
+    source: help-tasks
+ops:
+  - op: update
+    kind: state
+    id: open
+    set:
+      match:
+        done: false
+    evidence:
+      - e70
+  - op: update
+    kind: state
+    id: done
+    set:
+      match:
+        done: true
+    evidence:
+      - e70
+      - e41
+  - op: add
+    kind: rule
+    value:
+      id: done_bucket_marks_done
+      title: The done bucket marks a task done
+      text: Moving a task into the done bucket of a Kanban view marks the task as done, and moving it back out marks it as not done; the bucket picker in the task detail view has the same effect as dragging the task on the board.
+      action: mark_done
+      requires: []
+    evidence:
+      - e47
+      - e76
+  - op: add
+    kind: rule
+    value:
+      id: empty_trash_scope
+      title: Emptying the trash is limited to one tab and to what you may delete
+      text: Empty trash only empties the tab you are on, so emptying the Tasks tab does not touch the Projects tab. The dialog says how many items will be deleted and, when other people moved items to the trash, offers a checked option to also delete those; unchecking it deletes only the items you moved to the trash yourself. Only items you are allowed to delete permanently are removed.
+      action: delete_permanently
+      requires:
+        - kind: roles
+          roles:
+            - owner
+            - admin
+    evidence:
+      - e38
+      - e39
+      - e83
+  - op: add
+    kind: rule
+    value:
+      id: repeating_checklist_resets
+      title: A reopened repeating task starts with an unchecked checklist
+      text: When a task with a repeat interval is marked done and reopens for its next occurrence, the checklist items in its description are unchecked again.
+      action: mark_done
+      transition: mark_done_repeating
+      requires: []
+    evidence:
+      - e75
+findings:
+  - kind: contradiction
+    note: "The states name a field no source knows. The model matches task states on `status` (open/done/trashed/purged), but the only source that names observable fields — the code — has a boolean `done` plus `done_at` and `deleted_at`, and the entity's own invariant done_task_records_when already uses holds {done: true}, so the model contradicts itself as well. The help pages only describe the Done button. The code wins by default (no priority-1 source names fields), so open/done are proposed as done:false / done:true; in_trash and purged are left alone because deleted_at is a timestamp and nothing describes a purged task."
+    refs:
+      - state:task.open
+      - state:task.done
+      - state:task.in_trash
+      - state:task.purged
+      - invariant:task.done_task_records_when
+    evidence:
+      - e70
+      - e71
+  - kind: contradiction
+    note: "The relation to the project requires state active, but a task of an archived project stays readable: the code resolves task read access purely through project read access, and the archived check lives only in the write path, which is also why help-trash can say tasks of an archived project are visible yet not restorable. Nothing in the help pages says an archived project hides its tasks — help-projects only says it becomes read-only. So the relation's `requires: active` is too strong for reads and should be expressed as a condition on the write transitions (where rules mark_done_needs_active_project, reopen_needs_active_project and trash_open_needs_active_project already state it). This answers the open question about the archived-project case."
+    refs:
+      - rule:task.task_access_follows_project
+      - permit:task.read
+      - rule:task.mark_done_needs_active_project
+    evidence:
+      - e106
+      - e36
+      - e12
+  - kind: confirmation
+    note: A Read & Write share may create, update and delete tasks in the project, and a Read only share may view them but change nothing; the code routes every task change through write access on the project.
+    refs:
+      - rule:task.write_can_create_update_delete
+      - rule:task.read_only_cannot_change
+      - rule:task.task_access_follows_project
+      - permit:task.update
+      - action:task.create
+      - transition:task.create
+    evidence:
+      - e2
+      - e1
+      - e77
+  - kind: confirmation
+    note: "Creating and editing a task: the create input sits at the top of the list view or on the dashboard, and the detail view is where title, description, dates, labels, assignees and attachments are edited. The code refuses an empty title."
+    refs:
+      - action:task.create
+      - action:task.update
+      - action:task.read
+      - rule:task.title_required
+    evidence:
+      - e98
+      - e101
+      - e72
+  - kind: confirmation
+    note: The Done button marks a task completed and pressing it again reopens it; the code stamps done_at when it is marked done and clears it when it is reopened.
+    refs:
+      - transition:task.mark_done
+      - transition:task.reopen
+      - action:task.mark_done
+      - action:task.reopen
+      - invariant:task.done_task_records_when
+    evidence:
+      - e41
+      - e73
+  - kind: confirmation
+    note: A task with a repeat interval reopens when marked done and its due date and reminders move on by that interval — code only, as the variant's and rule's observed status says. help-tasks mentions 'repeat settings' only in passing (when duplicating) and links a Dates & Reminders page that is not among the sources.
+    refs:
+      - variant:task.repeating
+      - transition:task.mark_done_repeating
+      - rule:task.repeating_task_reopens
+    evidence:
+      - e74
+      - e107
+  - kind: confirmation
+    note: Deleting a task moves it to the trash right away, without a confirmation dialog, and the message offers Undo; Read & Write permission on the project is required. The same Delete button is the only path for a done task, so trash_done rests on the same source.
+    refs:
+      - transition:task.trash_open
+      - transition:task.trash_done
+      - action:task.trash
+      - rule:task.delete_has_no_confirmation
+      - rule:task.delete_needs_write
+    evidence:
+      - e42
+      - e32
+  - kind: confirmation
+    note: Read & Write permission is enough to see a task in the trash and restore it into its project; the trash API states exactly that ('Write access is enough to see and restore it') and lists trashed tasks for projects the user can write to.
+    refs:
+      - transition:task.restore
+      - action:task.restore
+      - permit:task.view_trash
+      - rule:task.restore_needs_write
+    evidence:
+      - e22
+      - e80
+      - e93
+  - kind: confirmation
+    note: "A restored task that was done goes back as done: help-trash says a restored task lands in the done bucket if the task is done, and the code's restore only clears deleted_at, placing the task in its default or done bucket — the done flag is untouched. This partly answers the open question on restore_done."
+    refs:
+      - transition:task.restore_done
+    evidence:
+      - e33
+      - e84
+  - kind: confirmation
+    note: Deleting a task forever needs Admin permission on the project, removes its comments, attachments, reminders and relations, cannot be undone, and the Delete forever button is hidden from someone who may restore but not purge; link shares cannot do it at all.
+    refs:
+      - transition:task.delete_permanently
+      - action:task.delete_permanently
+      - rule:task.permanent_delete_needs_admin
+      - rule:task.purge_removes_related_data
+    evidence:
+      - e22
+      - e34
+      - e35
+      - e79
+      - e94
+  - kind: confirmation
+    note: A trashed task is deleted permanently 30 days after deletion, with an hourly check — stated in help-trash and implemented as the 30-day TrashRetention constant with an hourly cron.
+    refs:
+      - transition:task.purge_expired
+      - action:task.purge_expired
+      - rule:task.retention_30_days
+      - role:trash_cleanup
+    evidence:
+      - e24
+      - e85
+  - kind: confirmation
+    note: Tasks of an archived project cannot be restored and are not listed in the trash (the trash query excludes archived projects), and while a project is in the trash its tasks are not listed either, even those deleted on their own.
+    refs:
+      - rule:task.restore_blocked_by_archived_project
+      - rule:task.restore_blocked_by_trashed_project
+    evidence:
+      - e36
+      - e81
+      - e37
+  - kind: confirmation
+    note: Only users who already have access to the project can be assigned to a task, and assigning or un-assigning needs the same permission as editing the project's tasks.
+    refs:
+      - rule:task.assignee_needs_project_access
+      - permit:task.assign
+      - permit:task.unassign
+      - action:task.assign
+      - action:task.unassign
+    evidence:
+      - e43
+      - e87
+      - e88
+  - kind: confirmation
+    note: Duplicating a task creates the copy in the same project, copies the task's own properties, leaves out comments and relations to other tasks, and links the copy to the original; the code additionally requires write access to the project.
+    refs:
+      - action:task.duplicate
+      - rule:task.duplicate_scope
+      - rule:task.duplicate_needs_write
+    evidence:
+      - e44
+      - e45
+      - e99
+      - e86
+  - kind: confirmation
+    note: A task is moved to another project from the project field in the detail view (or by dragging), and the code additionally checks write access on the target project.
+    refs:
+      - action:task.move
+      - permit:task.move
+      - rule:task.move_needs_write_on_target
+    evidence:
+      - e46
+      - e78
+  - kind: confirmation
+    note: "Opening a deleted task shows a notice saying it is in the trash, when it was deleted and how many days are left, with Restore only when the viewer may restore it — the code returns that notice to anyone with read access on the project, which is exactly the permit for a Read only share. This answers the open question about the deletion notice leaking to a Read only share: it is the code's intent, with restore refused."
+    refs:
+      - permit:task.view_deleted_task_notice
+      - state:task.in_trash
+    evidence:
+      - e40
+      - e82
+  - kind: confirmation
+    note: An archived project is read-only for its tasks, so marking done, reopening and deleting are refused until it is unarchived; the code answers every write with the archived-project error.
+    refs:
+      - rule:task.mark_done_needs_active_project
+      - rule:task.reopen_needs_active_project
+      - rule:task.trash_open_needs_active_project
+      - rule:task.archived_project_refuses_task_changes_with_message
+    evidence:
+      - e12
+      - e89
+  - kind: confirmation
+    note: Favoriting is offered on every task (help-tasks documents the Favorite button) but it is written through the task-update path, which needs write access on the project — matching the observed rule that a Read only share is offered the button and then refused.
+    refs:
+      - action:task.favorite
+      - rule:task.favorite_needs_more_than_read_only
+      - rule:task.read_only_offers_no_task_actions
+    evidence:
+      - e100
+      - e77
+  - kind: gap
+    note: "Requirement missing from the model: help-tasks says moving a task into the done bucket marks it done and moving it out marks it not done (the detail view's bucket picker behaves the same), and the code sets done when a task is placed in the done bucket. Proposed as rule done_bucket_marks_done on mark_done; it is a second, view-driven way to reach the done state that no transition currently mentions."
+    refs:
+      - rule:task.done_bucket_marks_done
+      - transition:task.mark_done
+      - transition:task.reopen
+    evidence:
+      - e47
+      - e76
+  - kind: gap
+    note: "Requirement missing from the model: help-trash describes Empty trash as tab-local, limited to items you may delete permanently, with a checked option to also delete items other people moved to the trash; the code implements exactly that (EmptyTaskTrash over projects the user administers, 'without includeOthers, tasks someone else deleted stay'). Proposed as rule empty_trash_scope on task.delete_permanently; the same dialog exists for the Projects tab, so the project entity needs the mirror rule if this one is accepted."
+    refs:
+      - rule:task.empty_trash_scope
+      - rule:task.permanent_delete_needs_admin
+    evidence:
+      - e38
+      - e39
+      - e83
+  - kind: gap
+    note: "Code-only behaviour (not a requirement): when a repeating task is marked done and reopens for its next occurrence, the checklist items in its description are unchecked again. Visible to a tester with a checklist in the description. Searched help-tasks ('Checklists', 'Marking a task as done'), help-projects, help-trash — no page mentions it."
+    refs:
+      - rule:task.repeating_checklist_resets
+      - transition:task.mark_done_repeating
+    evidence:
+      - e75
+  - kind: gap
+    note: "Still unmodeled parts of help-tasks: comments (with @mentions and ordering), labels, priority, progress, colour, dates and reminders, attachments and previews, relations, subscribing/unsubscribing, checklists, Quick Add Magic, the hover preview and the bookmarklet. They remain folded into the broad update action, and subscriptions in particular are a separate user-visible command with its own rules ('you are subscribed automatically when you create a task or are assigned to one'). Searched help-tasks in full."
+    refs:
+      - action:task.update
+    evidence:
+      - e101
+      - e107
+  - kind: question
+    note: "state:task.purged has no observable: no source says what a tester sees after a task is deleted forever, and no source describes the keyboard-shortcut path either (the earlier open question about shortcuts answering nothing for a Read only share stays open — searched help-tasks and help-trash, which document `Delete`/`Backspace` on the task page but no response)."
+    refs:
+      - state:task.purged
+      - transition:task.purge_expired
+    evidence:
+      - e34
+      - e42
+status: decided
+decisions:
+  - op: 0
+    verdict: reject
+    note: The test-bed reader derives status from is_archived/deleted_at; match stays on status
+  - op: 1
+    verdict: reject
+    note: The test-bed reader derives status from is_archived/deleted_at; match stays on status
+  - op: 2
+    verdict: accept
+  - op: 3
+    verdict: accept
+  - op: 4
+    verdict: observe
+decidedAt: 2026-11-15T12:49:28.693Z
+resolutions:
+  - finding: 0
+    verdict: fine
+    note: The test-bed reader derives status.
+    at: 2026-11-15T12:50:05.324Z
+  - finding: 1
+    verdict: fine
+    note: The relation is about setup; the read permit already covers archived projects via the task's own states.
+    at: 2026-11-15T12:50:05.343Z

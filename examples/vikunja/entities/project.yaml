@@ -1,0 +1,1233 @@
+id: project
+title: Project
+description: The place where tasks live. Projects can be nested under one another, shared with users, teams or a link, archived, and moved to the trash.
+key: id
+variants:
+  - id: top_level
+    title: Top-level project
+    status: confirmed
+  - id: sub_project
+    title: Sub-project (has a parent project)
+    status: observed
+states:
+  - id: active
+    title: Active
+    match:
+      status: active
+    status: confirmed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding-project
+      evidence:
+        - e60
+      sources:
+        - vikunja-models
+    setup:
+      - kind: tool
+        tool: vikunja.create_project
+        args:
+          status: active
+          tag: '{{runTag}}'
+  - id: archived
+    title: Archived (read-only)
+    match:
+      status: archived
+    status: confirmed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding-project
+      evidence:
+        - e22
+        - e60
+      sources:
+        - help-projects
+        - vikunja-models
+    setup:
+      - kind: tool
+        tool: vikunja.create_project
+        args:
+          status: archived
+          tag: '{{runTag}}'
+  - id: in_trash
+    title: In the trash
+    match:
+      status: trashed
+    status: confirmed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding-project
+      evidence:
+        - e28
+        - e62
+      sources:
+        - help-projects
+        - vikunja-models
+    setup:
+      - kind: tool
+        tool: vikunja.create_project
+        args:
+          status: trashed
+          tag: '{{runTag}}'
+  - id: purged
+    title: Deleted permanently
+    match:
+      status: purged
+    status: observed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding-project
+      evidence:
+        - e32
+      sources:
+        - help-trash
+transitions:
+  - id: archive
+    title: Archive the project
+    from: active
+    to: archived
+    action: archive
+    by:
+      - owner
+      - admin
+      - writer
+    guards:
+      - The project is not someone's default project
+    effects:
+      - description: The project disappears from the main working views and nothing in it can be changed.
+    status: confirmed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding-project
+      evidence:
+        - e23
+        - e22
+        - e57
+      sources:
+        - help-projects
+        - vikunja-models
+  - id: unarchive
+    title: Unarchive the project
+    from: archived
+    to: active
+    action: unarchive
+    by:
+      - owner
+      - admin
+      - writer
+    guards:
+      - The parent project is not archived
+    status: confirmed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding-project
+      evidence:
+        - e23
+        - e38
+      sources:
+        - help-projects
+        - help-trash
+  - id: trash
+    title: Move the project to the trash
+    from: active
+    to: in_trash
+    action: trash
+    by:
+      - owner
+      - admin
+    effects:
+      - description: The project, its sub-projects and their tasks are in the trash and can be restored for 30 days; the message that appears offers Undo.
+    status: confirmed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding-project
+      evidence:
+        - e28
+        - e29
+        - e1
+      sources:
+        - help-projects
+        - help-trash
+  - id: restore
+    title: Restore the project from the trash
+    from: in_trash
+    to: active
+    action: restore
+    by:
+      - owner
+      - admin
+    guards:
+      - The parent project is neither in the trash nor archived
+    effects:
+      - description: All of its sub-projects that are in the trash come back with it; tasks that were deleted on their own stay in the trash.
+    status: confirmed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding-project
+      evidence:
+        - e30
+        - e31
+        - e2
+        - e65
+      sources:
+        - help-trash
+        - vikunja-models
+  - id: delete_permanently
+    title: Delete the project forever
+    from: in_trash
+    to: purged
+    action: delete_permanently
+    by:
+      - owner
+      - admin
+    effects:
+      - description: The project is deleted with its sub-projects, tasks, views and shares. This cannot be undone.
+    status: observed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding-project
+      evidence:
+        - e32
+        - e33
+      sources:
+        - help-trash
+  - id: purge_expired
+    title: Delete the project after 30 days in the trash
+    from: in_trash
+    to: purged
+    action: purge_expired
+    by:
+      - trash_cleanup
+    status: observed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding-project
+      evidence:
+        - e35
+      sources:
+        - help-trash
+  - id: duplicate_from_active
+    title: Duplicate an active project
+    from: '@new'
+    to: active
+    action: duplicate
+    by:
+      - writer
+    guards:
+      - The project being copied is active
+    effects:
+      - description: A new active project named '<original title> - duplicate' appears in the user's project list with the original's views and tasks; the message says the project was successfully duplicated.
+      - description: The user who duplicated it can manage the copy's sharing, so the copy belongs to them and not to the original owner.
+      - description: With 'Copy shares (users, teams and link shares) to the duplicate' left checked, the original's user shares appear on the copy.
+    status: observed
+    provenance:
+      source: agent
+      agent: writer-explorer
+      proposal: 2026-11-15-12-23-26-writer-explorer
+      evidence:
+        - e8
+        - e9
+        - e27
+      sources: []
+  - id: duplicate_from_archived
+    title: Duplicate an archived project
+    from: '@new'
+    to: archived
+    action: duplicate
+    by:
+      - writer
+    guards:
+      - The project being copied is archived
+      - 'Reached from the project''s address: the menu of an archived project offers only Un-Archive'
+    effects:
+      - description: 'The copy is created already archived: its page carries the notice that the project is archived and it stays out of the project list until it is unarchived.'
+    status: observed
+    provenance:
+      source: agent
+      agent: writer-explorer
+      proposal: 2026-11-15-12-23-26-writer-explorer
+      evidence:
+        - e13
+        - e17
+      sources: []
+rules:
+  - id: archived_is_read_only
+    title: An archived project is read-only
+    text: Archiving a project hides it from the main working views and makes it read-only, so nothing in it can be changed until it is unarchived.
+    action: update
+    requires: []
+    status: confirmed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding-project
+      evidence:
+        - e22
+        - e60
+      sources:
+        - help-projects
+        - vikunja-models
+  - id: delete_needs_admin
+    title: Deleting a project needs Admin permission
+    text: You need Admin permission on the project to move it to the trash.
+    action: trash
+    transition: trash
+    requires:
+      - kind: roles
+        roles:
+          - owner
+          - admin
+    status: confirmed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding-project
+      evidence:
+        - e1
+      sources:
+        - help-trash
+  - id: delete_takes_sub_projects
+    title: Deleting a project takes its sub-projects with it
+    text: Deleting a project also moves all of its sub-projects, and their tasks, to the trash.
+    action: trash
+    transition: trash
+    requires: []
+    status: confirmed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding-project
+      evidence:
+        - e29
+        - e28
+      sources:
+        - help-trash
+        - help-projects
+  - id: cannot_delete_other_users_default_project
+    title: Another user's default project cannot be deleted
+    text: You can delete your own default project, but not a project that another user owns and uses as their default project. If you delete your own default project you no longer have one, and restoring it does not make it the default again.
+    action: trash
+    transition: trash
+    requires: []
+    status: confirmed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding-project
+      evidence:
+        - e39
+        - e66
+      sources:
+        - help-trash
+        - vikunja-models
+  - id: cannot_archive_default_project
+    title: A default project cannot be archived
+    text: A project that is used as someone's default project cannot be archived.
+    action: archive
+    transition: archive
+    requires: []
+    status: observed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding-project
+      evidence:
+        - e54
+      sources:
+        - vikunja-models
+  - id: archive_cascades_to_sub_projects
+    title: Archiving a project archives its sub-projects
+    text: Archiving or unarchiving a project puts all of its sub-projects into the same archived state.
+    action: archive
+    transition: archive
+    requires: []
+    status: observed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding-project
+      evidence:
+        - e56
+      sources:
+        - vikunja-models
+  - id: restore_needs_admin
+    title: Seeing and restoring a trashed project needs Admin permission
+    text: A project in the trash is only visible to, and restorable by, someone with Admin permission on it.
+    action: restore
+    transition: restore
+    requires:
+      - kind: roles
+        roles:
+          - owner
+          - admin
+    status: confirmed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding-project
+      evidence:
+        - e2
+        - e34
+        - e65
+      sources:
+        - help-trash
+        - vikunja-models
+  - id: restore_blocked_by_trashed_parent
+    title: A sub-project cannot be restored while its parent is in the trash
+    text: You can't restore a sub-project on its own while its parent project is in the trash. Restoring the topmost deleted parent brings everything under it back, including that sub-project.
+    action: restore
+    transition: restore
+    requires: []
+    status: confirmed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding-project
+      evidence:
+        - e36
+        - e31
+      sources:
+        - help-trash
+  - id: restore_parent_needs_admin
+    title: Restoring the parent project needs Admin permission on that parent
+    text: The Restore parent project button is only shown to someone who has Admin permission on that parent project.
+    action: restore
+    requires: []
+    status: confirmed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding-project
+      evidence:
+        - e37
+      sources:
+        - help-trash
+  - id: restore_blocked_by_archived_parent
+    title: A project cannot be restored while its parent is archived
+    text: A project whose parent project is archived cannot be restored until the parent is unarchived.
+    action: restore
+    transition: restore
+    requires: []
+    status: confirmed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding-project
+      evidence:
+        - e38
+      sources:
+        - help-trash
+  - id: permanent_delete_needs_admin
+    title: Deleting a project forever needs Admin permission
+    text: Only someone with Admin permission on the project can delete it forever or empty the project trash, and this cannot be undone.
+    action: delete_permanently
+    transition: delete_permanently
+    requires:
+      - kind: roles
+        roles:
+          - owner
+          - admin
+    status: confirmed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding-project
+      evidence:
+        - e33
+        - e32
+      sources:
+        - help-trash
+  - id: trash_retention_30_days
+    title: A trashed project is deleted permanently after 30 days
+    text: A project in the trash is deleted permanently 30 days after it was deleted. Vikunja checks for expired items every hour and the 30 days cannot be changed.
+    action: purge_expired
+    transition: purge_expired
+    requires: []
+    status: confirmed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding-project
+      evidence:
+        - e35
+      sources:
+        - help-trash
+  - id: link_share_has_no_trash
+    title: Link share recipients have no trash
+    text: Someone who uses a link share has no trash and can't open it.
+    action: view_trash
+    requires: []
+    status: confirmed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding-project
+      evidence:
+        - e42
+      sources:
+        - help-trash
+  - id: link_shares_stop_while_trashed
+    title: Link shares of a trashed project stop working
+    text: Link shares of a deleted project stop working while it is in the trash and work again after the project is restored; deleting the project forever removes them.
+    action: trash
+    requires: []
+    status: confirmed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding-project
+      evidence:
+        - e40
+      sources:
+        - help-trash
+  - id: identifier_globally_unique
+    title: A project identifier is unique across all projects
+    text: The project identifier is a short code combined with task numbers to build task references like MOVE-42, and it is globally unique across all projects.
+    action: update
+    requires: []
+    status: confirmed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding-project
+      evidence:
+        - e51
+        - e52
+      sources:
+        - help-projects
+  - id: identifier_stays_reserved_in_trash
+    title: A trashed project keeps its identifier reserved
+    text: A project in the trash keeps its identifier, and the same identifier cannot be given to another project until the trashed one is gone for good.
+    action: create
+    requires: []
+    status: confirmed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding-project
+      evidence:
+        - e41
+      sources:
+        - help-trash
+  - id: share_management_needs_admin
+    title: Managing sharing needs Admin permission
+    text: Only someone with Admin permission on the project can add or remove other users and teams and change their permission levels.
+    action: share_user
+    requires:
+      - kind: roles
+        roles:
+          - owner
+          - admin
+    status: confirmed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding-project
+      evidence:
+        - e43
+        - e64
+      sources:
+        - help-permissions
+        - vikunja-models
+  - id: read_only_cannot_change
+    title: A Read only share cannot change anything
+    text: Someone shared at Read only can view everything in the project but cannot make any changes, and Read only is what a new share gets by default.
+    action: update
+    requires: []
+    status: confirmed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding-project
+      evidence:
+        - e44
+      sources:
+        - help-permissions
+  - id: link_share_list_needs_admin
+    title: The list of link shares is only visible to admins
+    text: You need Admin permission on the project to see the list of its link shares, since the link itself grants whatever permission the share was created with.
+    action: create_link_share
+    requires: []
+    status: confirmed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding-project
+      evidence:
+        - e45
+      sources:
+        - help-sharing
+  - id: link_share_not_editable
+    title: A link share cannot be edited after creation
+    text: Link shares cannot be edited after creation; to change the name, password or permission level the share has to be deleted and a new one created.
+    action: create_link_share
+    requires: []
+    status: confirmed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding-project
+      evidence:
+        - e46
+      sources:
+        - help-sharing
+  - id: link_share_password
+    title: A password-protected link asks for the password first
+    text: If a link share has a password, the recipient must enter it before seeing the project.
+    action: create_link_share
+    requires: []
+    status: confirmed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding-project
+      evidence:
+        - e50
+      sources:
+        - help-sharing
+  - id: delete_link_share_revokes_access
+    title: Deleting a link share revokes access immediately
+    text: Deleting a link share removes it entirely and immediately revokes access for anyone using that link.
+    action: delete_link_share
+    requires: []
+    status: confirmed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding-project
+      evidence:
+        - e47
+      sources:
+        - help-sharing
+  - id: move_needs_admin_on_both
+    title: Moving a project needs Admin permission on both projects
+    text: Moving a project under a different parent needs Admin permission on the project being moved and on the new parent project; detaching it to the top level also needs Admin permission on it.
+    action: move
+    requires: []
+    status: observed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding-project
+      evidence:
+        - e61
+        - e55
+      sources:
+        - vikunja-models
+  - id: permission_inherited_by_sub_projects
+    title: A permission on a project also applies to its sub-projects
+    text: "A permission granted on a project also applies to every project nested under it: the grant on the nearest project wins, except that Admin inherited from a project further up always applies."
+    action: read
+    requires: []
+    status: observed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding-project
+      evidence:
+        - e112
+        - e113
+      sources:
+        - vikunja-models
+  - id: owner_is_always_admin
+    title: The project owner always has Admin permission
+    text: The user who created a project always has Admin permission on it.
+    action: read
+    requires: []
+    status: observed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding-project
+      evidence:
+        - e58
+      sources:
+        - vikunja-models
+  - id: link_share_cannot_create_project
+    title: A link share recipient cannot create a project
+    text: Someone authenticated through a link share cannot create a new top-level project.
+    action: create
+    requires: []
+    status: observed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding-project
+      evidence:
+        - e63
+      sources:
+        - vikunja-models
+  - id: duplicate_needs_read_and_write_on_parent
+    title: Duplicating needs read access, plus write access on the new parent
+    text: Duplicating a project needs read access to the project, and write access to the project the copy is placed under.
+    action: duplicate
+    requires: []
+    status: observed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding-project
+      evidence:
+        - e59
+      sources:
+        - vikunja-models
+  - id: nesting_builds_hierarchy
+    title: Projects can be nested
+    text: "Projects can be nested to build a hierarchy: a project is either top-level or a sub-project of exactly one parent project, set from the project settings, by dragging it in the sidebar, or by creating a sub-project directly."
+    action: move
+    requires: []
+    status: confirmed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding-project
+      evidence:
+        - e53
+        - e26
+        - e110
+      sources:
+        - help-projects
+        - vikunja-models
+  - id: shares_visible_to_read_and_write
+    title: A Read & Write share can see who the project is shared with
+    text: Someone shared at Read & Write can open the project's Share page and see which users and teams it is shared with, but gets no controls to add, remove or change a share and does not see its link shares.
+    action: view_shares
+    requires: []
+    status: observed
+    provenance:
+      source: agent
+      agent: writer-explorer
+      proposal: 2026-11-15-12-23-26-writer-explorer
+      evidence:
+        - e7
+        - e18
+        - e27
+      sources: []
+  - id: create_sub_project_needs_write
+    title: Creating a sub-project needs write access to the parent
+    text: A sub-project can be created directly from the three-dot menu of another project, and doing so needs Read & Write or Admin permission on that parent project.
+    action: create
+    requires:
+      - kind: roles
+        roles:
+          - owner
+          - admin
+          - writer
+    status: confirmed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-12-38-13-review-project
+      evidence:
+        - e17
+        - e90
+      sources:
+        - help-projects
+        - vikunja-models
+  - id: no_cyclic_nesting
+    title: A project cannot be nested inside itself
+    text: A project cannot be made a sub-project of itself or of any project that is already nested below it.
+    action: move
+    requires: []
+    status: observed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-12-38-13-review-project
+      evidence:
+        - e56
+        - e57
+      sources:
+        - vikunja-models
+  - id: cannot_move_under_archived_parent
+    title: A project cannot be moved under an archived parent
+    text: A project cannot be placed under a parent project that is archived; the parent has to be unarchived first.
+    action: move
+    requires: []
+    status: observed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-12-38-13-review-project
+      evidence:
+        - e55
+      sources:
+        - vikunja-models
+invariants:
+  - id: trashed_project_recoverable
+    title: A project in the trash stays recoverable and keeps its identifier
+    text: While a project is in the trash it can be restored by a project admin, it shows how many days are left before it is deleted permanently, and its identifier stays reserved.
+    states:
+      - in_trash
+    status: confirmed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding-project
+      evidence:
+        - e35
+        - e41
+      sources:
+        - help-trash
+relations: []
+actions:
+  - id: create
+    title: Create a project
+    kind: create
+    by:
+      - owner
+      - outsider
+    status: confirmed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding-project
+      evidence:
+        - e24
+      sources:
+        - help-projects
+  - id: read
+    title: Open a project
+    kind: read
+    run: project.view
+    status: confirmed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding-project
+      evidence:
+        - e44
+      sources:
+        - help-permissions
+  - id: update
+    title: Change project settings (title, description, identifier, colour)
+    kind: update
+    run: project.edit
+    status: confirmed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding-project
+      evidence:
+        - e25
+      sources:
+        - help-projects
+  - id: move
+    title: Move the project under another parent project
+    kind: update
+    status: observed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding-project
+      evidence:
+        - e26
+      sources:
+        - help-projects
+  - id: archive
+    title: Archive the project
+    kind: command
+    run: project.archive
+    status: confirmed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding-project
+      evidence:
+        - e23
+      sources:
+        - help-projects
+  - id: unarchive
+    title: Unarchive the project
+    kind: command
+    run: project.unarchive
+    status: confirmed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding-project
+      evidence:
+        - e23
+      sources:
+        - help-projects
+  - id: duplicate
+    title: Duplicate the project
+    kind: create
+    status: observed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding-project
+      evidence:
+        - e27
+      sources:
+        - help-projects
+  - id: trash
+    title: Delete the project (move it to the trash)
+    kind: delete
+    run: project.delete
+    status: confirmed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding-project
+      evidence:
+        - e28
+      sources:
+        - help-projects
+  - id: restore
+    title: Restore the project from the trash
+    kind: command
+    run: project.restore
+    status: confirmed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding-project
+      evidence:
+        - e30
+      sources:
+        - help-trash
+  - id: delete_permanently
+    title: Delete the project forever
+    kind: delete
+    status: observed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding-project
+      evidence:
+        - e32
+      sources:
+        - help-trash
+  - id: purge_expired
+    title: Delete the project after 30 days in the trash
+    kind: delete
+    status: observed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding-project
+      evidence:
+        - e35
+      sources:
+        - help-trash
+  - id: view_trash
+    title: Open the trash
+    kind: read
+    status: observed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding-project
+      evidence:
+        - e68
+      sources:
+        - help-trash
+  - id: share_user
+    title: Share the project with a user
+    kind: command
+    status: confirmed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding-project
+      evidence:
+        - e48
+      sources:
+        - help-sharing
+  - id: share_team
+    title: Share the project with a team
+    kind: command
+    status: observed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding-project
+      evidence:
+        - e49
+      sources:
+        - help-sharing
+  - id: change_share_permission
+    title: Change the permission level of a share
+    kind: update
+    status: observed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding-project
+      evidence:
+        - e43
+      sources:
+        - help-permissions
+  - id: create_link_share
+    title: Create a link share
+    kind: command
+    status: observed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding-project
+      evidence:
+        - e111
+      sources:
+        - help-sharing
+  - id: delete_link_share
+    title: Delete a link share
+    kind: delete
+    status: observed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding-project
+      evidence:
+        - e47
+      sources:
+        - help-sharing
+  - id: view_shares
+    title: See who the project is shared with
+    kind: read
+    status: confirmed
+    provenance:
+      source: agent
+      agent: writer-explorer
+      proposal: 2026-11-15-12-23-26-writer-explorer
+      evidence:
+        - e4
+        - e7
+        - e18
+        - e27
+      sources: []
+  - id: favorite
+    title: Add the project to your favorites
+    kind: command
+    status: confirmed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-12-38-13-review-project
+      evidence:
+        - e16
+      sources:
+        - help-projects
+permits:
+  - id: read
+    title: View the project
+    action: read
+    by:
+      - owner
+      - admin
+      - writer
+      - reader
+    states:
+      - active
+      - archived
+    status: confirmed
+    provenance:
+      source: human
+      sources: []
+  - id: update
+    title: Change the project's settings
+    action: update
+    by:
+      - owner
+      - admin
+      - writer
+    states:
+      - active
+    status: confirmed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding-project
+      evidence:
+        - e25
+        - e57
+        - e22
+      sources:
+        - help-projects
+        - vikunja-models
+  - id: move
+    title: Change the project's parent project
+    action: move
+    by:
+      - owner
+      - admin
+    states:
+      - active
+    status: observed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding-project
+      evidence:
+        - e26
+        - e61
+        - e55
+      sources:
+        - help-projects
+        - vikunja-models
+  - id: share_user
+    title: Add or remove a user share
+    action: share_user
+    by:
+      - owner
+      - admin
+    states:
+      - active
+    status: confirmed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding-project
+      evidence:
+        - e48
+        - e43
+      sources:
+        - help-sharing
+        - help-permissions
+  - id: share_team
+    title: Add or remove a team share
+    action: share_team
+    by:
+      - owner
+      - admin
+    states:
+      - active
+    status: observed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding-project
+      evidence:
+        - e49
+        - e43
+      sources:
+        - help-sharing
+        - help-permissions
+  - id: change_share_permission
+    title: Change a share's permission level
+    action: change_share_permission
+    by:
+      - owner
+      - admin
+    states:
+      - active
+    status: observed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding-project
+      evidence:
+        - e43
+        - e64
+      sources:
+        - help-permissions
+        - vikunja-models
+  - id: create_link_share
+    title: Create a link share and see the list of link shares
+    action: create_link_share
+    by:
+      - owner
+      - admin
+    states:
+      - active
+    status: observed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding-project
+      evidence:
+        - e111
+        - e45
+      sources:
+        - help-sharing
+  - id: delete_link_share
+    title: Delete a link share
+    action: delete_link_share
+    by:
+      - owner
+      - admin
+    states:
+      - active
+    status: observed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding-project
+      evidence:
+        - e47
+        - e45
+      sources:
+        - help-sharing
+  - id: view_trash
+    title: See the project in the trash
+    action: view_trash
+    by:
+      - owner
+      - admin
+    states:
+      - in_trash
+    status: observed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-11-56-07-onboarding-project
+      evidence:
+        - e68
+        - e34
+      sources:
+        - help-trash
+  - id: view_shares_read_write
+    title: See the project's user and team shares without being able to change them
+    action: view_shares
+    by:
+      - writer
+    states:
+      - active
+      - archived
+    effects:
+      - description: The Share page lists the users and teams the project is shared with, but offers no field to add someone, no permission dropdown and no remove button, and the list of link shares is not shown at all.
+    status: observed
+    provenance:
+      source: agent
+      agent: writer-explorer
+      proposal: 2026-11-15-12-23-26-writer-explorer
+      evidence:
+        - e4
+        - e7
+        - e18
+        - e27
+      sources: []
+  - id: read_in_trash_read_write
+    title: See that a shared project is in the trash (any share level)
+    action: read
+    by:
+      - writer
+      - reader
+    states:
+      - in_trash
+    effects:
+      - description: Opening the project's address shows only that the project is in the trash, who deleted it and how long until it is deleted permanently; there is no project settings menu and no Restore, and the project is not listed in the user's Trash.
+    status: observed
+    provenance:
+      source: agent
+      agent: onboarding
+      proposal: 2026-11-15-12-38-13-review-project
+      evidence:
+        - e62
+      sources:
+        - vikunja-models
+reader:
+  tool: vikunja.get_project
+  args:
+    id: '{{key}}'
