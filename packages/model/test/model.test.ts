@@ -736,3 +736,21 @@ test('invariants: checked after every read in a state they cover; text-only and 
   const bad = Entity.parse({ ...e, invariants: [{ id: 'x', title: 'x', text: 'x', states: ['nope'] }] });
   assert.match(validateEntity(bad, withAuth).find((i) => i.path === 'invariants.x')!.message, /Unknown state “nope”/);
 });
+
+test('validate: attributes — known subjects, enum values that states match on, actions change known attributes', () => {
+  const e = entity({
+    attributes: [
+      { id: 'status', title: 'Status', type: 'enum', values: ['new', 'paid', 'shipped', 'done'], by: ['seller'] },
+      { id: 'price', title: 'Price', type: 'money', by: ['ghost'] },
+      { id: 'kind', title: 'Kind', type: 'enum' },
+    ],
+    actions: [...baseActions(), { id: 'reprice', title: 'Reprice', changes: ['price', 'weight'] }],
+  });
+  const messages = validateEntity(e, project).map((i) => `${i.path}: ${i.message}`);
+  assert.ok(messages.includes('attributes.price: Unknown subject “ghost”'));
+  assert.ok(messages.includes('attributes.kind: An enum without values: list what the field can hold'));
+  assert.ok(messages.includes('actions.reprice: Changes unknown attribute “weight”'));
+  assert.ok(!messages.some((m) => m.startsWith('states.') && m.includes('is not a value of')));
+  const off = entity({ attributes: [{ id: 'status', title: 'Status', type: 'enum', values: ['open'] }] });
+  assert.ok(validateEntity(off, project).some((i) => i.path === 'states.paid' && /“paid” is not a value of Status/.test(i.message)));
+});

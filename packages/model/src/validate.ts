@@ -65,6 +65,7 @@ export function validateEntity(entity: Entity, project: Project, actions?: Set<s
 
   for (const [kind, list] of [
     ['variants', entity.variants],
+    ['attributes', entity.attributes],
     ['states', entity.states],
     ['actions', entity.actions],
     ['transitions', entity.transitions],
@@ -76,6 +77,22 @@ export function validateEntity(entity: Entity, project: Project, actions?: Set<s
     ['fields', entity.fields],
   ] as const)
     for (const d of duplicates(list.map((x) => x.id))) err(`${kind}.${d}`, 'Duplicate id');
+
+  const attributes = new Map(entity.attributes.map((a) => [a.id, a]));
+  for (const a of entity.attributes) {
+    const p = `attributes.${a.id}`;
+    for (const r of a.by ?? []) if (!roles.has(r)) err(p, `Unknown subject “${r}”`);
+    if (a.type === 'enum' && !a.values?.length) warn(p, 'An enum without values: list what the field can hold');
+  }
+  // A state probe on an enum attribute must use one of its values.
+  for (const s of entity.states)
+    for (const [field, value] of Object.entries(s.match)) {
+      const a = attributes.get(field);
+      if (a?.type === 'enum' && a.values?.length && !a.values.includes(String(value)))
+        warn(`states.${s.id}`, `“${String(value)}” is not a value of ${a.title} (${a.values.join(', ')})`);
+    }
+  for (const a of entity.actions)
+    for (const c of a.changes ?? []) if (!attributes.has(c)) err(`actions.${a.id}`, `Changes unknown attribute “${c}”`);
 
   if (!entity.reader) warn('reader', NO_READER);
   else if (!toolAllowed(project, entity.reader.tool, 'read'))

@@ -67,6 +67,11 @@ ${p.data}
 ` : ''}
 Element shapes for ops (op=add, value):
 - variant: { id, title }
+- attribute: { id: "<field name the reader returns>", title, type: "text"|"number"|"money"|"date"|"bool"|"enum"|"link"|"file"|"other", values?: [string] (enum), entity?: "<entity id>" (link), by?: ["<role id>", …], note? }
+  A parameter of the object as the product stores it (title, status, price, due date). Take it from code — models,
+  migrations, API schemas — or from what read() returns. Keep only what someone changes or a rule refers to, not
+  every column. \`by\` lists who may change it (everyone else must be refused); \`note\` holds a condition in plain
+  words ("admin only while Created"). A status-like enum is a lifecycle: its values are what states match on.
 - state: { id, title, variants?: [id], match: { <field from read()>: <value> } }
 - action: { id, title, kind?: "create"|"read"|"update"|"command"|"delete", run?: "<action-library name>" }
   A verb the role can apply to the entity, named after what it does — not tied to a state or a permission yet.

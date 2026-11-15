@@ -1040,3 +1040,34 @@ table.grid :is(th, td):first-child { padding-left: 0; }
 .run-usage { display: flex; flex-wrap: wrap; gap: var(--s2) var(--s5); margin: 0 0 var(--s3); }
 .run-usage dt { font-size: 12px; color: var(--fg-3); }
 .run-usage dd { margin: 0; font-variant-numeric: tabular-nums; }
+
+/* ── Model: object parameters and lifecycles ─────────────── */
+.sec-h { margin: 0; font-size: 14px; font-weight: 600; }
+.attr-note { font-size: 12px; }
+.attr-values { color: var(--fg-2); font-size: 12.5px; }
+.attr-empty { margin: var(--s2) 0 0; }
+.lc-block + .lc-block { margin-top: var(--s4); }
+.lc-block h3 { margin: 0 0 var(--s2); font-size: 14px; font-weight: 600; }
+.lc-mini td { vertical-align: top; min-width: 120px; }
+.lc-mini td.lc-none { color: var(--fg-3); text-align: center; }
+.lc-mini td.lc-diag { background: var(--sunken); }
+.lc-pill {
+  display: flex;
+  gap: var(--s2);
+  align-items: baseline;
+  width: 100%;
+  font: inherit;
+  font-size: 12.5px;
+  text-align: left;
+  color: var(--fg);
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: 4px;
+  padding: 1px var(--s2) 2px;
+  cursor: pointer;
+}
+.lc-pill + .lc-pill { margin-top: var(--s1); }
+.lc-pill:hover { border-color: var(--fg-3); }
+.lc-pill .muted { margin-left: auto; font-size: 11px; white-space: nowrap; }
+.lc-pill.observed { border-style: dotted; }
+.lc-pill.proposed { border-style: dashed; border-color: var(--accent); color: var(--accent); background: var(--accent-weak); }
