@@ -81,6 +81,7 @@ Rules:
   generated files and assets.
 - Call model() first and don't propose what it already has — use op=update for a field that changed, never
   op=add for something that already exists.
+- Name things with the words in model().glossary: a synonym there is the same thing as its term, not a new one.
 - Every operation needs at least one quote: call quote({ source, text, path? }) with the exact text (path: the
   file inside a code folder) (it doesn't need
   to line-wrap the way the source does, but the words and punctuation must match) and put the evidence id it
@@ -278,7 +279,7 @@ export async function onboard(ws: Workspace, agentId: string | undefined, opts: 
       input: z.object({}),
       run: async () =>
         JSON.stringify({
-          project: { roles: redactFields('roles', project.roles, process.env), interfaces: project.interfaces },
+          project: { roles: redactFields('roles', project.roles, process.env), interfaces: project.interfaces, glossary: project.glossary },
           entities: Object.fromEntries(redactFields('entities', Object.values(await ws.catalog()), process.env).map((e) => [e.id, e])),
           backlog: baseBacklog,
           // What earlier runs left open: questions and gaps nobody has settled yet.

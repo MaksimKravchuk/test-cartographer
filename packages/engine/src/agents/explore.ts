@@ -44,6 +44,7 @@ Rules:
   back, still propose it, and say in a finding (kind=question) why the effect couldn't be checked.
 - Every operation references its evidence (ids from snapshot/read) in the evidence field.
 - Call model() first to see the current model. Don't propose what already exists; use new ids (Latin letters, kebab-case).
+- Name things with the words in model().glossary: a synonym there is the same thing as its term, not a new one.
 - Prepare data only via prepare(); available setup tools: ${p.prepare.join(', ') || 'none'}. Verify every instance with read().
 - You may open only pages of your own interface (open takes a path relative to baseUrl).
 ${p.contracts.length ? `- Available contracts: ${p.contracts.join(', ')}.` : ''}
@@ -169,6 +170,7 @@ export async function explore(ws: Workspace, agentId: string, opts: ExploreOptio
       run: async () =>
         toYaml({
           roles: redactFields('roles', project.roles, process.env),
+          glossary: project.glossary,
           entity: redactFields('entities', [entity], process.env)[0],
           related: redactFields('entities', [...related].flatMap((id) => (catalog[id] ? [catalog[id]] : [])), process.env).map((e) => ({
             id: e.id, title: e.title, description: e.description, key: e.key, relations: e.relations, fields: e.fields,

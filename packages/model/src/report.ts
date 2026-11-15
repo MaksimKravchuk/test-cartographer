@@ -69,6 +69,10 @@ export function renderSpec(project: Project, entities: Entity[], findings: Disag
   const lines = [`# ${project.name} — specification`, ''];
   lines.push('## Subjects', '');
   for (const r of project.roles) lines.push(`- **${r.title}** — ${r.kind === 'system' ? 'background jobs and integrations' : 'a person'}`);
+  if (project.glossary.length) {
+    lines.push('', '## Glossary', '');
+    for (const t of project.glossary) lines.push(`- **${t.term}**${t.synonyms.length ? ` (also: ${t.synonyms.join(', ')})` : ''} — ${t.definition}`);
+  }
   lines.push('', '## Objects', '');
   for (const e of entities) lines.push(`- **${e.title}**${e.description ? ` — ${e.description}` : ''}`);
   for (const e of entities) {
