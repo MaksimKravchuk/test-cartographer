@@ -68,7 +68,7 @@ export function ReportView({ proposals, reloadToken, onChanged, onError }: Props
           </ul>
         </details>
       )}
-      {spoken.length > 0 && cols.length > 0 && (
+      {spoken.length > 0 && (
         <details style={{ marginTop: 12 }}>
           <summary><b>By source</b> <span className="muted">— what the requirements, the code and the app say about each element, then each source: ✓ confirms, ✕ contradicts, … gap, ? question, blank = says nothing. App ✓ means an agent saw the effect in the running app.{silent > 0 && ` ${silent} more elements no source mentions yet.`}</span></summary>
           <div style={{ overflowX: 'auto' }}>
