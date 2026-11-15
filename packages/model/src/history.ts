@@ -59,7 +59,7 @@ function diffList(ref: (id: string) => string, before: Item[], after: Item[]): C
 // Subjects only: the rest of cartographer.yaml (interfaces, MCP, agents) is settings, not the model.
 export const diffProject = (before: Project | null, after: Project): Change[] => diffList((id) => `role:${id}`, before?.roles ?? [], after.roles);
 
-const LISTS = { actions: 'action', rules: 'rule', transitions: 'transition', permits: 'permit', states: 'state', variants: 'variant', relations: 'relation', scenarios: 'scenario', invariants: 'invariant', fields: 'field' } as const;
+const LISTS = { attributes: 'attribute', actions: 'action', rules: 'rule', transitions: 'transition', permits: 'permit', states: 'state', variants: 'variant', relations: 'relation', scenarios: 'scenario', invariants: 'invariant', fields: 'field' } as const;
 
 export function diffEntity(before: Entity | null, after: Entity | null): Change[] {
   const e = (after ?? before)!;

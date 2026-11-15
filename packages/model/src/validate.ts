@@ -65,6 +65,7 @@ export function validateEntity(entity: Entity, project: Project, actions?: Set<s
 
   for (const [kind, list] of [
     ['variants', entity.variants],
+    ['attributes', entity.attributes],
     ['states', entity.states],
     ['actions', entity.actions],
     ['transitions', entity.transitions],
@@ -76,6 +77,33 @@ export function validateEntity(entity: Entity, project: Project, actions?: Set<s
     ['fields', entity.fields],
   ] as const)
     for (const d of duplicates(list.map((x) => x.id))) err(`${kind}.${d}`, 'Duplicate id');
+
+  const attributes = new Map(entity.attributes.map((a) => [a.id, a]));
+  for (const a of entity.attributes) {
+    const p = `attributes.${a.id}`;
+    for (const r of a.by ?? []) if (!roles.has(r)) err(p, `Unknown subject “${r}”`);
+    if (a.type === 'enum' && !a.values?.length) warn(p, 'An enum without values: list what the field can hold');
+  }
+  // A state probe on an enum attribute must use one of its values.
+  for (const s of entity.states)
+    for (const [field, value] of Object.entries(s.match)) {
+      const a = attributes.get(field);
+      if (a?.type === 'enum' && a.values?.length && !a.values.includes(String(value)))
+        warn(`states.${s.id}`, `“${String(value)}” is not a value of ${a.title} (${a.values.join(', ')})`);
+    }
+  for (const a of entity.actions)
+    for (const c of a.changes ?? []) {
+      const attr = attributes.get(c);
+      if (!attr) {
+        err(`actions.${a.id}`, `Changes unknown attribute “${c}”`);
+        continue;
+      }
+      if (!attr.by) continue;
+      // Who performs the action must be allowed to change what it changes.
+      const performers = new Set([...(a.by ?? []), ...entity.transitions.filter((t) => t.action === a.id).flatMap((t) => t.by), ...entity.permits.filter((p) => p.action === a.id).flatMap((p) => p.by)]);
+      for (const r of performers)
+        if (!attr.by.includes(r)) warn(`actions.${a.id}`, `${roles.get(r)?.title ?? r} performs “${a.title}”, which changes ${attr.title}, but may not change ${attr.title}`);
+    }
 
   if (!entity.reader) warn('reader', NO_READER);
   else if (!toolAllowed(project, entity.reader.tool, 'read'))

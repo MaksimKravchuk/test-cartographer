@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { autoLayout, NODE_H, NODE_W, nextId, objectCardHeight, objectsLayout, applies } from '../../src/graph.ts';
+import { autoLayout, groupTransitions, NODE_H, NODE_W, nextId, objectCardHeight, objectsLayout, applies } from '../../src/graph.ts';
 
 describe('nextId', () => {
   it('slugifies a title into an id', () => expect(nextId('Awaiting Stock!', [])).toBe('awaiting-stock'));
@@ -61,5 +61,35 @@ describe('objects map layout', () => {
     expect(li.x + size['line-item'].width).toBeLessThanOrEqual(size.order.width);
     expect(li.y + size['line-item'].height).toBeLessThanOrEqual(size.order.height);
     expect(size.order.height).toBeGreaterThan(box.height);
+  });
+});
+
+describe('groupTransitions', () => {
+  // A GTD-like task: "move" between any two open states, "complete" and
+  // "cancel" from every open state, "reopen" back to each of them.
+  const open = ['inbox', 'next', 'waiting', 'someday'];
+  const t = (from: string, to: string, action: string) => ({ from, to, action, kind: 'proposed' });
+  const items = [
+    ...open.flatMap((a) => open.filter((b) => b !== a).map((b) => t(a, b, 'move'))),
+    ...open.flatMap((a) => [t(a, 'done', 'complete'), t('done', a, 'reopen'), t(a, 'cancelled', 'cancel'), t('cancelled', a, 'reopen')]),
+  ];
+  const { fans, edges } = groupTransitions(items);
+
+  it('shows an action from many states into one once, on that state', () => {
+    expect(fans.map((f) => `${f.dir} ${f.state} ${f.items[0].action} ${f.others.length}`).sort()).toEqual([
+      'in cancelled cancel 4', 'in done complete 4', 'out cancelled reopen 4', 'out done reopen 4',
+    ]);
+  });
+  it('keeps actions between peers as edges, one per pair of states', () => {
+    expect(edges).toHaveLength(6);
+    expect(edges.every((e) => e.items.length === 2 && e.items.every((x) => x.action === 'move'))).toBe(true);
+  });
+  it('leaves a short lifecycle alone', () => {
+    const r = groupTransitions([t('new', 'paid', 'pay'), t('paid', 'shipped', 'ship'), t('new', 'cancelled', 'cancel'), t('paid', 'cancelled', 'cancel')]);
+    expect(r.fans).toHaveLength(0);
+    expect(r.edges).toHaveLength(4);
+  });
+  it('does not merge different statuses into one edge', () => {
+    expect(groupTransitions([t('a', 'b', 'x'), { ...t('b', 'a', 'x'), kind: 'confirmed' }]).edges).toHaveLength(2);
   });
 });

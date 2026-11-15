@@ -105,6 +105,24 @@ export function App() {
     setTimeout(() => setToast(null), error ? 6000 : 3000);
   }, []);
 
+  // Accept or strike out agent proposals right on the lifecycle, grouped by proposal.
+  const decideOnMap = async (ops: { proposal: string; op: number }[], verdict: 'accept' | 'reject') => {
+    if (dirty) return notify('Save or discard your model edits first.', true);
+    try {
+      let s: EntityState | ProjectDecideResult | null = null;
+      for (const id of [...new Set(ops.map((o) => o.proposal))])
+        s = await api.decide(id, ops.filter((o) => o.proposal === id).map((o) => ({ op: o.op, verdict })));
+      if (s && 'entity' in s && entityRef.current === s.entity.id) {
+        setState(s);
+        setDraft(s.entity);
+      }
+      setProposals(await api.proposals());
+      notify(verdict === 'accept' ? 'Accepted into the model' : 'Struck out');
+    } catch (e) {
+      notify((e as Error).message, true);
+    }
+  };
+
   const loadEntity = useCallback(async (id: string, keepDraft = false) => {
     const s = await api.entity(id);
     setState(s);
@@ -395,6 +413,7 @@ export function App() {
                   onSelect={setSelection}
                   onChange={setDraft}
                   onOpenProposal={() => go({ page: 'proposals' })}
+                  onDecide={(ops, verdict) => void decideOnMap(ops, verdict)}
                 />
               )}
               {route.tab === 'scenarios' && (

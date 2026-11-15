@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import type { Action, Decision, Disagreement, Entity, HistoryEntry, Lint, Op, ReviewCell, ReviewMarks, Role, Rule } from '@tc/model';
 import { api, type EntityState, type ProjectState, type ProposalState } from '../api.ts';
 import { DeleteButton, Editable, HistoryList, originText } from './ModelHistory.tsx';
+import { AttributesTable, LifecycleTables, type ProposedAttribute } from './ObjectParts.tsx';
 
 // The model as a person thinks about it: who acts (subjects), on what
 // (objects), with which actions, under which rules. What an agent found but
@@ -269,6 +270,16 @@ export function ModelView({ project, proposals, reloadToken, running, onOpenEnti
   };
 
   // Pending actions per entity, with the roles the proposal gives them.
+  const pendingAttributes = (entity: string): ProposedAttribute[] =>
+    pending
+      .filter((p) => p.entity === entity)
+      .flatMap((proposal) =>
+        proposal.ops.flatMap((op, index) =>
+          op.op === 'add' && op.kind === 'attribute' && open(proposal, index)
+            ? [{ key: `${proposal.id}-${index}`, value: op.value, agent: proposal.agent, rationale: proposal.rationale, blocked: !ids.includes(entity), onDecide: (v: Verdict) => decide({ proposal, index, op }, v) }]
+            : [],
+        ),
+      );
   const pendingActions = (entity: string) => {
     const props = pending.filter((p) => p.entity === entity);
     return props.flatMap((proposal) =>
@@ -439,7 +450,9 @@ export function ModelView({ project, proposals, reloadToken, running, onOpenEnti
   const subjectPage = (id: string) => {
     const r = roles.find((x) => x.id === id);
     if (!r) return null;
-    const does = loaded.map((e) => ({ e: states[e].entity, acts: states[e].entity.actions.filter((a) => actorsOf(states[e].entity, a).includes(id)) })).filter((x) => x.acts.length);
+    const does = loaded
+      .map((e) => ({ e: states[e].entity, acts: states[e].entity.actions.filter((a) => actorsOf(states[e].entity, a).includes(id)), changes: states[e].entity.attributes.filter((a) => a.status !== 'rejected' && a.by?.includes(id)) }))
+      .filter((x) => x.acts.length || x.changes.length);
     return (
       <>
         <div className="ehead">
@@ -452,13 +465,14 @@ export function ModelView({ project, proposals, reloadToken, running, onOpenEnti
         <p className="origin">{originText(`role:${id}`, history, undefined, r.title)}</p>
         <section className="acts subject-acts" aria-label="What this subject does">
           {!does.length && <p className="muted">Does nothing yet: tick it on an object's actions.</p>}
-          {does.map(({ e, acts }) => (
+          {does.map(({ e, acts, changes }) => (
             <div key={e.id} className="act-row">
               <button className="who link-btn" onClick={() => { setSubject(null); setFocus(e.id); setSelected(null); }}>{e.title}</button>
               <div className="chips">
                 {acts.map((a) => (
                   <button key={a.id} className={`chip ${a.status}`} onClick={() => { setSubject(null); pick(e.id, a.id); }}>{a.title}</button>
                 ))}
+                {changes.length > 0 && <span className="muted">changes {changes.map((a) => a.title).join(', ')}</span>}
               </div>
             </div>
           ))}
@@ -532,7 +546,16 @@ export function ModelView({ project, proposals, reloadToken, running, onOpenEnti
             {cur.entity.description && <p className="lede">{cur.entity.description}</p>}
             {showHistory && <HistoryList entries={history.filter((h) => h.ref === `entity:${cur.entity.id}` || h.ref.includes(`:${cur.entity.id}.`))} names={roleTitle} label={`History of ${cur.entity.title}`} />}
 
+            <section className="acts" aria-label="Parameters">
+              <h2 className="sec-h">Parameters</h2>
+              <AttributesTable entity={cur.entity} roles={roles} proposed={pendingAttributes(cur.entity.id)} busy={busy} onEdit={(change) => edit(cur.entity.id, change)} />
+            </section>
+            <section className="acts" aria-label="Lifecycle">
+              <LifecycleTables entity={cur.entity} roles={roles} onPick={(a) => pick(cur.entity.id, a)} />
+            </section>
+
             <section className="acts" aria-label="Actions">
+              <h2 className="sec-h">Actions</h2>
               {actionTable()}
             </section>
 

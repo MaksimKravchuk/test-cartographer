@@ -280,6 +280,26 @@ export type Effect = z.infer<typeof Effect>;
 export const ActionKind = z.enum(['create', 'read', 'update', 'command', 'delete']);
 export type ActionKind = z.infer<typeof ActionKind>;
 
+// A parameter of the object as the product stores it: a task's title, an
+// order's status or price. `id` is the field name the reader returns. An enum
+// attribute whose values states match on (state.match[id]) is a lifecycle.
+// `by` says who may change it; every other subject must be refused — each
+// side is a test. Absent `by` means nobody has said yet.
+export const AttributeType = z.enum(['text', 'number', 'money', 'date', 'bool', 'enum', 'link', 'file', 'other']);
+export type AttributeType = z.infer<typeof AttributeType>;
+export const Attribute = z.object({
+  id: Id,
+  title: z.string(),
+  type: AttributeType.default('text'),
+  values: z.array(z.string()).optional(), // enum values, as the reader returns them
+  entity: Id.optional(), // link: the object it points to
+  by: z.array(Id).optional(),
+  // Rights that depend on something, in plain words: "admin only while Created".
+  note: z.string().optional(),
+  ...meta,
+});
+export type Attribute = z.infer<typeof Attribute>;
+
 // A verb subjects apply to the entity. It says nothing about states or
 // permissions: transitions and permits say who may use it and what it does.
 export const Action = z.object({
@@ -296,6 +316,8 @@ export const Action = z.object({
   trigger: z.string().optional(),
   // Who performs it, as a person declared it; transitions and permits add their own `by`.
   by: z.array(Id).optional(),
+  // Attributes it changes (attribute ids).
+  changes: z.array(Id).optional(),
   ...meta,
 });
 // NOTE: no .refine() (zod 4 refuses to .extend refined objects). "run or invoke" is a validator warning.
@@ -420,6 +442,7 @@ export const Entity = z.object({
   // of the entity plans as blocked (see plan.ts) and validateEntity warns.
   reader: ToolCall.optional(),
   variants: z.array(Variant).min(1),
+  attributes: z.array(Attribute).default([]),
   states: z.array(State).default([]),
   actions: z.array(Action).default([]),
   transitions: z.array(Transition).default([]),
@@ -434,9 +457,10 @@ export const Entity = z.object({
 });
 export type Entity = z.infer<typeof Entity>;
 
-export type ElementKind = 'variant' | 'state' | 'action' | 'transition' | 'permit' | 'scenario' | 'rule' | 'invariant';
+export type ElementKind = 'variant' | 'attribute' | 'state' | 'action' | 'transition' | 'permit' | 'scenario' | 'rule' | 'invariant';
 export const elementCollections = {
   variant: 'variants',
+  attribute: 'attributes',
   state: 'states',
   action: 'actions',
   transition: 'transitions',
@@ -446,7 +470,7 @@ export const elementCollections = {
   invariant: 'invariants',
 } as const satisfies Record<ElementKind, keyof Entity>;
 
-export const elementSchemas = { variant: Variant, state: State, action: Action, transition: Transition, permit: Permit, scenario: Journey, rule: Rule, invariant: Invariant };
+export const elementSchemas = { variant: Variant, attribute: Attribute, state: State, action: Action, transition: Transition, permit: Permit, scenario: Journey, rule: Rule, invariant: Invariant };
 
 // ── Knowledge sources ── workspace/sources.yaml + files in workspace/sources/
 // doc / backlog / contract / note — an uploaded text file in workspace/sources/
@@ -564,7 +588,7 @@ export const Evidence = z.object({
 export type Evidence = z.infer<typeof Evidence>;
 
 // Entity-level op kinds patch an entity's own collections (unchanged).
-export const ElementOpKind = z.enum(['variant', 'state', 'action', 'transition', 'permit', 'scenario', 'rule', 'invariant']);
+export const ElementOpKind = z.enum(['variant', 'attribute', 'state', 'action', 'transition', 'permit', 'scenario', 'rule', 'invariant']);
 // Project-level op kinds patch the project or the backlog — a proposal with no
 // `entity` (see Proposal below) is a project-level proposal.
 export const ProjectOpKind = z.enum(['role', 'interface', 'entity', 'epic', 'feature', 'story']);
