@@ -1,4 +1,4 @@
-import type { Entity } from './schema.ts';
+import type { Entity, Project } from './schema.ts';
 
 // For every entity, the entity it is part of: its first part-of relation's target, when the
 // target exists and walking parents never returns to the start. Otherwise null.
@@ -25,4 +25,26 @@ export function objectParents(entities: Pick<Entity, 'id' | 'relations'>[]): Rec
     parents[e.id] = cycle ? null : target.get(e.id)!;
   }
   return parents;
+}
+
+// Takes a subject off every entity: off the actions that list it, off
+// transitions, permits and role conditions that keep another subject. What it
+// is the only subject of is a blocker, named so a person can change it first.
+export function removeRole(id: string, project: Pick<Project, 'agents'>, entities: Entity[]): { blockers: string[]; entities: Entity[] } {
+  const blockers = project.agents.filter((a) => a.role === id).map((a) => `agent “${a.title}”`);
+  const changed: Entity[] = [];
+  for (const e of entities) {
+    const without = (by: string[]) => by.filter((r) => r !== id);
+    for (const t of [...e.transitions, ...e.permits]) if (t.by.length === 1 && t.by[0] === id) blockers.push(`${e.title} › ${t.title}`);
+    for (const r of e.rules) if (r.requires.some((c) => c.kind === 'roles' && c.roles.length === 1 && c.roles[0] === id)) blockers.push(`${e.title} › rule “${r.title}”`);
+    const next: Entity = {
+      ...e,
+      actions: e.actions.map((a) => (a.by ? { ...a, by: without(a.by) } : a)),
+      transitions: e.transitions.map((t) => ({ ...t, by: without(t.by) })),
+      permits: e.permits.map((p) => ({ ...p, by: without(p.by) })),
+      rules: e.rules.map((r) => ({ ...r, requires: r.requires.map((c) => (c.kind === 'roles' ? { ...c, roles: without(c.roles) } : c)) })),
+    };
+    if (JSON.stringify(next) !== JSON.stringify(e)) changed.push(next);
+  }
+  return { blockers, entities: changed };
 }
