@@ -128,6 +128,26 @@ export const RuntimeOverride = z.object({
 });
 export type RuntimeOverride = z.infer<typeof RuntimeOverride>;
 
+// What one agent run used, as its runtime reports it: a running total, sent
+// again as it grows. The engine logs it as `📊 <json>` and the Agent tab reads the last one.
+export type AgentUsage = {
+  model?: string;
+  // Input counts every prompt token, cached ones included; cacheRead/cacheWrite are parts of it.
+  input: number;
+  output: number;
+  cacheRead?: number;
+  cacheWrite?: number;
+  // API-price equivalent in USD — subscriptions don't bill per token. `estimated`:
+  // the runtime gave no cost, so it comes from the genai-prices table.
+  costUsd?: number;
+  estimated?: boolean;
+  // GitHub Copilot bills premium requests instead.
+  premiumRequests?: number;
+  // How full the context window is now, when the runtime says.
+  context?: { used: number; window?: number };
+  seconds?: number;
+};
+
 export const AgentSpec = z.object({
   id: Id,
   title: z.string(),

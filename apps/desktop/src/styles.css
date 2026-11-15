@@ -965,3 +965,6 @@ table.grid :is(th, td):first-child { padding-left: 0; }
 .run-check { display: flex; gap: var(--s2); align-items: flex-start; max-width: 1100px; }
 .run-page .agent-fields { max-width: 1100px; }
 .run-found { max-width: 900px; }
+.run-usage { display: flex; flex-wrap: wrap; gap: var(--s2) var(--s5); margin: 0 0 var(--s3); }
+.run-usage dt { font-size: 12px; color: var(--fg-3); }
+.run-usage dd { margin: 0; font-variant-numeric: tabular-nums; }

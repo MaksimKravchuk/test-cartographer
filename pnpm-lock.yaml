@@ -292,6 +292,9 @@ importers:
       '@playwright/test':
         specifier: ^1.56.0
         version: 1.63.0
+      '@pydantic/genai-prices':
+        specifier: ^0.2.3
+        version: 0.2.3
       '@tc/model':
         specifier: workspace:*
         version: link:../model
@@ -1016,6 +1019,11 @@ packages:
 
   '@playwright/test@1.63.0':
     resolution: {integrity: sha512-oxMK4vllB9RK5NQ2l1pq1IfOf2AvnEuj/vYGDj0H2nMtmtZpKtCwt/l00GEO6xjGfpBNAvjovvYdCm50dRQkpQ==}
+    engines: {node: '>=20'}
+    hasBin: true
+
+  '@pydantic/genai-prices@0.2.3':
+    resolution: {integrity: sha512-xnoMsceJA+V/RHvlYqrkpo+A3r7pARvZmtMYZfctGX8S6kYFXcBY3XvgtDGWQiUJ7g/QSVAaTYangPcxy1OZ+A==}
     engines: {node: '>=20'}
     hasBin: true
 
@@ -3552,6 +3560,8 @@ snapshots:
   '@playwright/test@1.63.0':
     dependencies:
       playwright: 1.63.0
+
+  '@pydantic/genai-prices@0.2.3': {}
 
   '@rolldown/pluginutils@1.0.0-rc.3': {}
 

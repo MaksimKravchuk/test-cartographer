@@ -20,6 +20,7 @@
     "@modelcontextprotocol/sdk": "^1.32.2",
     "@openai/codex-sdk": "^0.157.1",
     "@playwright/test": "^1.56.0",
+    "@pydantic/genai-prices": "^0.2.3",
     "@tc/model": "workspace:*",
     "hono": "^4.13.18",
     "yaml": "^2.8.0",

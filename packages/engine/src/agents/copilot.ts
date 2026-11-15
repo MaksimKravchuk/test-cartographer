@@ -3,6 +3,7 @@
 // Copilot SDK and the Copilot CLI bundled with it. Only the bridge's tools are
 // available — no built-in tools, no user MCP config or custom instructions.
 import { approveAll, CopilotClient, ToolSet } from '@github/copilot-sdk';
+import type { AgentUsage } from '@tc/model';
 import type { Harness, RuntimeStatus } from './bridge.ts';
 
 const TOOL_TIMEOUT_MS = 10 * 60_000;
@@ -31,6 +32,22 @@ export async function runCopilot(h: Harness): Promise<void> {
     let failure: string | undefined;
     session.on('assistant.message', (e) => {
       if (e.data.content.trim()) h.onText(e.data.content.trim());
+    });
+    const usage: AgentUsage = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, premiumRequests: 0 };
+    session.on('assistant.usage', (e) => {
+      const d = e.data;
+      usage.model = d.model;
+      usage.input += d.inputTokens ?? 0;
+      usage.output += d.outputTokens ?? 0;
+      usage.cacheRead! += d.cacheReadTokens ?? 0;
+      usage.cacheWrite! += d.cacheWriteTokens ?? 0;
+      // `cost` is the model's premium-request multiplier for this call.
+      usage.premiumRequests! += d.cost ?? 0;
+      h.onUsage({ ...usage });
+    });
+    session.on('session.usage_info', (e) => {
+      usage.context = { used: e.data.currentTokens, window: e.data.tokenLimit };
+      h.onUsage({ ...usage });
     });
     session.on('session.error', (e) => {
       failure = e.data.message;
