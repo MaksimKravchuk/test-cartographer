@@ -1,10 +1,10 @@
 # Test Cartographer
 
-A local macOS app where a person and AI agents explore a web application together, rebuild a model of how it behaves, and turn the confirmed model into Playwright tests.
+An agentic testing environment: a local workspace where you and the coding agent you already use (Claude Code, Codex, GitHub Copilot or Cursor) explore a web application together, rebuild a model of how it behaves, and turn the confirmed model into Playwright tests. Test Cartographer is not an agent itself. It is to testing what an agentic development environment is to coding: you bring the agent, it brings the tools, the model and the loop.
 
-Writing end-to-end tests usually starts with someone working out how the product actually behaves: which states an order goes through, who can cancel it and when, what must stay impossible. Test Cartographer does that work with you. Agents click through each role's interface and read your docs and backlog, propose what they find, and you decide what is a requirement. From the confirmed model the engine generates Playwright tests, including the negative ones: everything a role must *not* be able to do.
+Writing end-to-end tests usually starts with someone working out how the product actually behaves: which states an order goes through, who can cancel it and when, what must stay impossible. Test Cartographer gives your agent the tools to do that work with you. It clicks through each role's interface and reads your docs, code and backlog, proposes what it finds, and you decide what is a requirement. From the confirmed model the engine generates Playwright tests, including the negative ones: everything a role must *not* be able to do.
 
-> **Status: early alpha.** It runs on macOS with Node.js 24+, and the file formats may still change. Issues and pull requests are welcome, see [CONTRIBUTING](CONTRIBUTING.md).
+> **Status: early alpha.** It runs on Linux, Windows and macOS with Node.js 24+, and the file formats may still change. Issues and pull requests are welcome, see [CONTRIBUTING](CONTRIBUTING.md).
 
 ## Quick start
 
@@ -12,11 +12,12 @@ Writing end-to-end tests usually starts with someone working out how the product
 pnpm install
 pnpm exec playwright install chromium   # once
 pnpm demo                               # demo shop on :4400 (the app under exploration)
-pnpm tc serve                           # engine on :4317
-pnpm ui                                 # GUI in the browser on :5173
+pnpm start                              # builds the GUI, starts the engine on :4317 and opens it in your browser
 ```
 
-As a native window: `pnpm app` (builds the GUI and launches Electron; the engine starts automatically).
+For GUI development: `pnpm tc serve` (engine on :4317) and `pnpm ui` (GUI with hot reload on :5173).
+
+As a native window: `pnpm app` (builds the GUI and launches Electron; the engine starts automatically). The web GUI is the same app and works on every OS.
 
 Engine CLI — `pnpm tc <command>`:
 
@@ -160,7 +161,7 @@ A proposal is created against a specific model revision (the backlog revision, f
 
 Agents don't call model APIs and nothing is billed per token: they run inside a coding agent you're already signed in to — **Claude Code** on your Claude subscription, **Codex** on your ChatGPT subscription, **GitHub Copilot** on your Copilot plan, or **Cursor** on your Cursor plan. The engine drives it through the vendor's SDK (Claude Agent SDK, Codex SDK, Copilot SDK, Cursor SDK — all bundled, no separate CLI install) using the local sign-in: `claude auth login`, `codex login`, `gh auth login` (or `copilot login`), and for Cursor the **Sign in** button / `tc runtimes login cursor` and serves the agent's tools to it over MCP on `127.0.0.1` for the length of a run; built-in tools (shell, file edits, web) are off, so every call still goes through the engine and lands in the evidence. The runtime is set in `cartographer.yaml → runtime` (`provider: claude | codex | copilot | cursor`, optional `model`, `effort`, `maxSteps` — tool calls per run), and an agent can override it with its own `runtime:`; the GUI's **Agents** page edits both, shows each runtime's sign-in state and models, and has a **Test run** button. `tc runtimes` prints the same status, `tc runtimes test <provider>` does a short end-to-end run. Claude runs draw from your plan's Agent SDK allowance, Codex runs from your ChatGPT plan's Codex limits, Copilot runs from your Copilot plan's requests, Cursor runs from your Cursor plan's usage (effort doesn't apply to Cursor).
 
-**Open models, no subscription.** Codex (Apache-2.0) can run on any model served over the OpenAI Responses API instead of a ChatGPT sign-in, such as an open-weight model in Ollama, LM Studio or vLLM. Add `baseUrl` to the runtime:
+**Your own model, no subscription.** If the agent you bring is Codex (Apache-2.0), it can also run on any model served over the OpenAI Responses API instead of a ChatGPT sign-in, such as an open-weight model in Ollama, LM Studio or vLLM. Add `baseUrl` to the runtime:
 
 ```yaml
 runtime:
