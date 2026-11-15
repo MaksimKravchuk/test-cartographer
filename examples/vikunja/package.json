@@ -8,6 +8,6 @@
     "@tc/engine": "workspace:*",
     "@playwright/test": "^1.56.0",
     "@modelcontextprotocol/sdk": "^1.32.0",
-    "zod": "^4.6.6"
+    "zod": "^4.6.7"
   }
 }
