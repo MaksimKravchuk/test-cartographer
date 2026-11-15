@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { checkRoles, Entity, lintModel, Project, renderSpec, validateEntity } from '@tc/model';
+import { checkRoles, Entity, lintModel, Project, renderSpec, reviewMatrix, validateEntity } from '@tc/model';
 
 const project = Project.parse({
   name: 'Shop',
@@ -46,4 +46,24 @@ test('action.by: an unknown role is caught by validation and by checkRoles', () 
   const e = Entity.parse({ ...order, actions: [{ id: 'cancel', title: 'Cancel', by: ['customer'], run: 'order.cancel' }] });
   assert.ok(validateEntity(e, project).some((i) => i.path === 'actions.cancel' && /Unknown role “customer”/.test(i.message)));
   assert.match(checkRoles({ op: 'add', kind: 'action', value: { id: 'x', title: 'x', by: ['Buyer'] }, evidence: [] }, project.roles) ?? '', /Buyer/);
+});
+
+test('reviewMatrix: provenance confirms, an open finding quoting a source overrides it, a settled one does not', () => {
+  const e = Entity.parse({
+    ...order,
+    rules: [{ id: 'until-paid', title: 'Until paid', text: 'Cancel only until payment.', action: 'cancel', provenance: { source: 'agent', sources: ['wiki', 'code'] } }],
+  });
+  const finding = (resolution?: object) => ({
+    proposal: 'p', entity: 'order', index: 0, createdAt: '',
+    finding: { kind: 'contradiction' as const, note: 'code lets a paid order be cancelled', refs: ['rule:order.until-paid'], evidence: ['e1'] },
+    quotes: [{ evidence: { id: 'e1', kind: 'source' as const, summary: 'cancel()', source: 'code' } }],
+    resolution: resolution as never,
+  });
+  const row = (fs: ReturnType<typeof finding>[]) => reviewMatrix([e], fs).find((r) => r.ref === 'rule:order.until-paid')!;
+  assert.deepEqual(row([]).cells, { wiki: 'confirms', code: 'confirms' });
+  assert.deepEqual(row([finding()]).cells, { wiki: 'confirms', code: 'contradicts' });
+  assert.deepEqual(row([finding({ finding: 0, verdict: 'fine' })]).cells, { wiki: 'confirms', code: 'confirms' });
+  const both = { ...finding(), winner: 'wiki', quotes: [...finding().quotes, { evidence: { id: 'e2', kind: 'source' as const, summary: 'until paid', source: 'wiki' } }] };
+  assert.deepEqual(row([both]).cells, { wiki: 'confirms', code: 'contradicts' });
+  assert.deepEqual(reviewMatrix([e], []).find((r) => r.ref === 'action:order.cancel')!.cells, {});
 });

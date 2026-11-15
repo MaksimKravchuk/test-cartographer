@@ -125,3 +125,31 @@ export function lintModel(entities: Entity[]): Lint[] {
   }
   return out;
 }
+
+// What each source says about each element of the model. `confirms` comes from
+// the element's provenance; an open finding that names the element and quotes
+// the source overrides it, except that the side which stands by priority confirms. No cell means the source said nothing either way.
+export type ReviewCell = 'confirms' | 'contradicts' | 'gap' | 'question';
+export type ReviewRow = { entity: string; ref: string; title: string; cells: Record<string, ReviewCell> };
+const findingCell = { contradiction: 'contradicts', gap: 'gap', question: 'question' } as const;
+
+export function reviewMatrix(entities: Entity[], findings: Disagreement[]): ReviewRow[] {
+  const open = findings.filter((f) => !f.resolution);
+  return entities.flatMap((e) => {
+    const stateTitle = (id: string) => (id === '@new' ? '(new)' : (e.states.find((s) => s.id === id)?.title ?? id));
+    const actionTitle = (id: string) => e.actions.find((a) => a.id === id)?.title ?? id;
+    const elements = [
+      ...e.states.filter(isActive).map((x) => ({ x, ref: `state:${e.id}.${x.id}`, title: `State: ${x.title}` })),
+      ...e.actions.filter(isActive).map((x) => ({ x, ref: `action:${e.id}.${x.id}`, title: `Action: ${x.title}` })),
+      ...e.transitions.filter(isActive).map((x) => ({ x, ref: `transition:${e.id}.${x.id}`, title: `${actionTitle(x.action)}: ${stateTitle(x.from)} → ${stateTitle(x.to)}` })),
+      ...e.rules.filter(isActive).map((x) => ({ x, ref: `rule:${e.id}.${x.id}`, title: `Rule: ${x.text}` })),
+    ];
+    return elements.map(({ x, ref, title }) => {
+      const cells: Record<string, ReviewCell> = {};
+      for (const s of x.provenance?.sources ?? []) cells[s] = 'confirms';
+      for (const f of open.filter((f) => f.finding.refs.includes(ref)))
+        for (const q of f.quotes) if (q.evidence.source) cells[q.evidence.source] = q.evidence.source === f.winner ? 'confirms' : findingCell[f.finding.kind];
+      return { entity: e.id, ref, title: `${e.title} · ${title}`, cells };
+    });
+  });
+}
