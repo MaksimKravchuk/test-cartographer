@@ -173,8 +173,8 @@ function Map(props: Props) {
   // Proposals are reviewed in the Inbox; on the map they hide the model
   // unless there is no model yet to hide.
   const [showProposals, setShowProposals] = useState(entity.states.length === 0);
-  // Lifecycle (states as columns, transitions as rows with their rules) reads
-  // like a spec; the graph is for drawing new transitions by dragging.
+  // The transition table reads the same for any lifecycle shape and shows what
+  // is not allowed; the graph is for drawing new transitions by dragging.
   const [mode, setMode] = useState<'lifecycle' | 'graph'>('lifecycle');
   const { fitView } = useReactFlow();
 
@@ -391,7 +391,7 @@ function Map(props: Props) {
     <div className="map">
       <div className="map-toolbar">
         <div className="seg" role="group" aria-label="View">
-          <button aria-pressed={mode === 'lifecycle'} onClick={() => setMode('lifecycle')}>Lifecycle</button>
+          <button aria-pressed={mode === 'lifecycle'} onClick={() => setMode('lifecycle')}>Table</button>
           <button aria-pressed={mode === 'graph'} onClick={() => setMode('graph')}>Graph</button>
         </div>
         <div className="seg" role="group" aria-label="Variant">
@@ -409,7 +409,7 @@ function Map(props: Props) {
             </span>
             <button className="btn primary" onClick={props.onOpenProposal}>Review in Inbox</button>
             <button className={`btn ${showProposals ? 'on' : ''}`} onClick={() => setShowProposals(!showProposals)} aria-pressed={showProposals}>
-              {mode === 'graph' ? 'Preview on map' : 'Show in rows'}
+              {mode === 'graph' ? 'Preview on map' : 'Show in table'}
             </button>
           </div>
         )}
