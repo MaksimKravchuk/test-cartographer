@@ -7,7 +7,7 @@ import { createRequire } from 'node:module';
 import { homedir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { type AgentProvider, Entity, Project, toYaml, Workspace } from '@tc/model';
+import { type AgentProvider, Entity, Project, Workspace } from '@tc/model';
 
 const home = () => process.env.TC_HOME ?? join(homedir(), '.test-cartographer');
 const registry = () => join(home(), 'projects.json');
@@ -176,7 +176,8 @@ export async function createProject(root: string, name: string, options: NewProj
   });
   await mkdir(ws.path('entities'), { recursive: true });
   await mkdir(ws.path('actions'), { recursive: true });
-  await writeFile(ws.path('cartographer.yaml'), toYaml(project));
+  // Through saveProject, so the history says the starting subjects came from this template.
+  await ws.saveProject(project, { kind: 'template' });
   await writeFile(ws.path('actions', 'index.ts'), actionsTemplate);
   await writeFile(ws.path('package.json'), JSON.stringify({ name: name.toLowerCase().replace(/[^a-z0-9]+/g, '-'), private: true, type: 'module' }, null, 2) + '\n');
   await writeFile(ws.path('.gitignore'), 'node_modules/\nruns/\ngenerated/\nexport/\n');
