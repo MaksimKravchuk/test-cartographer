@@ -8,7 +8,7 @@ import { checkRoles, Finding, isFileSource, Op, Proposal, type Provenance, redac
 import { readFile, stat } from 'node:fs/promises';
 import { listOf, runAgent, type Tool } from './runtime.ts';
 import { McpPool } from '../mcp.ts';
-import { codePath, insideCode, listCode } from '../sources.ts';
+import { codePath, insideCode, listCode, searchCode } from '../sources.ts';
 
 export type OnboardOptions = {
   onLog?: (line: string) => void;
@@ -75,14 +75,15 @@ are sources and slices — everything about *behavior* still belongs in the mode
 
 Sources (id, kind, priority — 1 is the strongest): ${p.sourceList || 'none'}.
 ${p.usePriority ? 'When sources disagree, the lower priority number wins: requirements usually outrank code. Still report the disagreement.' : 'Priorities are off: report every disagreement and let the person decide.'}
-How to read them: uploaded files — source({ id }); code folders — files({ source }) then read({ source, path });
+How to read them: uploaded files — source({ id }); code folders — files({ source }), search({ source, pattern }) and read({ source, path });
 MCP sources — fetch({ source, args? }) (the tool and default args are set per source; you may pass other args).
 ${p.contracts.length ? `Available contracts: ${p.contracts.join(', ')}.` : ''}
 
 Rules:
 - Call sources() first and read what's relevant from every source before proposing anything. In a code folder,
-  start from the file list and read what implements the model's actions (routes, handlers, domain logic); skip tests,
-  generated files and assets.
+  start from the file list, then search() for entry points (routes, handlers, scheduled jobs, queue consumers) and
+  for the model's own words (status values, action names) instead of reading file after file; read what implements
+  the model's actions; skip tests, generated files and assets.
 - Call model() first, then model({ entity }) for each entity it lists, and don't propose what it already has — use op=update for a field that changed, never
   op=add for something that already exists.
 - Name things with the words in model().glossary: a synonym there is the same thing as its term, not a new one.
@@ -176,7 +177,7 @@ export async function onboard(ws: Workspace, agentId: string | undefined, opts: 
   const sourceOf = (id: string, kinds?: string[]) => {
     const s = sources.find((x) => x.id === id);
     if (!s) throw new Error(`Unknown source “${id}”. Available: ${sources.map((x) => x.id).join(', ')}`);
-    if (kinds && !kinds.includes(isFileSource(s) ? 'file' : s.kind)) throw new Error(`Source “${id}” is a ${s.kind} source — use ${isFileSource(s) ? 'source()' : s.kind === 'code' ? 'files() and read()' : 'fetch()'}`);
+    if (kinds && !kinds.includes(isFileSource(s) ? 'file' : s.kind)) throw new Error(`Source “${id}” is a ${s.kind} source — use ${isFileSource(s) ? 'source()' : s.kind === 'code' ? 'files(), search() and read()' : 'fetch()'}`);
     return s;
   };
   const textCache = new Map<string, string>();
@@ -307,6 +308,12 @@ export async function onboard(ws: Workspace, agentId: string | undefined, opts: 
         const list = all.filter((f) => f.startsWith(prefix));
         return list.length > 800 ? `${list.slice(0, 800).join('\n')}\n… ${list.length - 800} more — narrow with dir` : list.join('\n') || 'no files';
       },
+    },
+    {
+      name: 'search',
+      description: 'Search a code-folder source with a regular expression (per line). Returns path:line: text and how many files were searched; then read() around a hit.',
+      input: z.object({ source: z.string(), pattern: z.string(), dir: z.string().default(''), ignoreCase: z.boolean().default(false) }),
+      run: async ({ source, pattern, dir, ignoreCase }) => searchCode(codePath(ws.root, sourceOf(source, ['code']).path!), pattern, { dir, ignoreCase }),
     },
     {
       name: 'read',

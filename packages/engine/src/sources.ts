@@ -1,4 +1,4 @@
-import { readdir, realpath, stat } from 'node:fs/promises';
+import { readdir, readFile, realpath, stat } from 'node:fs/promises';
 import { isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { homedir } from 'node:os';
 import { isFileSource, type Project, type Source, type Workspace } from '@tc/model';
@@ -43,6 +43,37 @@ export async function listCode(dir: string, limit = MAX_FILES): Promise<string[]
   };
   await walk(dir, '');
   return out;
+}
+
+// Lines of a code folder matching a regular expression, as `path:line: text`, with
+// what was searched: "nothing found" only means something next to that count.
+// Files over 512 KB, binary files and lines over 2000 characters (minified code) are skipped.
+export async function searchCode(root: string, pattern: string, opts: { dir?: string; ignoreCase?: boolean; limit?: number } = {}): Promise<string> {
+  let re: RegExp;
+  try {
+    re = new RegExp(pattern, opts.ignoreCase ? 'i' : '');
+  } catch (e) {
+    throw new Error(`Bad pattern: ${(e as Error).message}`);
+  }
+  const limit = opts.limit ?? 100;
+  const prefix = (opts.dir ?? '').replace(/^\.?\/?/, '').replace(/\/?$/, opts.dir ? '/' : '');
+  const files = (await listCode(root)).filter((f) => f.startsWith(prefix));
+  const hits: string[] = [];
+  let searched = 0;
+  for (const f of files) {
+    if (hits.length >= limit) break;
+    const abs = join(root, f);
+    if ((await stat(abs)).size > 512 * 1024) continue;
+    const text = await readFile(abs, 'utf8');
+    if (text.includes('\0')) continue;
+    searched++;
+    text.split('\n').forEach((line, i) => {
+      if (hits.length < limit && line.length <= 2000 && re.test(line)) hits.push(`${f}:${i + 1}: ${line.trim().slice(0, 300)}`);
+    });
+  }
+  const scope = `searched ${searched} of ${files.length} files${prefix ? ` under ${prefix}` : ''}`;
+  if (!hits.length) return `no match (${scope})`;
+  return `${hits.join('\n')}\n(${hits.length >= limit ? `first ${limit} matches — narrow the pattern or dir; ` : ''}${scope})`;
 }
 
 async function countFiles(dir: string): Promise<number> {
