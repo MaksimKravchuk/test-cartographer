@@ -19,6 +19,8 @@ For GUI development: `pnpm tc serve` (engine on :4317) and `pnpm ui` (GUI with h
 
 As a native window: `pnpm app` (builds the GUI and launches Electron; the engine starts automatically). The web GUI is the same app and works on every OS.
 
+As a macOS app with nothing else to install: `pnpm --filter @tc/desktop package:mac` builds `apps/desktop/release/Test Cartographer-<version>-arm64.dmg` (CI also attaches it to every run as `test-cartographer-mac`). The app carries its own engine and the demo shop. On first launch it copies the demo project to `~/Documents/Test Cartographer/Demo shop` and starts the shop on :4400, so you can run its tests straight away; set `TC_WORKSPACE` to open another project. It downloads Playwright's browser on first launch. The build isn't notarized yet: the first time, open it from Finder with right-click → Open.
+
 Engine CLI — `pnpm tc <command>`:
 
 | Command | What it does |
@@ -217,9 +219,8 @@ Done:
 - a [quickstart](docs/quickstart.md) that walks the whole loop on the demo shop.
 
 Next, in this order (each step is its own pull request):
-1. Running on Linux and Windows through the CLI and web GUI; packaging as a `.app` on macOS.
-2. A public case: an undocumented app → specification → tests and the disagreements found.
-3. Later: a recorded HAR session as a source, noticing when sources change, cleaning up test data by `runTag`, agent-authored changes to the action library reviewed by a person, pushing runs to Allure TestOps (scenario IDs and epic/feature/story labels are already on every compiled test).
+1. A public case: an undocumented app → specification → tests and the disagreements found.
+2. Later: a recorded HAR session as a source, noticing when sources change, cleaning up test data by `runTag`, agent-authored changes to the action library reviewed by a person, pushing runs to Allure TestOps (scenario IDs and epic/feature/story labels are already on every compiled test).
 
 ## License
 

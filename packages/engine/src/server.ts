@@ -551,7 +551,8 @@ export class HttpError extends Error {
   }
 }
 
-const dist = resolve(dirname(fileURLToPath(import.meta.url)), '../../../apps/desktop/dist');
+// The packaged app ships the GUI elsewhere and says where.
+const dist = process.env.TC_GUI_DIR ?? resolve(dirname(fileURLToPath(import.meta.url)), '../../../apps/desktop/dist');
 
 // Resolves with the URL it serves on.
 export function serve(ws: Workspace, port: number): Promise<string> {

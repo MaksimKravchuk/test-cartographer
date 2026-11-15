@@ -9,7 +9,8 @@
     "dev": "vite",
     "build": "vite build",
     "app": "vite build && electron .",
-    "test": "vitest run"
+    "test": "vitest run",
+    "package:mac": "vite build && node scripts/stage.mjs && electron-builder --mac --publish never"
   },
   "dependencies": {
     "@dagrejs/dagre": "^1.1.4",
@@ -26,8 +27,46 @@
     "@types/react-dom": "^19.1.0",
     "@vitejs/plugin-react": "^5.0.0",
     "electron": "^38.0.0",
+    "electron-builder": "^26.18.0",
+    "esbuild": "0.28.2",
     "jsdom": "^31.0.1",
     "vite": "^7.1.0",
     "vitest": "^5.1.0"
+  },
+  "build": {
+    "appId": "dev.testcartographer.app",
+    "productName": "Test Cartographer",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "electron/**",
+      "package.json",
+      "!**/node_modules/**"
+    ],
+    "extraResources": [
+      {
+        "from": "build/gui",
+        "to": "gui"
+      },
+      {
+        "from": "build/demo",
+        "to": "demo"
+      }
+    ],
+    "mac": {
+      "category": "public.app-category.developer-tools",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64"
+          ]
+        }
+      ],
+      "identity": "-",
+      "hardenedRuntime": false
+    },
+    "afterPack": "scripts/after-pack.cjs"
   }
 }
