@@ -77,6 +77,8 @@ test('reviewMatrix: provenance confirms, an open finding quoting a source overri
   assert.deepEqual(marks, { requirements: 'confirms', code: 'contradicts', app: false });
   const confirmed = { ...finding(), finding: { ...finding().finding, kind: 'confirmation' as const, refs: ['action:order.cancel'] } };
   assert.deepEqual(reviewMatrix([e], [confirmed]).find((r) => r.ref === 'action:order.cancel')!.cells, { code: 'confirms' }, 'a confirmation fills the cell');
+  const notFound = { ...finding(), quotes: [], finding: { ...finding().finding, kind: 'gap' as const, refs: ['action:order.cancel'], evidence: [], searched: ['wiki'] } };
+  assert.deepEqual(reviewMatrix([e], [notFound]).find((r) => r.ref === 'action:order.cancel')!.cells, { wiki: 'gap' }, 'a searched source with nothing found shows as a gap');
   const seen = Entity.parse({ ...e, rules: [{ ...e.rules[0], provenance: { source: 'agent', sources: [], seen: true } }] });
   assert.equal(reviewMatrix([seen], []).find((r) => r.ref === 'rule:order.until-paid')!.marks.app, true);
 });

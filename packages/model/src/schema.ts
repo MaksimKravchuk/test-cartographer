@@ -524,6 +524,8 @@ export const Finding = z.object({
   note: z.string(),
   refs: z.array(z.string()).default([]),
   evidence: z.array(z.string()).default([]),
+  // For a "not found" gap: the sources searched without finding it.
+  searched: z.array(z.string()).optional(),
 });
 export type Finding = z.infer<typeof Finding>;
 

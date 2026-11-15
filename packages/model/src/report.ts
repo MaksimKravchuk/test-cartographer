@@ -160,8 +160,7 @@ export function reviewMatrix(entities: Entity[], findings: Disagreement[], sourc
       for (const s of x.provenance?.sources ?? []) cells[s] = 'confirms';
       const found: Record<string, ReviewCell> = {};
       for (const f of open.filter((f) => f.finding.refs.includes(ref)))
-        for (const q of f.quotes) {
-          const s = q.evidence.source;
+        for (const s of [...f.quotes.map((q) => q.evidence.source), ...(f.finding.searched ?? [])]) {
           if (!s) continue;
           const cell = s === f.winner ? 'confirms' : findingCell[f.finding.kind];
           // Several findings may quote one source: the strongest stands, whatever their order.

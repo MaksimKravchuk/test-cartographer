@@ -54,7 +54,7 @@ Report each disagreement as a finding (kind=contradiction) whose refs name the e
 A rule found only in the code is behavior, not a requirement: propose it and say so in a finding (kind=gap).
 Cover every element, so the review fills a table of element × source: where a source says the same as the model,
 add a finding (kind=confirmation) with that element in refs and the quote as evidence; where you looked and found
-nothing, add a finding (kind=gap) whose note names the sources and files you searched.`,
+nothing, add a finding (kind=gap) with the source ids you searched in \`searched\` and the files or queries in its note.`,
 };
 
 const system = (p: { sourceList: string; contracts: string[]; mode: 'onboard' | 'review'; usePriority: boolean }) => `You are working for Test Cartographer: ${MODE_GOAL[p.mode]}
