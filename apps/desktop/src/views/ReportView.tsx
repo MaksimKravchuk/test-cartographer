@@ -94,7 +94,7 @@ export function ReportView({ proposals, reloadToken, onChanged, onError }: Props
           </div>
         </details>
       )}
-      {list.length === 0 && <p className="muted">Nothing open. Run “Review the model” on the Model page to check it against the sources.</p>}
+      {list.length === 0 && <p className="muted">Nothing open. Use Ask agent › Review the model to check the model against the sources.</p>}
       {list.map((d) => (
         <section key={`${d.proposal}-${d.index}`} className="finding" style={{ borderLeft: `3px solid ${d.finding.kind === 'contradiction' ? 'var(--bad)' : 'var(--warn)'}`, marginTop: 12 }}>
           <div className="row">

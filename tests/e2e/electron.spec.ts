@@ -17,7 +17,7 @@ test('the desktop app opens a window with the project', async ({ baseURL }) => {
   try {
     const win = await app.firstWindow();
     await expect(win.locator('.brand')).toHaveText('Test Cartographer');
-    await expect(win.getByRole('navigation', { name: 'Sections' })).toContainText(/shop/i);
+    await expect(win.locator('.top')).toContainText(/shop/i);
   } finally {
     await app.close();
   }

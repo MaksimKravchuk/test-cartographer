@@ -12,7 +12,6 @@ type Props = {
   proposals: ProposalState[];
   reloadToken: number;
   running: boolean;
-  onResearch(mode: 'onboard' | 'review'): void;
   onOpenEntity(id: string): void;
   onChanged(): void;
   onError(m: string): void;
@@ -85,14 +84,14 @@ function NextQueue({ queue, busy, onOpen, onSettle }: { queue: Queue; busy: bool
       {group('gaps in the model', 'gap', queue.gaps.map((l, i) => <li key={i}>{link(l.ref, l.message)}</li>))}
       {group('open questions', 'question', queue.questions.map((d) => finding(d, true)))}
       {group('contradictions between sources (settle them on the Disagreements page)', 'contradiction', queue.contradictions.map((d) => finding(d, false)))}
-      <p className="muted" style={{ margin: 0 }}>Answer a question here, or press “Review the model” to have an agent look into all of them.</p>
+      <p className="muted" style={{ margin: 0 }}>Answer a question here, or use Ask agent › Review the model to have an agent look into all of them.</p>
     </section>
   );
 }
 
 const sugg = { border: '1px dashed var(--accent)', background: 'var(--accent-weak)' };
 
-export function ModelView({ project, proposals, reloadToken, running, onResearch, onOpenEntity, onChanged, onError }: Props) {
+export function ModelView({ project, proposals, reloadToken, running, onOpenEntity, onChanged, onError }: Props) {
   const [states, setStates] = useState<Record<string, EntityState>>({});
   const [busy, setBusy] = useState(false);
   const [selected, setSelected] = useState<{ entity: string; action: string } | null>(null);
@@ -307,13 +306,6 @@ export function ModelView({ project, proposals, reloadToken, running, onResearch
     <div className="page">
       <div className="row">
         <h1 style={{ margin: 0 }}>Model</h1>
-        <span className="spacer" />
-        <button className="btn" disabled={running} onClick={() => onResearch('onboard')} title="Agents read every enabled source and propose subjects, objects, actions and rules">
-          Run first research
-        </button>
-        <button className="btn primary" disabled={running} onClick={() => onResearch('review')} title="Agents check the model you have against the sources: confirmations, contradictions, and what's missing">
-          Review the model
-        </button>
       </div>
       <p className="lede">
         Who acts, on what, and under which rules. Write what you know; agents check it against the sources and add what they find.
