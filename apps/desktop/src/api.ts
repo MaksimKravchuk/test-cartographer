@@ -1,4 +1,4 @@
-import type { AgentProvider, Backlog, BacklogCoverage, Coverage, Decision, Entity, Field, Issue, Plan, Project, Proposal, ScenarioResult, Source, SourceKind, Status } from '@tc/model';
+import type { AgentProvider, Backlog, BacklogCoverage, Coverage, Decision, Entity, Field, Issue, Plan, Project, Proposal, ScenarioResult, FileSourceKind, Source, Status } from '@tc/model';
 
 export type EntityState = {
   entity: Entity;
@@ -47,7 +47,9 @@ export type Projects = { current: string; recent: RecentProject[] };
 
 export type ProposalState = Proposal & { stale: boolean; conflicts: { op: number; message: string }[] };
 
-export type SourceInfo = Source & { lines: number; size: number };
+// lines/size only for uploaded files; code and MCP sources have no text of their own.
+export type SourceInfo = Source & { lines?: number; size?: number };
+export type SourceCheck = { id: string; ok: boolean; detail: string };
 
 export type BacklogState = { backlog: Backlog; revision: string; coverage: BacklogCoverage; issues: Issue[] };
 
@@ -125,9 +127,17 @@ export const api = {
     call<{ job: string }>(`/api/agents/${agent}/explore`, { method: 'POST', body: JSON.stringify({ provider }) }),
   cancel: (job: string) => call(`/api/jobs/${job}/cancel`, { method: 'POST' }),
   exportMarkdown: () => call<{ files: { path: string; content: string }[] }>('/api/export/markdown', { method: 'POST' }),
-  sources: () => call<{ sources: SourceInfo[] }>('/api/sources'),
-  addSource: (input: { name: string; content: string; kind?: SourceKind; title?: string }) =>
-    call<Source>('/api/sources', { method: 'POST', body: JSON.stringify(input) }),
+  sources: () => call<{ sources: SourceInfo[]; usePriority: boolean }>('/api/sources'),
+  addSource: (
+    input:
+      | { name: string; content: string; kind?: FileSourceKind; title?: string }
+      | { kind: 'code'; path: string; title?: string }
+      | { kind: 'mcp'; read: { tool: string; args: Record<string, unknown> }; title?: string },
+  ) => call<Source>('/api/sources', { method: 'POST', body: JSON.stringify(input) }),
+  updateSource: (id: string, patch: { title?: string; priority?: number; enabled?: boolean }) =>
+    call<Source>(`/api/sources/${id}`, { method: 'PATCH', body: JSON.stringify(patch) }),
+  setUsePriority: (usePriority: boolean) => call('/api/sources/settings', { method: 'PUT', body: JSON.stringify({ usePriority }) }),
+  checkSources: (id?: string) => call<{ checks: SourceCheck[] }>(`/api/sources/check${id ? `?id=${encodeURIComponent(id)}` : ''}`, { method: 'POST' }),
   sourceText: (id: string) => call<{ source: Source; text: string }>(`/api/sources/${id}`),
   removeSource: (id: string) => call<{ ok: true }>(`/api/sources/${id}`, { method: 'DELETE' }),
   backlog: () => call<BacklogState>('/api/backlog'),

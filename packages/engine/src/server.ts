@@ -10,7 +10,7 @@ import { dirname, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   AgentProvider, applyDecisions, applyProjectDecisions, Backlog, backlogCoverage, buildPlan, conflicts, coverage, Decision, Entity, objectParents, Project,
-  RevisionConflict, SourceKind, validateBacklog, validateEntity, validateProject, type ProjectState, type Workspace,
+  RevisionConflict, FILE_SOURCE_KINDS, ToolCall, isFileSource, validateBacklog, validateEntity, validateProject, type ProjectState, type Workspace,
 } from '@tc/model';
 import { z } from 'zod';
 import { loadActions } from './actions-loader.ts';
@@ -18,6 +18,7 @@ import { runTests } from './run.ts';
 import { exportMarkdown } from './export.ts';
 import { explore } from './agents/explore.ts';
 import { onboard } from './agents/onboard.ts';
+import { checkSources } from './sources.ts';
 import { cursorLogin, runtimeStatus, testRuntime } from './agents/runtime.ts';
 import { createEntity, createProject, forgetProject, openProject, pinProject, recentProjects, rememberProject, trashProject, UnknownParentError } from './projects.ts';
 
@@ -250,20 +251,47 @@ export function createApp(initial: Workspace) {
   // Knowledge sources: what onboarding reads. Text only — the workspace keeps
   // docs, tracker exports, contracts and notes as plain files it can diff.
   app.get('/api/sources', async (c) => {
-    const list = await ws.sources();
+    const { sources, usePriority } = await ws.sourceRegistry();
     const out = await Promise.all(
-      list.map(async (s) => {
+      sources.map(async (s) => {
+        if (!isFileSource(s)) return s;
         const text = await ws.sourceText(s.id);
         return { ...s, lines: text.split('\n').length, size: Buffer.byteLength(text, 'utf8') };
       }),
     );
-    return c.json({ sources: out });
+    return c.json({ sources: out, usePriority });
   });
 
   app.post('/api/sources', async (c) => {
-    const input = z.object({ name: z.string().min(1), content: z.string(), kind: SourceKind.optional(), title: z.string().optional() }).parse(await c.req.json());
-    const source = await ws.addSource(input).catch((e: Error) => {
+    const body = await c.req.json();
+    const linked = z.discriminatedUnion('kind', [
+      z.object({ kind: z.literal('code'), path: z.string().min(1), title: z.string().optional() }),
+      z.object({ kind: z.literal('mcp'), read: ToolCall, title: z.string().optional() }),
+    ]);
+    const add = body?.kind === 'code' || body?.kind === 'mcp'
+      ? ws.addLinkedSource(linked.parse(body))
+      : ws.addSource(z.object({ name: z.string().min(1), content: z.string(), kind: z.enum(FILE_SOURCE_KINDS).optional(), title: z.string().optional() }).parse(body));
+    const source = await add.catch((e: Error) => {
       throw new HttpError(400, e.message);
+    });
+    return c.json(source);
+  });
+
+  app.put('/api/sources/settings', async (c) => {
+    const { usePriority } = z.object({ usePriority: z.boolean() }).parse(await c.req.json());
+    await ws.setUsePriority(usePriority);
+    return c.json({ ok: true });
+  });
+
+  // Proves access to every source (or ?id=one) the way agents will read it.
+  app.post('/api/sources/check', async (c) => {
+    return c.json({ checks: await checkSources(ws, await ws.project(), c.req.query('id')) });
+  });
+
+  app.patch('/api/sources/:id', async (c) => {
+    const patch = z.object({ title: z.string().min(1).optional(), priority: z.number().int().min(1).optional(), enabled: z.boolean().optional() }).parse(await c.req.json());
+    const source = await ws.updateSource(c.req.param('id'), patch).catch((e: Error) => {
+      throw new HttpError(e.message.startsWith('Unknown') ? 404 : 400, e.message);
     });
     return c.json(source);
   });
@@ -272,6 +300,7 @@ export function createApp(initial: Workspace) {
     const id = c.req.param('id');
     const source = (await ws.sources()).find((s) => s.id === id);
     if (!source) return c.notFound();
+    if (!isFileSource(source)) throw new HttpError(400, `Source “${id}” is a ${source.kind} source — it has no text of its own`);
     return c.json({ source, text: await ws.sourceText(id) });
   });
 

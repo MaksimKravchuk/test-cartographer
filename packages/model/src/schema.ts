@@ -380,18 +380,42 @@ export const elementCollections = {
 export const elementSchemas = { variant: Variant, state: State, action: Action, transition: Transition, permit: Permit, scenario: Journey, rule: Rule };
 
 // ── Knowledge sources ── workspace/sources.yaml + files in workspace/sources/
-export const SourceKind = z.enum(['doc', 'backlog', 'contract', 'note']); // backlog = a tracker export
+// doc / backlog / contract / note — an uploaded text file in workspace/sources/
+//   (backlog = a tracker export);
+// code — a folder on disk with the product's source code (`path`);
+// mcp  — a system reached through an MCP server of cartographer.yaml, such as
+//   Confluence or Jira; `read` is an allowed read tool that proves access.
+export const FILE_SOURCE_KINDS = ['doc', 'backlog', 'contract', 'note'] as const;
+export type FileSourceKind = (typeof FILE_SOURCE_KINDS)[number];
+export const SourceKind = z.enum([...FILE_SOURCE_KINDS, 'code', 'mcp']);
 export type SourceKind = z.infer<typeof SourceKind>;
-export const Source = z.object({
-  id: Id,
-  title: z.string(),
-  kind: SourceKind.default('doc'),
-  file: z.string(), // file name inside workspace/sources/
-  addedAt: z.string(), // ISO
-  note: z.string().optional(),
-});
+export const isFileSource = (s: { kind: SourceKind }) => (FILE_SOURCE_KINDS as readonly string[]).includes(s.kind);
+export const Source = z
+  .object({
+    id: Id,
+    title: z.string(),
+    kind: SourceKind.default('doc'),
+    file: z.string().optional(), // file name inside workspace/sources/ (file kinds)
+    path: z.string().optional(), // folder, absolute or relative to the workspace (code)
+    read: ToolCall.optional(), // access probe (mcp)
+    // Who wins when sources disagree: 1 is the strongest. Requirements default
+    // to 1, code to 2. Equal numbers — no winner, a person decides.
+    priority: z.number().int().min(1).default(1),
+    // A disabled source stays listed but no agent reads it.
+    enabled: z.boolean().default(true),
+    addedAt: z.string(), // ISO
+    note: z.string().optional(),
+  })
+  .superRefine((s, ctx) => {
+    const need = isFileSource(s) ? 'file' : s.kind === 'code' ? 'path' : 'read';
+    if (s[need] === undefined) ctx.addIssue({ code: 'custom', path: [need], message: `a ${s.kind} source needs \`${need}\`` });
+  });
 export type Source = z.infer<typeof Source>;
-export const SourceRegistry = z.object({ sources: z.array(Source).default([]) });
+export const SourceRegistry = z.object({
+  // false — priorities are ignored: every disagreement goes to a person.
+  usePriority: z.boolean().default(true),
+  sources: z.array(Source).default([]),
+});
 export type SourceRegistry = z.infer<typeof SourceRegistry>;
 
 // ── Backlog ── workspace/backlog.yaml (absent file = empty backlog)

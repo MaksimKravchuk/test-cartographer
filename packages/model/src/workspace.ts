@@ -3,7 +3,7 @@ import { mkdir, readdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { basename, extname, join } from 'node:path';
 import YAML from 'yaml';
-import { Backlog, Entity, Project, Proposal, RunReport, Source, SourceRegistry, type ScenarioResult, type SourceKind } from './schema.ts';
+import { Backlog, Entity, Project, Proposal, RunReport, Source, SourceRegistry, isFileSource, type ScenarioResult, type FileSourceKind, type ToolCall } from './schema.ts';
 
 // A workspace is a plain folder that is easy to keep in git:
 //   cartographer.yaml     project: interfaces, roles, MCP, agent runtime, agents
@@ -78,34 +78,74 @@ export class Workspace {
   }
 
   // ── Knowledge sources ─────────────────────────────────────────────────
-  async sources(): Promise<Source[]> {
+  async sourceRegistry(): Promise<SourceRegistry> {
     const text = await readFile(this.path('sources.yaml'), 'utf8').catch(() => null);
-    return text === null ? [] : SourceRegistry.parse(YAML.parse(text)).sources;
+    return SourceRegistry.parse(text === null ? {} : YAML.parse(text) ?? {});
+  }
+
+  async sources(): Promise<Source[]> {
+    return (await this.sourceRegistry()).sources;
   }
 
   async sourceText(id: string): Promise<string> {
     const source = (await this.sources()).find((s) => s.id === id);
     if (!source) throw new Error(`Unknown source “${id}”`);
-    return readFile(this.path('sources', source.file), 'utf8');
+    if (!isFileSource(source)) throw new Error(`Source “${id}” is a ${source.kind} source, not an uploaded file`);
+    return readFile(this.path('sources', source.file!), 'utf8');
   }
 
-  async saveSources(sources: Source[]): Promise<void> {
+  async saveSources(sources: Source[], usePriority?: boolean): Promise<void> {
+    usePriority ??= (await this.sourceRegistry()).usePriority;
     await mkdir(this.path('sources'), { recursive: true });
-    await writeFile(this.path('sources.yaml'), toYaml(SourceRegistry.parse({ sources })));
+    await writeFile(this.path('sources.yaml'), toYaml(SourceRegistry.parse({ usePriority, sources })));
+  }
+
+  async setUsePriority(usePriority: boolean): Promise<void> {
+    await this.saveSources(await this.sources(), usePriority);
+  }
+
+  private async newSourceId(name: string): Promise<{ existing: Source[]; id: string }> {
+    const existing = await this.sources();
+    const slug = slugify(name);
+    let id = slug;
+    for (let n = 2; existing.some((s) => s.id === id); n++) id = `${slug}-${n}`;
+    return { existing, id };
+  }
+
+  // A source that isn't a file: a code folder or a system behind an MCP server.
+  // Code defaults to priority 2 — requirements outrank it.
+  async addLinkedSource(input: { kind: 'code'; path: string; title?: string } | { kind: 'mcp'; read: ToolCall; title?: string }): Promise<Source> {
+    const title = input.title ?? (input.kind === 'code' ? basename(input.path) : input.read.tool);
+    const { existing, id } = await this.newSourceId(title);
+    const source = Source.parse({
+      ...input,
+      id,
+      title,
+      priority: input.kind === 'code' ? 2 : 1,
+      addedAt: new Date().toISOString(),
+    });
+    await this.saveSources([...existing, source]);
+    return source;
+  }
+
+  async updateSource(id: string, patch: { title?: string; priority?: number; enabled?: boolean }): Promise<Source> {
+    const list = await this.sources();
+    const i = list.findIndex((s) => s.id === id);
+    if (i < 0) throw new Error(`Unknown source “${id}”`);
+    list[i] = Source.parse({ ...list[i], ...patch });
+    await this.saveSources(list);
+    return list[i];
   }
 
   // id = a kebab slug of the file name, made unique; file keeps the name's own
   // extension (.md if it has none). Text only — a tester uploads docs and
   // tracker exports, not binaries.
-  async addSource(input: { name: string; content: string; kind?: SourceKind; title?: string }): Promise<Source> {
+  async addSource(input: { name: string; content: string; kind?: FileSourceKind; title?: string }): Promise<Source> {
     if (input.content.includes('\0')) throw new Error(`“${input.name}” looks like a binary file — only text sources are supported`);
     if (Buffer.byteLength(input.content, 'utf8') > 2 * 1024 * 1024) throw new Error(`“${input.name}” is larger than 2 MB`);
 
-    const existing = await this.sources();
     const ext = extname(input.name) || '.md';
-    const slug = slugify(basename(input.name, extname(input.name)));
-    let id = slug;
-    for (let n = 2; existing.some((s) => s.id === id); n++) id = `${slug}-${n}`;
+    const { existing, id } = await this.newSourceId(basename(input.name, extname(input.name)));
 
     const source = Source.parse({
       id,
@@ -115,7 +155,7 @@ export class Workspace {
       addedAt: new Date().toISOString(),
     });
     await mkdir(this.path('sources'), { recursive: true });
-    await writeFile(this.path('sources', source.file), input.content);
+    await writeFile(this.path('sources', source.file!), input.content);
     await this.saveSources([...existing, source]);
     return source;
   }
@@ -126,8 +166,10 @@ export class Workspace {
     const source = list.find((s) => s.id === id);
     if (!source) throw new Error(`Unknown source “${id}”`);
     const stamp = new Date().toISOString().replace(/[:.]/g, '-');
-    await mkdir(this.path('sources', '.trash'), { recursive: true });
-    await rename(this.path('sources', source.file), this.path('sources', '.trash', `${id}-${stamp}${extname(source.file)}`));
+    if (source.file) {
+      await mkdir(this.path('sources', '.trash'), { recursive: true });
+      await rename(this.path('sources', source.file), this.path('sources', '.trash', `${id}-${stamp}${extname(source.file)}`));
+    }
     await this.saveSources(list.filter((s) => s.id !== id));
   }
 

@@ -13,6 +13,7 @@ import {
   Entity,
   Project,
   Proposal,
+  Source,
   scenarioActions,
   traceScenario,
   validateBacklog,
@@ -111,6 +112,33 @@ test('workspace: addSource makes a unique slug id, rejects binary content, remov
     const trashed = await readdir(join(dir, 'sources', '.trash'));
     assert.equal(trashed.length, 1);
     assert.match(trashed[0], /^product-overview-.*\.md$/);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('workspace: code and MCP sources — priority defaults, enable/disable, usePriority, no file to trash', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'tc-model-'));
+  try {
+    const ws = new Workspace(dir);
+    const doc = await ws.addSource({ name: 'spec.md', content: 'text' });
+    const code = await ws.addLinkedSource({ kind: 'code', path: '~/work/shop' });
+    const mcp = await ws.addLinkedSource({ kind: 'mcp', read: { tool: 'confluence.list_pages', args: { space: 'SHOP' } }, title: 'Confluence SHOP' });
+    assert.deepEqual([doc.priority, code.priority, mcp.priority], [1, 2, 1]); // requirements outrank code
+    assert.equal(code.id, 'shop');
+    assert.equal(mcp.id, 'confluence-shop');
+    await assert.rejects(() => ws.sourceText(code.id), /code source/);
+
+    assert.equal((await ws.updateSource(code.id, { enabled: false, priority: 3 })).enabled, false);
+    await ws.setUsePriority(false);
+    const reg = await ws.sourceRegistry();
+    assert.equal(reg.usePriority, false);
+    assert.deepEqual(reg.sources.map((s) => [s.id, s.priority, s.enabled]), [['spec', 1, true], ['shop', 3, false], ['confluence-shop', 1, true]]);
+
+    await ws.removeSource(mcp.id); // nothing on disk to move
+    assert.deepEqual((await ws.sources()).map((s) => s.id), ['spec', 'shop']);
+    assert.equal((await ws.sourceRegistry()).usePriority, false); // survives saves of the list
+    assert.throws(() => Source.parse({ id: 'x', title: 'x', kind: 'code', addedAt: '2026-01-01' }), /needs `path`/);
   } finally {
     await rm(dir, { recursive: true, force: true });
   }

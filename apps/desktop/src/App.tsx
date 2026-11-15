@@ -223,7 +223,7 @@ export function App() {
         </button>
 
         <h4>Project</h4>
-        <button aria-current={route.page === 'onboarding' ? 'page' : undefined} onClick={() => go({ page: 'onboarding' })}>Onboarding</button>
+        <button aria-current={route.page === 'onboarding' ? 'page' : undefined} onClick={() => go({ page: 'onboarding' })}>Sources</button>
         <button aria-current={route.page === 'proposals' ? 'page' : undefined} onClick={() => go({ page: 'proposals' })}>
           Proposals {pending.length > 0 && <span className="count">{pending.length}</span>}
         </button>

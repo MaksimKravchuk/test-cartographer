@@ -4,7 +4,7 @@
 // never touches a running app: everything it knows comes from what was
 // uploaded, and every operation must cite an exact quote from it.
 import { z } from 'zod';
-import { checkRoles, Finding, Op, Proposal, redactFields, resolveRuntime, type AgentSpec, type Evidence, type Workspace } from '@tc/model';
+import { checkRoles, Finding, isFileSource, Op, Proposal, redactFields, resolveRuntime, type AgentSpec, type Evidence, type Workspace } from '@tc/model';
 import { listOf, runAgent, type Tool } from './runtime.ts';
 
 export type OnboardOptions = {
@@ -107,7 +107,8 @@ export async function onboard(ws: Workspace, agentId: string | undefined, opts: 
   const runtime = opts.provider === 'scripted' ? 'scripted' : resolveRuntime(project, agent) ?? 'scripted';
 
   const timestamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
-  const sources = await ws.sources();
+  // Onboarding reads uploaded files only; code and MCP sources come with the research agent.
+  const sources = (await ws.sources()).filter((s) => s.enabled && isFileSource(s));
   const { backlog: baseBacklog, revision: backlogRevision } = await ws.backlog();
   const existingEntities = new Set(await ws.entityIds());
 
@@ -115,7 +116,8 @@ export async function onboard(ws: Workspace, agentId: string | undefined, opts: 
   const sourceText = async (id: string) => {
     let t = textCache.get(id);
     if (t === undefined) {
-      t = await ws.sourceText(id); // throws "Unknown source ..." for a bad id
+      if (!sources.some((s) => s.id === id)) throw new Error(`Unknown source “${id}”. Available: ${sources.map((s) => s.id).join(', ')}`);
+      t = await ws.sourceText(id);
       textCache.set(id, t);
     }
     return t;
