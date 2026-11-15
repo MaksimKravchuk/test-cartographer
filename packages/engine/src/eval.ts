@@ -140,8 +140,9 @@ const VERBS: Record<string, string> = Object.fromEntries(
   Object.entries({ create: ['add', 'new', 'make', 'mint', 'register', 'signup'], update: ['edit', 'change', 'modify', 'rename', 'set', 'patch'], delete: ['remove', 'destroy', 'erase', 'purge', 'drop'], read: ['get', 'view', 'show', 'list', 'see', 'browse', 'fetch', 'open'], complete: ['finish', 'done', 'close'], restore: ['undelete', 'recover', 'unarchive'] }).flatMap(([v, ws]) => [[v, v], ...ws.map((w) => [w, v])]),
 );
 const stem = (w: string) => (w.length > 4 && w.endsWith('ies') ? `${w.slice(0, -3)}y` : w.length > 3 && w.endsWith('s') && !w.endsWith('ss') ? w.slice(0, -1) : w);
+// Agents' values are loosely typed: a missing title reads as no words.
 export const words = (s: string) =>
-  s
+  String(s ?? '')
     .replace(/([a-z])([A-Z])/g, '$1 $2')
     .toLowerCase()
     .split(/[^\p{L}\p{N}]+/u)
