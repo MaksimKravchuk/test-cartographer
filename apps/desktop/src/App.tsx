@@ -18,6 +18,7 @@ import { BacklogView } from './views/BacklogView.tsx';
 import { ScenariosView } from './views/ScenariosView.tsx';
 import { AgentsView } from './views/AgentsView.tsx';
 import { SettingsView } from './views/SettingsView.tsx';
+import { GlossaryView } from './views/GlossaryView.tsx';
 import { ProjectSwitcher } from './views/ProjectSwitcher.tsx';
 import { ProjectsView } from './views/ProjectsView.tsx';
 import { AgentStatus, AskAgent } from './views/Shell.tsx';
@@ -32,6 +33,7 @@ type Route =
   | { page: 'report' }
   | { page: 'spec' }
   | { page: 'objects' }
+  | { page: 'glossary' }
   | { page: 'entity'; id: string; tab: EntityTab }
   | { page: 'onboarding' }
   | { page: 'backlog' }
@@ -49,7 +51,7 @@ type Place = 'sources' | 'model' | 'inbox' | 'spec' | 'tests' | 'settings';
 type Page = Route['page'];
 const placeOf: Record<Page, Place> = {
   onboarding: 'sources',
-  model: 'model', objects: 'model', entity: 'model',
+  model: 'model', objects: 'model', glossary: 'model', entity: 'model',
   proposals: 'inbox', report: 'inbox',
   spec: 'spec',
   overview: 'tests', backlog: 'tests', export: 'tests',
@@ -57,7 +59,7 @@ const placeOf: Record<Page, Place> = {
 };
 const views: Record<Place, { page: Exclude<Page, 'entity'>; title: string }[]> = {
   sources: [{ page: 'onboarding', title: 'Sources' }],
-  model: [{ page: 'model', title: 'Model' }, { page: 'objects', title: 'Map' }],
+  model: [{ page: 'model', title: 'Model' }, { page: 'objects', title: 'Map' }, { page: 'glossary', title: 'Glossary' }],
   inbox: [{ page: 'proposals', title: 'Queue' }, { page: 'report', title: 'By source' }],
   spec: [{ page: 'spec', title: 'Specification' }],
   tests: [{ page: 'overview', title: 'Overview' }, { page: 'backlog', title: 'Backlog' }, { page: 'export', title: 'Export' }],
@@ -272,6 +274,7 @@ export function App() {
               {v.title}
               {v.page === 'proposals' && inbox > 0 && <span className="count">{inbox}</span>}
               {v.page === 'objects' && <span className="muted"> {entities.length}</span>}
+              {v.page === 'glossary' && project.project.glossary.length > 0 && <span className="muted"> {project.project.glossary.length}</span>}
             </button>
           ))}
           {route.page === 'entity' && (
@@ -422,6 +425,16 @@ export function App() {
             onSaved={async () => {
               await reloadAll();
               notify('Project settings saved');
+            }}
+            onError={(m) => notify(m, true)}
+          />
+        )}
+        {route.page === 'glossary' && (
+          <GlossaryView
+            project={project}
+            onSaved={async () => {
+              await reloadAll();
+              notify('Glossary saved');
             }}
             onError={(m) => notify(m, true)}
           />

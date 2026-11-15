@@ -928,3 +928,6 @@ table.grid :is(th, td):first-child { padding-left: 0; }
 .sources-list table.grid :is(th, td):first-child { padding-left: var(--s4); }
 .settings h2 + p { margin-top: 0; }
 ::placeholder { color: var(--fg-3); opacity: 0.7; }
+.grp.source::before { background: var(--fg-3); }
+.inbox .answer { display: flex; gap: var(--s2); flex: 1 1 260px; }
+.inbox .answer .text { flex: 1; min-width: 0; }

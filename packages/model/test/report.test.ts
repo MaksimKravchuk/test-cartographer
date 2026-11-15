@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { allFindings, checkRoles, disagreements, Entity, lintModel, Project, Proposal, renderSpec, resolveRuntime, reviewMatrix, validateEntity, validateProject } from '@tc/model';
+import { addSynonym, allFindings, checkRoles, disagreements, Entity, lintModel, Project, Proposal, renderSpec, resolveRuntime, reviewMatrix, validateEntity, validateProject } from '@tc/model';
 
 const project = Project.parse({
   name: 'Shop',
@@ -141,4 +141,12 @@ test('runtime.baseUrl: carried to agents on the same provider; only Codex uses i
   assert.deepEqual(validateProject(p), []);
   const claude = Project.parse({ ...project, runtime: { provider: 'claude', baseUrl: 'http://localhost:11434/v1' } });
   assert.match(validateProject(claude)[0].message, /Only the Codex runtime/);
+});
+
+test('addSynonym: new entry, joins the entry either word has, merges two entries into one', () => {
+  assert.deepEqual(addSynonym([], 'Location', 'Place'), [{ term: 'Location', definition: '', synonyms: ['Place'] }]);
+  const g = [{ term: 'Project', definition: 'A list of tasks', synonyms: [] }, { term: 'Spot', definition: '', synonyms: ['Place'] }];
+  assert.deepEqual(addSynonym(g, 'list', 'project'), [{ term: 'Project', definition: 'A list of tasks', synonyms: ['list'] }, g[1]]);
+  assert.deepEqual(addSynonym(g, 'Project', 'project'), g);
+  assert.deepEqual(addSynonym(g, 'Project', 'place'), [{ term: 'Project', definition: 'A list of tasks', synonyms: ['place', 'Spot'] }]);
 });

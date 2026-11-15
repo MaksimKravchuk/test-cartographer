@@ -412,7 +412,7 @@ export function ModelView({ project, proposals, reloadToken, running, onOpenEnti
                   <div key={i} className={`rule finding-row ${f.kind}`}>
                     <div className="t">
                       <span className={`tag ${f.kind === 'contradiction' ? 'contradicts' : f.kind === 'confirmation' ? 'confirmed' : 'observed'}`}>
-                        {f.kind === 'contradiction' ? 'sources disagree' : f.kind === 'gap' ? 'gap' : f.kind === 'confirmation' ? 'confirmed' : 'question'}
+                        {f.kind === 'contradiction' ? 'sources disagree' : f.kind === 'gap' ? 'gap' : f.kind === 'source' ? 'source problem' : f.kind === 'confirmation' ? 'confirmed' : 'question'}
                       </span>{' '}
                       {f.note}
                     </div>
