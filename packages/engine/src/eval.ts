@@ -250,6 +250,13 @@ export function matchModel(ref: Item[], cand: Item[], threshold = 0.5): Match[] 
     // Rules are prose: overlap of the words that carry meaning, a weak signal the judge replaces.
     matches.push(...matchNames(inRef('rule'), of(cand, 'rule', co.key), 0.34, (r, c) => best(r.names, c.names, drop)));
   }
+  // A part the reference files under another object (a voice action under agent connections): matched by its
+  // full name, the object's words included, which only a close match passes.
+  const found = new Set(matches.map((m) => m.ref));
+  const used = new Set(matches.map((m) => m.cand));
+  const full = (x: Item, owner: Item[]) => x.names.map((n) => `${n} ${owner.find((o) => o.key === x.object)?.names[0] ?? ''}`);
+  for (const cat of ['param', 'state', 'action'] as const)
+    matches.push(...matchNames(of(ref, cat).filter((r) => !found.has(r.key)), of(cand, cat).filter((c) => !used.has(c.key)), 0.75, (r, c) => best(full(r, ref), full(c, cand))));
   return matches;
 }
 
