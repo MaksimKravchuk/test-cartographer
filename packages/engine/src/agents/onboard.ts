@@ -25,8 +25,8 @@ export type OnboardOptions = {
   mode?: 'onboard' | 'review' | 'clarify';
   // clarify: the finding to dig into.
   target?: { proposal: string; index: number };
-  // onboard from code with a live runtime: map the product into areas first, then research
-  // each area in a run of its own (its own budget, several at a time). false: one run for everything.
+  // onboard with a live runtime: map the product into areas first, then research each area in a run
+  // of its own (its own budget, several at a time). Default: when the code sources hold AREAS_FROM_FILES files or more.
   areas?: boolean;
 };
 
@@ -40,6 +40,7 @@ const Area = z.object({
 });
 type Area = z.infer<typeof Area>;
 const AREA_RUNS = 3;
+const AREAS_FROM_FILES = 500;
 
 // Used when cartographer.yaml has no `kind: onboard` entry — a project can
 // onboard before anyone has configured an agent at all.
@@ -87,7 +88,7 @@ manifests and the module layout (routes, handlers, domain modules, migrations, j
 shows a folder's types and enums in one call), and split
 the product into 2–12 areas a person would name: one feature or bounded context each, with its code paths and the
 entities (objects people work with) it holds. Every entity belongs to one area; leave out build, tooling and
-infrastructure. Don't propose anything: call areas() when the map covers the whole product, within about 20 calls.`;
+infrastructure, and whatever the goal puts out of scope. Don't propose anything: call areas() when the map covers the whole product, within about 20 calls.`;
 
 // What a run needs every time goes into the prompt; the rest a skill links to
 // and the agent reads with skill(). Reading skills follow the source kinds.
@@ -452,7 +453,9 @@ export async function onboard(ws: Workspace, agentId: string | undefined, opts: 
       skills: skillsPrompt(skills, [...tools.map((t) => t.name), 'propose']),
     });
   const live = runtime !== 'scripted' ? runtime : undefined;
-  const fanOut = mode === 'onboard' && live && opts.areas !== false && sources.some((s) => s.kind === 'code');
+  // One budget covers a small codebase, and splitting it only scatters one entity over several runs.
+  const codeFiles = async () => (await Promise.all(sources.filter((s) => s.kind === 'code').map((s) => listCode(codePath(ws.root, s.path!)).then((l) => l.length, () => 0)))).reduce((a, b) => a + b, 0);
+  const fanOut = mode === 'onboard' && live && (opts.areas ?? (await codeFiles()) >= AREAS_FROM_FILES);
   // Several runs at a time: the Agent tab reads the last usage line, so it gets their sum.
   const usage = new Map<string, Record<string, unknown>>();
   const areaLog = (id: string) => (line: string) => {
