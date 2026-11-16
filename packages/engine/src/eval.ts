@@ -61,14 +61,18 @@ export type Item = {
   action?: string; // a transition's action id
 };
 
+// A reference item may name several things at once ("Move / complete / cancel / reopen", "Job, dead letter"):
+// a model item that names one of them matches it.
+const parts = (names: string[]) => [...new Set(names.flatMap((n) => [n, ...(n.split(/\s*(?:\/|,|;|\(|\)|\band\b)\s*/).filter((x) => x && x !== n))]))];
+
 export function flattenReference(ref: Reference): Item[] {
   const out: Item[] = [];
-  for (const s of ref.subjects) out.push({ cat: 'subject', key: s.id, names: [s.id, ...s.names], conf: s.conf, area: s.area, where: s.where });
+  for (const s of ref.subjects) out.push({ cat: 'subject', key: s.id, names: parts([s.id, ...s.names]), conf: s.conf, area: s.area, where: s.where });
   ref.rules.forEach((r, i) => out.push({ cat: 'rule', key: `rule/${i}`, names: [r.text], conf: r.conf, area: r.area, where: r.where }));
   for (const o of ref.objects) {
-    out.push({ cat: 'object', key: o.id, names: [o.id, ...o.names], conf: o.conf, area: o.area, where: o.where });
+    out.push({ cat: 'object', key: o.id, names: parts([o.id, ...o.names]), conf: o.conf, area: o.area, where: o.where });
     const add = (cat: Category, x: { id: string; names: string[]; conf: Conf; where?: string }) =>
-      out.push({ cat, key: `${o.id}/${cat}:${x.id}`, object: o.id, names: [x.id, ...x.names], conf: x.conf, area: o.area, where: x.where });
+      out.push({ cat, key: `${o.id}/${cat}:${x.id}`, object: o.id, names: parts([x.id, ...x.names]), conf: x.conf, area: o.area, where: x.where });
     o.params.forEach((x) => add('param', x));
     o.states.forEach((x) => add('state', x));
     o.actions.forEach((x) => add('action', x));

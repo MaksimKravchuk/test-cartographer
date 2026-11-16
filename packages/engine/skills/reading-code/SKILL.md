@@ -21,11 +21,14 @@ it, and say so in a finding (kind=gap) that names where you looked for a require
    frameworks are in [references/entry-points.md](references/entry-points.md).
 3. **Find the entities.** `outline({ source, path })` on the domain and model folders lists every type with its
    fields and every enum with its variants in one call: start there, then `read()` only what needs a closer look.
-   Data models, migrations and API schemas give entities and their parameters. Keep a
-   parameter only if someone changes it or a rule refers to it — not every column.
+   Data models, migrations and API schemas give entities and their parameters. Keep every parameter a
+   user or a client can see — in a screen, an API response, an export — including the ones the system sets
+   (`created_at`, `completed_at`): tests check them. Leave out storage internals nobody sees.
+   An enum of commands or events lists the operations: each variant a user can trigger is an action.
 4. **Trace each action** — entity by entity, every entity on the map, not only the first few — from its
-   entry point to the data it changes, with `read()` around the hits. Note who may call it, what is checked
-   first, and what changes.
+   entry point to the data it changes. One action per operation a user or client can call: a route, an MCP
+   tool, a CLI command, a button; don't fold several into one. Trace it with `read()` around the hits. Note
+   who may call it, what is checked first, and what changes.
 5. **Consolidate**, then quote. One action is often checked in three places (a handler checks the state, a
    model checks expiry, a service checks stock): that is one rule with three conditions, not three rules.
 

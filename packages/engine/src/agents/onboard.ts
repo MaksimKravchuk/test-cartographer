@@ -34,13 +34,14 @@ export type OnboardOptions = {
 const Area = z.object({
   id: z.string().regex(/^[a-z0-9-]+$/),
   title: z.string(),
-  paths: listOf(z.string()).default([]),
-  entities: listOf(z.string()).default([]),
+  paths: z.array(z.string()).default([]),
+  entities: z.array(z.string()).default([]),
   note: z.string().default(''),
 });
 type Area = z.infer<typeof Area>;
 const AREA_RUNS = 3;
 const AREAS_FROM_FILES = 500;
+const OUTLINE_CHARS = 15_000;
 
 // Used when cartographer.yaml has no `kind: onboard` entry — a project can
 // onboard before anyone has configured an agent at all.
@@ -513,6 +514,10 @@ ${MAP_TASK}`,
         for (let a = queue.shift(); a; a = queue.shift()) {
           let done = false;
           const area = a;
+          // The area's declarations up front: a checklist of its types, fields and enums, so coverage doesn't depend on what the run happens to open.
+          const code = sources.filter((s) => s.kind === 'code');
+          const outlines = (await Promise.all(code.flatMap((s) => area.paths.map((p) => outlineCode(codePath(ws.root, s.path!), p, OUTLINE_CHARS).catch(() => ''))))).filter((o) => o.startsWith('## '));
+          const outline = outlines.join('\n\n').slice(0, OUTLINE_CHARS);
           await runAgent({
             runtime: live,
             system: systemPrompt('onboard'),
@@ -525,7 +530,9 @@ Other areas, not yours: ${others(area)}.
 Go deep: every entity of this area with all its parameters, every status value, every operation (each route,
 handler, job and command), who may do it, and every check that refuses something. Model it on the entities
 listed above; when an entity of another area takes part, propose its actions or rules in its own group only if
-this area's code is where they live. model() lists what other runs proposed already (proposedNow): reuse those ids.`,
+this area's code is where they live. model() lists what other runs proposed already (proposedNow): reuse those ids.
+${outline ? `\nThe declarations in this area's code (types with their fields, enums with their variants), as a checklist —
+quote and propose the ones that are product behavior, and read() around them for the rules:\n${outline}` : ''}`,
             tools: [...tools, proposeTool(() => (done = true, delivered++), area.id)],
             deliver: 'propose',
             isDone: () => done,
