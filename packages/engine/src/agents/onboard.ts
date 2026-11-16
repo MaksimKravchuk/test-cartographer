@@ -43,6 +43,7 @@ type Area = z.infer<typeof Area>;
 const AREA_RUNS = 3;
 const AREAS_FROM_FILES = 500;
 const OUTLINE_CHARS = 15_000;
+const GAP_RUNS = 3;
 
 // Used when cartographer.yaml has no `kind: onboard` entry — a project can
 // onboard before anyone has configured an agent at all.
@@ -596,20 +597,28 @@ quote and propose the ones that are product behavior, and read() around them for
       // A handler is explained by an action when the action's and its entity's words cover the handler's name (create_task: task's "create").
       const actionWords = model.filter((x) => x.cat === 'action').flatMap((x) => x.names.map((n) => new Set([...words(n), ...words(x.object ?? '')])));
       const routeCovered = (handler: string) => actionWords.some((w) => words(handler).every((h) => w.has(h)));
-      await inParallel(areas.map((area) => async () => {
-        const gaps = uncovered(await outlineOf(area, 400_000), covered, routeCovered).slice(0, OUTLINE_CHARS);
-        if (!gaps) return;
-        log(`[${area.id}] 🔎 ${gaps.split('\n').filter((l) => !l.startsWith('## ')).length} declarations have nothing in the model yet`);
-        await research(area, `${area.id}-gaps`, `${brief(area)}
+      // Gaps go out in pieces of OUTLINE_CHARS, a run each, so a big area isn't cut to what one run can read.
+      const jobs = await Promise.all(areas.map(async (area) => {
+        const files = uncovered(await outlineOf(area, 400_000), covered, routeCovered).split(/\n\n(?=## )/).filter(Boolean);
+        const chunks: string[] = [];
+        for (const f of files) {
+          const last = chunks.length - 1;
+          if (last >= 0 && chunks[last].length + f.length < OUTLINE_CHARS) chunks[last] += `\n\n${f}`;
+          else chunks.push(f.slice(0, OUTLINE_CHARS));
+        }
+        const count = files.join('\n').split('\n').filter((l) => l && !l.startsWith('## ')).length;
+        if (count) log(`[${area.id}] 🔎 ${count} declarations have nothing in the model yet${chunks.length > GAP_RUNS ? ` — the first ${GAP_RUNS} of ${chunks.length} parts get a run` : ''}`);
+        return chunks.slice(0, GAP_RUNS).map((gaps, i) => () => research(area, `${area.id}-gaps${i ? i + 1 : ''}`, `${brief(area)}
 An earlier run researched this area. These declarations of its code have nothing in the model yet (no entity,
-parameter, state or action of that name; [route] marks an API handler no action explains). Go through them: for each that is product behavior — a user or client
-sees it, changes it, or it decides what happens — read() around it and propose it in the right entity group:
-a parameter, a state (a variant of a status enum), an action (a variant of a command enum, a route), a rule, or
-a new entity. Call model() first and extend the entities there (proposedNow too); don't add an entity again.
-Skip internals and say nothing about them.
+parameter, state or action of that name; [route] marks an API handler no action explains). Go through them: for
+each that is product behavior — a user or client sees it, changes it, or it decides what happens — read() around
+it and propose it in the right entity group: a parameter, a state (a variant of a status enum), an action (a variant
+of a command enum, a route), a rule, or a new entity. declare() takes a whole type at once. Call model() first and
+extend the entities there (proposedNow too); don't add an entity again. Skip internals and say nothing about them.
 
-${gaps}`, Math.ceil(live.maxSteps / 2));
+${gaps}`));
       }));
+      await inParallel(jobs.flat());
     }
   } catch (e) {
     // What record() saved stays in the Inbox; only a run that saved nothing failed.
