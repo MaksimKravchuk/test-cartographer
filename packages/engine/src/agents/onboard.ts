@@ -44,6 +44,7 @@ const AREA_RUNS = 3;
 const AREAS_FROM_FILES = 500;
 const OUTLINE_CHARS = 15_000;
 const GAP_RUNS = 3;
+const LIFECYCLES_PER_RUN = 5;
 
 // Used when cartographer.yaml has no `kind: onboard` entry — a project can
 // onboard before anyone has configured an agent at all.
@@ -350,6 +351,12 @@ export async function onboard(ws: Workspace, agentId: string | undefined, opts: 
             : v;
         const entities = Object.fromEntries(redactFields('entities', Object.values(await ws.catalog()), process.env).map((e) => [e.id, compact(e)]));
         if (entity) {
+          // An entity this research proposed: what the runs proposed for it so far.
+          const added = saved.flatMap((p) => p.ops).find((op) => op.op === 'add' && op.kind === 'entity' && op.value.id === entity);
+          if (!entities[entity] && added && added.op === 'add') {
+            const ops = saved.filter((p) => p.entity === entity).flatMap((p) => p.ops).flatMap((op) => (op.op === 'add' ? [{ kind: op.kind, ...Object.fromEntries(Object.entries(op.value).filter(([k]) => ['id', 'title', 'from', 'to', 'action', 'by', 'type', 'values'].includes(k))) }] : []));
+            return JSON.stringify({ proposed: true, ...added.value, elements: ops });
+          }
           if (!entities[entity]) throw new Error(`No entity “${entity}”: there are ${Object.keys(entities).join(', ') || 'none'}`);
           return JSON.stringify(entities[entity]);
         }
@@ -619,6 +626,26 @@ extend the entities there (proposedNow too); don't add an entity again. Skip int
 ${gaps}`));
       }));
       await inParallel(jobs.flat());
+      // Lifecycle pass: every entity with states, as proposed so far, gets its ways in and out of each state checked.
+      const items = await flattenWorkspace(ws);
+      const lifecycles = [...new Set(items.filter((x) => x.cat === 'state').map((x) => x.object!))].map((e) => {
+        const states = items.filter((x) => x.cat === 'state' && x.object === e).map((x) => x.key.split(':').pop()!);
+        const moves = items.filter((x) => x.cat === 'transition' && x.object === e).map((x) => `${x.from?.[0]} → ${x.to?.[0]}${x.action ? ` (${x.action})` : ''}`);
+        const into = new Set(items.filter((x) => x.cat === 'transition' && x.object === e).map((x) => x.to?.[0]));
+        const lonely = states.filter((s) => !into.has(s));
+        return { e, text: `- ${e}: states ${states.join(', ')}; transitions ${moves.join('; ') || 'none'}${lonely.length ? `; nothing leads into ${lonely.join(', ')}` : ''}` };
+      });
+      const batches = Array.from({ length: Math.ceil(lifecycles.length / LIFECYCLES_PER_RUN) }, (_, i) => lifecycles.slice(i * LIFECYCLES_PER_RUN, (i + 1) * LIFECYCLES_PER_RUN));
+      if (batches.length) log(`🔁 lifecycles of ${lifecycles.length} entities, ${batches.length} runs`);
+      await inParallel(batches.map((b, i) => () => research({ id: `lifecycles-${i + 1}`, title: 'Lifecycles', paths: [], entities: b.map((x) => x.e), note: '' }, `lifecycles-${i + 1}`, `Start onboarding. Goal: ${spec.goal}
+
+Earlier runs proposed these entities with states. Complete each lifecycle from the code: the status enum's every
+value is a state; for every state find how an instance enters it and leaves it — the handler, command, job, timer or
+webhook that does it, who may, and what is checked first — and propose each move as a transition (with its action,
+by, guards) in the entity's group, adding the actions it needs. Creation is a transition from "@new". A state nothing
+leads into is a gap to close or to report. Call model({ entity }) for each before you change it.
+
+${b.map((x) => x.text).join('\n')}`)));
     }
   } catch (e) {
     // What record() saved stays in the Inbox; only a run that saved nothing failed.
