@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Project, Workspace } from '@tc/model';
 import { execFileSync } from 'node:child_process';
-import { checkSources, insideCode, listCode } from '../src/sources.ts';
+import { checkSources, insideCode, listCode, searchCode } from '../src/sources.ts';
 
 test('checkSources: file, code folder (skipping node_modules), missing folder, MCP tool outside the allowlist', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'tc-sources-'));
@@ -53,6 +53,22 @@ test('insideCode: symlinks out of the folder or to a .env file are refused', asy
     await assert.rejects(() => insideCode(root, 'config.ts'), /outside/);
     await assert.rejects(() => insideCode(root, '../secret.txt'), /outside/);
     await assert.rejects(() => insideCode(root, 'missing.ts'), /No file/);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('searchCode: hits carry file and line; no match says how much was searched; .env and node_modules stay out', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'tc-search-'));
+  try {
+    await mkdir(join(dir, 'src'), { recursive: true });
+    await mkdir(join(dir, 'node_modules'), { recursive: true });
+    await writeFile(join(dir, 'src', 'routes.ts'), "const x = 1;\napp.post('/orders/:id/cancel', cancel);\n");
+    await writeFile(join(dir, 'node_modules', 'lib.js'), "app.post('/hidden')");
+    await writeFile(join(dir, '.env'), "SECRET=app.post('/secret')");
+    assert.equal(await searchCode(dir, 'app\\.(get|post)\\('), "src/routes.ts:2: app.post('/orders/:id/cancel', cancel);\n(searched 1 of 1 files)");
+    assert.equal(await searchCode(dir, 'CRON', { dir: 'src', ignoreCase: true }), 'no match (searched 1 of 1 files under src)');
+    await assert.rejects(searchCode(dir, '('), /Bad pattern/);
   } finally {
     await rm(dir, { recursive: true, force: true });
   }

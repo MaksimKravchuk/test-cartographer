@@ -1,6 +1,7 @@
 // Explorer agent: studies one role's interface, collects evidence
 // and packages its findings as a proposal (a patch to the model). It does not
 // change the model — a person makes the decision.
+// How it works is in skills/ (see skills.ts); the prompt here is only the task.
 import { chromium, type Page } from '@playwright/test';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { z } from 'zod';
@@ -10,6 +11,7 @@ import {
 import { McpPool, getPath, template } from '../mcp.ts';
 import { listOf, runAgent, type Tool } from './runtime.ts';
 import { loadActions } from '../actions-loader.ts';
+import { skillsPrompt, skillTool } from './skills.ts';
 
 export type ExploreOptions = {
   onLog?: (line: string) => void;
@@ -25,65 +27,34 @@ const Result = z.object({ rationale: z.string(), ops: listOf(Op).default([]), fi
 const MAX_TEXT = 20_000;
 const clip = (s: string) => (s.length > MAX_TEXT ? s.slice(0, MAX_TEXT) + '\n…(truncated)' : s);
 
+const SKILLS = [
+  'planning-investigation',
+  'exploring-app',
+  'asking-questions',
+  'proposing-model-changes',
+  'proposing-model-changes/references/entity-elements.md',
+];
+
 // roleTitle is how the prose names the role; roleId is what the model's `by` references.
 const system = (p: {
-  roleTitle: string; roleId: string; iface: string; baseUrl: string; entity: string; goal: string; prepare: string[]; contracts: string[]; data: string;
-}) => `You are exploring a web application as the role “${p.roleTitle}” (id \`${p.roleId}\`) through the interface “${p.iface}” (${p.baseUrl}).
+  roleTitle: string; roleId: string; iface: string; baseUrl: string; entity: string; goal: string; prepare: string[]; contracts: string[]; data: string; skills: string;
+}) => `You are an exploration agent of Test Cartographer, where people and agents rebuild a product's specification
+and derive tests from it. You are exploring a web application as the role “${p.roleTitle}” (id \`${p.roleId}\`)
+through the interface “${p.iface}” (${p.baseUrl}).
 Goal: ${p.goal}
 
-Your task is to reconstruct the behavior of the entity “${p.entity}” — its variants, states, actions and transitions — and propose changes to the model.
+Your task is to reconstruct the behavior of the entity “${p.entity}” — its variants, states, actions and
+transitions — and propose changes to its model. Nothing you propose changes the model directly: a person
+reviews every operation and finding and decides. In \`by\`, your role is \`${p.roleId}\`.
 
-The model is a closed world: for a human role, anything not allowed by a confirmed transition or permit is already
-denied — you do NOT need to propose what a role can't do. Instead, if you see the role given an action the model
-doesn't allow (or an action denied by the model that the role can in fact perform), report it as a finding
-(kind=contradiction), with evidence, so a person can look at the gap.
-
-Rules:
-- Observed behavior is not a requirement. You report what you saw and attach evidence; a person decides.
-- If a behavior looks like a bug or contradicts the model, still propose the operation, but add a finding with kind=contradiction or question.
-- Describe what the app does, not how it's built: name behavior a user can see, never a function, table or flag.
-  Never invent a requirement — what you saw is behavior, and a person decides whether it's intended.
-- A transition is confirmed only when a read() after the action shows its effect. If you can't read the entity
-  back, still propose it, and say in a finding (kind=question) why the effect couldn't be checked.
-- Every operation references its evidence (ids from snapshot/read) in the evidence field.
-- Call model() first to see the current model. Don't propose what already exists; use new ids (Latin letters, kebab-case).
-- Name things with the words in model().glossary: a synonym there is the same thing as its term, not a new one.
-- Prepare data only via prepare(); available setup tools: ${p.prepare.join(', ') || 'none'}. Verify every instance with read().
-- You may open only pages of your own interface (open takes a path relative to baseUrl).
-${p.contracts.length ? `- Available contracts: ${p.contracts.join(', ')}.` : ''}
-- You are already signed in as your role, if it has a sign-in. If the app signs you out, call login().
-- snapshot() marks elements with [ref=…]. Pass a ref to click(), fill() or select() to reach what has no test id
-  or accessible name — an icon-only menu button, an input whose label isn't tied to it. Refs go stale when the
-  page changes: snapshot() again before using new ones.
-- Hand in what you find as you go: each time you've worked out part of the behavior, call record() with it, so
-  a person can start reviewing while you explore on. Never send the same operation or finding twice. When the
-  exploration is done, call propose() exactly once with whatever is left (empty ops and findings when record()
-  already has everything).
+Setup tools for prepare(): ${p.prepare.join(', ') || 'none'}.
+${p.contracts.length ? `Available contracts: ${p.contracts.join(', ')}.` : ''}
 ${p.data ? `
 Data a person attached to subjects (roles) and objects (entities) — logins, test values, notes. Use it where an
-action needs it. A secret shows only as its {{…}} reference: pass that reference to fill() as is and the engine
-types the real value; you never see it and don't need to.
+action needs it.
 ${p.data}
 ` : ''}
-Element shapes for ops (op=add, value):
-- variant: { id, title }
-- attribute: { id: "<field name the reader returns>", title, type: "text"|"number"|"money"|"date"|"bool"|"enum"|"link"|"file"|"other", values?: [string] (enum), entity?: "<entity id>" (link), by?: ["<role id>", …], note? }
-  A parameter of the object as the product stores it (title, status, price, due date). Take it from code — models,
-  migrations, API schemas — or from what read() returns. Keep only what someone changes or a rule refers to, not
-  every column. \`by\` lists who may change it (everyone else must be refused); \`note\` holds a condition in plain
-  words ("admin only while Created"). A status-like enum is a lifecycle: its values are what states match on.
-- state: { id, title, variants?: [id], match: { <field from read()>: <value> } }
-- action: { id, title, kind?: "create"|"read"|"update"|"command"|"delete", run?: "<action-library name>" }
-  A verb the role can apply to the entity, named after what it does — not tied to a state or a permission yet.
-  A UI verb you haven't seen before is proposed as an action op (its \`run\` is the name you'd give it in the
-  actions/ library), together with the transition or permit op(s) that use it.
-- transition: { id, title, from, to, action: "<action id>", by: ["${p.roleId}"], variants?: [id], guards?: [text], effects?: [{ description, field?, equals? }] }
-  \`action\` refers to an action op's id (new or existing), \`by\` lists every role that may perform it — by role id
-  (the ids model() lists under roles), never by title. An action that creates the entity is a transition
-  from "@new" to the state the new instance starts in.
-- permit: { id, title, action: "<action id>", by: ["${p.roleId}"], states?: [id], variants?: [id], effects?: [...] }
-  Use a permit instead of a transition for an action that leaves the state as it is (read, update, a command with no state change).
-For op=update: { kind, id, set: { fields } }. For op=remove: { kind, id }.`;
+${p.skills}`;
 
 export async function explore(ws: Workspace, agentId: string, opts: ExploreOptions = {}): Promise<Proposal> {
   const log = opts.onLog ?? (() => {});
@@ -372,6 +343,8 @@ export async function explore(ws: Workspace, agentId: string, opts: ExploreOptio
       description: 'Finish the exploration: submit the rest of the proposed model changes (what record() has not saved yet).',
       input: Result,
       run: async (input) => {
+        // The closing rationale says what the run covered; with everything recorded already it is saved nowhere else.
+        log(`💬 ${input.rationale}`);
         // Everything may already be recorded; then propose only closes the run.
         if (batches && !input.ops.length && !input.findings.length) proposal = last;
         else proposal = await save(input);
@@ -379,6 +352,8 @@ export async function explore(ws: Workspace, agentId: string, opts: ExploreOptio
       },
     },
   ];
+
+  tools.push(skillTool(SKILLS.filter((s) => !s.includes('/'))));
 
   // Whatever a tool hands back — a page, a read result, an error — goes to the
   // model with every secret's value replaced by its reference.
@@ -400,6 +375,7 @@ export async function explore(ws: Workspace, agentId: string, opts: ExploreOptio
         roleTitle: role.title, roleId: role.id, iface: iface.title, baseUrl: iface.baseUrl, entity: entity.title, goal: agent.goal,
         prepare: prepareTools, contracts: project.contracts.map((c) => `${c.id} (${c.title})`),
         data: dataContext(project.roles, Object.values(catalog), process.env, role.id),
+        skills: skillsPrompt(SKILLS, tools.map((t) => t.name)),
       }),
       prompt: `Start exploring. Goal: ${agent.goal}`,
       tools,

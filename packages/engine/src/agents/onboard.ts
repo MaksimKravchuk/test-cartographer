@@ -1,14 +1,16 @@
-// Onboarding agent: reads the knowledge sources a person uploaded (product
-// docs, tracker exports, contracts, notes) and proposes the first SOAR map —
-// roles, entities, their models — plus the backlog. Unlike the explorer it
-// never touches a running app: everything it knows comes from what was
-// uploaded, and every operation must cite an exact quote from it.
+// Research agent: reads the knowledge sources of a project (product docs,
+// tracker exports, code folders, systems behind MCP) and proposes the model —
+// roles, entities, their models — plus the backlog; in review mode it checks
+// the existing model against them. Unlike the explorer it never touches a
+// running app, and every operation must cite an exact quote from a source.
+// How it works is in skills/ (see skills.ts); the prompt here is only the task.
 import { z } from 'zod';
 import { checkRoles, Finding, isFileSource, Op, Proposal, type Provenance, redactFields, resolveRuntime, type AgentSpec, type Evidence, type RuntimeOverride, type Workspace } from '@tc/model';
 import { readFile, stat } from 'node:fs/promises';
 import { listOf, runAgent, type Tool } from './runtime.ts';
 import { McpPool } from '../mcp.ts';
-import { codePath, insideCode, listCode } from '../sources.ts';
+import { codePath, insideCode, listCode, searchCode } from '../sources.ts';
+import { skillsPrompt, skillTool } from './skills.ts';
 
 export type OnboardOptions = {
   onLog?: (line: string) => void;
@@ -52,124 +54,46 @@ function findLines(source: string, quote: string): { from: number; to: number } 
   return { from: source.slice(0, m.index).split('\n').length, to: source.slice(0, m.index + m[0].length).split('\n').length };
 }
 
-const MODE_GOAL: Record<'onboard' | 'review' | 'clarify', string> = {
-  onboard: 'read everything known about the product — docs, tracker exports, contracts, notes, the code, systems behind MCP — and propose the SOAR model plus the backlog.',
-  review: `review the model a person already has against everything known about the product. For every subject, object,
-action and rule in model({ entity }), look for confirmation or contradiction in the sources; propose what the model is missing.
-Report each disagreement as a finding (kind=contradiction) whose refs name the element ("rule:<entity>.<id>",
-"action:<entity>.<id>") and whose evidence quotes every side; say in the note which side wins by priority and why.
-An element with status "planned" is required but not built yet: code that lacks it is not a contradiction.
-A rule found only in the code is behavior, not a requirement: propose it and say so in a finding (kind=gap).
-Cover every element, so the review fills a table of element × source: where a source says the same as the model,
-add a finding (kind=confirmation) with that element in refs and the quote as evidence; where you looked and found
-nothing, add a finding (kind=gap) with the source ids you searched in \`searched\` and the files or queries in its note.`,
-  clarify: `give a person enough context to answer one finding they couldn't answer as written (it is quoted in the
+type Mode = NonNullable<OnboardOptions['mode']>;
+const MODE_GOAL: Record<Mode, string> = {
+  onboard: 'read everything known about the product — docs, tracker exports, contracts, notes, the code, systems behind MCP — and propose its model plus the backlog.',
+  review: 'review the model a person already has against everything known about the product, element by element and source by source, and propose what the model is missing.',
+  clarify: `give a person enough context to answer one finding they could not answer as written (it is quoted in the
 first message). Investigate it: read the sources it touches and find where it shows for a user — the screen, the API route
 and the response field, the CLI command — and quote what you find. Then replace it with findings a person can answer
-on the spot, each in plain words and self-contained: what you found and where (with quotes as evidence), what is still
-unknown, and the question. Each finding asks ONE thing: split a finding that bundles unrelated asks. Give likely answers
-in \`options\` when yes/no doesn't fit. When the sources settle a part on their own, say so in a finding
-(kind=confirmation, with the quote) instead of asking. Keep the original finding's kind for contradictions and gaps,
-and its refs. Propose model changes only when the investigation shows them. Hand everything in with one propose(),
-in the original's group (project, or the same entity).`,
+on the spot. When the sources settle a part on their own, say so in a finding (kind=confirmation, with the quote)
+instead of asking. Keep the original finding's kind for contradictions and gaps, and its refs. Propose model changes
+only when the investigation shows them. This is one small investigation: hand everything in with a single propose(),
+in the original finding's group (project, or the same entity), without record().`,
 };
 
-const system = (p: { sourceList: string; contracts: string[]; mode: 'onboard' | 'review' | 'clarify'; usePriority: boolean }) => `You are working for Test Cartographer: ${MODE_GOAL[p.mode]}
+// What a run needs every time goes into the prompt; the rest a skill links to
+// and the agent reads with skill(). Reading skills follow the source kinds.
+const skillsFor = (mode: Mode, kinds: { requirements: boolean; code: boolean }) => [
+  ...(mode === 'clarify' ? [] : ['planning-investigation']),
+  ...(mode === 'review' ? ['reviewing-model'] : []),
+  ...(kinds.requirements ? ['reading-requirements'] : []),
+  ...(kinds.code ? ['reading-code'] : []),
+  'citing-evidence',
+  'asking-questions',
+  'proposing-model-changes',
+  'proposing-model-changes/references/entity-elements.md',
+  'proposing-model-changes/references/project-elements.md',
+];
 
-The model is Subject / Object / Action / Rule (SOAR): roles (human or system), entities with variants, states,
-actions, transitions (who may move the entity from state to state) and permits (who may act without changing
-state), and rules (conditions on a transition). Nothing you propose changes the model directly — a person
-reviews every operation and decides accept / observe / reject.
+const system = (p: { sourceList: string; contracts: string[]; mode: Mode; usePriority: boolean; skills: string }) => `You are a research agent of Test Cartographer, where people and agents rebuild a product's specification
+from its sources and derive tests from it. Your task: ${MODE_GOAL[p.mode]}
 
-The backlog is a view over that model, not a second one: epics group features, a feature is a slice of the
-model by action (\`<entity>.<action>\`, cross-entity), and a story cites the exact elements it specifies. Stories
-are sources and slices — everything about *behavior* still belongs in the model, not in the backlog.
+Nothing you propose changes the model directly: a person reviews every operation and finding and decides.
+Your job is to make each one easy to check — about one thing, in the product's words, with its evidence.
 
 Sources (id, kind, priority — 1 is the strongest): ${p.sourceList || 'none'}.
 ${p.usePriority ? 'When sources disagree, the lower priority number wins: requirements usually outrank code. Still report the disagreement.' : 'Priorities are off: report every disagreement and let the person decide.'}
-How to read them: uploaded files — source({ id }); code folders — files({ source }) then read({ source, path });
-MCP sources — fetch({ source, args? }) (the tool and default args are set per source; you may pass other args).
+How to read them: uploaded files — source({ id }); code folders — files({ source }), search({ source, pattern }) and
+read({ source, path }); MCP sources — fetch({ source, args? }) (the tool and default args are set per source; you may pass other args).
 ${p.contracts.length ? `Available contracts: ${p.contracts.join(', ')}.` : ''}
 
-Rules:
-- Call sources() first and read what's relevant from every source before proposing anything. In a code folder,
-  start from the file list and read what implements the model's actions (routes, handlers, domain logic); skip tests,
-  generated files and assets.
-- Call model() first, then model({ entity }) for each entity it lists, and don't propose what it already has — use op=update for a field that changed, never
-  op=add for something that already exists.
-- Name things with the words in model().glossary: a synonym there is the same thing as its term, not a new one.
-  When two names look like the same thing (the docs say Location, the code says place), ask in a finding
-  (kind=question) with \`synonym: { term: "<the model's word>", synonym: "<the other word>" }\`: a yes files it
-  in the glossary. When yes/no doesn't fit a question, give its likely answers in \`options\` (up to 6, short);
-  a person may still answer in words.
-- When a source can't be read or looks incomplete (a folder an AGENTS.md or README describes has no files,
-  a page is empty), report it as kind=source with what you tried, not as a gap: it is a problem with the
-  inputs, not the product.
-- Every operation needs at least one quote: call quote({ source, text, path? }) with the exact text (path: the
-  file inside a code folder) (it doesn't need
-  to line-wrap the way the source does, but the words and punctuation must match) and put the evidence id it
-  returns in that op's own \`evidence\` array. quote() fails if the text isn't actually in the source — never
-  paraphrase, and never cite an evidence id in a group other than the one the quote was taken for.
-- One finding asks one thing: two unrelated questions are two findings, so each can be answered on its own. Write a
-  question so a person can answer it without opening the code: say what you found, where it shows (screen, API field,
-  command), and what exactly is unknown.
-- Never invent a requirement. If no source says it, it isn't one: don't propose it as a rule, add a finding
-  (kind=question) saying what you looked for and where.
-- When a search finds nothing, say where you searched (which sources, files or queries) in the finding's note, so
-  "not found" can be told apart from "not looked for".
-- model() lists openQuestions that earlier runs left. Try to answer each one from the sources. End the rationale
-  with one line per open question: answered, partly or still open, and why. model().answers are what a person
-  already answered: take them as given and don't ask again.
-- Describe what the product does, not how it's built: a rule names behavior a user or tester can see ("a buyer
-  can cancel until payment"), never a function, table or flag. Avoid untestable words like "usually" or "may".
-- A state's \`match\` should only name a field/value when a source actually says what the app shows for it;
-  otherwise leave \`match: {}\` and add a finding (kind=question) asking where that state is observable.
-- If two sources disagree, or a source contradicts what model() already has, report it as a finding
-  (kind=contradiction) instead of silently picking one side. If a tracker story can't be mapped to any model
-  element yet (the behavior isn't proposed, or doesn't exist), leave its \`covers\` empty or partial and add a
-  finding (kind=gap) instead of inventing a ref.
-- Hand in what you find as you go: each time you finish an entity (or a batch of findings), call record() with it,
-  so a person can start reviewing while you work on. record() and propose() take the same groups; never send
-  the same operation or finding twice. Call propose() exactly once at the end with whatever is left (or just
-  the rationale, when record() already has everything). Each call takes one project-level group (project: { ops, findings }) for roles, interfaces,
-  new entities, epics, features and stories, and one group per entity you change (entities: { <id>: { ops,
-  findings } }) for that entity's own attributes/states/actions/transitions/permits/rules/invariants.
-
-Element shapes (op=add, value):
-Project-level (in project.ops):
-- role: { id, title, kind: "human"|"system", interface?: "<interface id>", login?: { action, args } }
-- interface: { id, title, baseUrl }
-- entity: { id, title, description?, key?, reader?, variants?: [{ id, title }] } — creates entities/<id>.yaml;
-  leave \`reader\` out when nobody knows how to read this entity back yet.
-- epic: { id, title, description?, key?, url? }
-- feature: { id, title, description?, epic?: "<epic id>", key?, url?, actions: ["<entity>.<action>", …] } — e.g.
-  actions: ["order.place", "order.pay"] for a checkout feature spanning the order entity's place and pay actions.
-- story: { id, title, text?, acceptance: [string, …], feature?: "<feature id>", epic?: "<epic id>", key?, url?,
-  trackerStatus?, covers: ["<action|transition|permit|rule|journey>:<entity>.<id>", …] } — e.g. covers:
-  ["transition:order.pay", "action:order.cancel"] once those elements exist (proposed or confirmed); leave
-  covers empty and add a gap finding when they don't yet.
-Entity-level (in entities.<id>.ops) — unchanged from an explorer's proposal:
-- variant: { id, title }
-- attribute: { id: "<field name the reader returns>", title, type: "text"|"number"|"money"|"date"|"bool"|"enum"|"link"|"file"|"other", values?: [string] (enum), entity?: "<entity id>" (link), by?: ["<role id>", …], note? }
-  A parameter of the object as the product stores it (title, status, price, due date). Take it from code — models,
-  migrations, API schemas — or from what read() returns. Keep only what someone changes or a rule refers to, not
-  every column. \`by\` lists who may change it (everyone else must be refused); \`note\` holds a condition in plain
-  words ("admin only while Created"). A status-like enum is a lifecycle: its values are what states match on.
-- state: { id, title, variants?: [id], match: { <field>: <value> } }
-- action: { id, title, kind?: "create"|"read"|"update"|"command"|"delete", changes?: ["<attribute id>", …] }
-- transition: { id, title, from, to, action: "<action id>", by: ["<role id>", …], guards?: [text], effects?: [{ description, field?, equals? }] }
-- permit: { id, title, action: "<action id>", by: ["<role id>", …], states?: [id], effects?: [...] }
-- scenario (a journey): { id, title, start, path: ["<transition id>", …] }
-- action may also carry by: ["<role id>", …] — who performs it, when no transition or permit says so yet.
-- rule: { id, title, text, action: "<action id>" } — knowledge in the product's words; add transition: "<transition id>"
-  and requires: [{ kind: "authenticated" } | { kind: "roles", roles: [id] } | { kind: "entity-state", relation, states: [id] }]
-  when the rule is a checkable condition on a transition.
-- invariant: { id, title, text, states?: [id], holds?: { <field>: <value> } } — what is always true of the object in
-  those states, whatever led there ("a shipped order is always paid for"); add holds when a reader field shows it,
-  and every test then checks it after each read.
-For op=update: { kind, id, set: { fields } }. For op=remove: { kind, id } (entities can't be removed this way).
-
-When you're done, call propose() exactly once.`;
+${p.skills}`;
 
 export async function onboard(ws: Workspace, agentId: string | undefined, opts: OnboardOptions = {}): Promise<Proposal[]> {
   const log = opts.onLog ?? (() => {});
@@ -188,11 +112,12 @@ export async function onboard(ws: Workspace, agentId: string | undefined, opts: 
   const sources = registry.sources.filter((s) => s.enabled);
   const mcp = new McpPool(project, ws.root);
   const { backlog: baseBacklog, revision: backlogRevision } = await ws.backlog();
+  const existing = await ws.entityIds();
 
   const sourceOf = (id: string, kinds?: string[]) => {
     const s = sources.find((x) => x.id === id);
     if (!s) throw new Error(`Unknown source “${id}”. Available: ${sources.map((x) => x.id).join(', ')}`);
-    if (kinds && !kinds.includes(isFileSource(s) ? 'file' : s.kind)) throw new Error(`Source “${id}” is a ${s.kind} source — use ${isFileSource(s) ? 'source()' : s.kind === 'code' ? 'files() and read()' : 'fetch()'}`);
+    if (kinds && !kinds.includes(isFileSource(s) ? 'file' : s.kind)) throw new Error(`Source “${id}” is a ${s.kind} source — use ${isFileSource(s) ? 'source()' : s.kind === 'code' ? 'files(), search() and read()' : 'fetch()'}`);
     return s;
   };
   const textCache = new Map<string, string>();
@@ -248,7 +173,7 @@ export async function onboard(ws: Workspace, agentId: string | undefined, opts: 
 
   type Group = { ops: Op[]; findings: Finding[] };
   type Checked = { rationale: string; project?: Group; entities: [string, Group][] };
-  const check = ({ rationale, project: projectIn, entities: entitiesIn }: GroupsIn): Checked => {
+  const check = async ({ rationale, project: projectIn, entities: entitiesIn }: GroupsIn): Promise<Checked> => {
     const known = new Set(evidence.map((e) => e.id));
     if (!projectIn && !entitiesIn) throw new Error('needs at least a project or an entities group');
     const parsedProject = projectIn && parseGroup('project', projectIn.ops, projectIn.findings, known);
@@ -267,6 +192,24 @@ export async function onboard(ws: Workspace, agentId: string | undefined, opts: 
       }),
     );
     if (badRoles.length) throw new Error(badRoles.join('\n'));
+    // An entity group must change an entity that exists or that an entity op adds (now or earlier in this run).
+    const added = [...saved.filter((p) => !p.entity).flatMap((p) => p.ops), ...(parsedProject?.ops ?? [])].flatMap((op) => (op.kind === 'entity' && op.op === 'add' ? [String(op.value.id)] : []));
+    const entityIds = new Set([...existing, ...added]);
+    const strays = parsedEntities.map(([id]) => id).filter((id) => !entityIds.has(id));
+    if (strays.length) throw new Error(`No entity ${strays.map((id) => `“${id}”`).join(', ')}: there are ${[...entityIds].join(', ') || 'none'}. Add a new one with an entity op in project.ops, or use an existing id.`);
+    // A transition, permit or rule names an action of its entity: one that exists, or one added in this run.
+    const catalog = await ws.catalog();
+    const badActions = parsedEntities.flatMap(([id, group]) => {
+      const actions = new Set([
+        ...(catalog[id]?.actions ?? []).map((a) => a.id),
+        ...[...saved.filter((p) => p.entity === id).flatMap((p) => p.ops), ...group.ops].flatMap((op) => (op.kind === 'action' && op.op === 'add' ? [String(op.value.id)] : [])),
+      ]);
+      return group.ops.flatMap((op, i) => {
+        const action = op.op === 'add' && ['transition', 'permit', 'rule'].includes(op.kind) ? op.value.action : undefined;
+        return typeof action === 'string' && !actions.has(action) ? [`entity “${id}” op #${i}: ${op.kind} “${String((op as { value: Record<string, unknown> }).value.id)}” names action “${action}”, which “${id}” doesn't have — add it with kind=action in the same call`] : [];
+      });
+    });
+    if (badActions.length) throw new Error(badActions.join('\n'));
     return { rationale, project: parsedProject, entities: parsedEntities };
   };
 
@@ -282,7 +225,8 @@ export async function onboard(ws: Workspace, agentId: string | undefined, opts: 
       out.push(Proposal.parse({ agent: spec.id, createdAt, rationale, evidence: evidence.filter((e) => refs.has(e.id)), ops: g.ops, findings: g.findings, ...extra }));
     };
     if (group) make(group, { id: base, baseRevision: backlogRevision });
-    for (const [entityId, g] of entities)
+    // An entity group with nothing in it would only add an empty card to the Inbox.
+    for (const [entityId, g] of entities.filter(([, g]) => g.ops.length || g.findings.length))
       make(g, { id: `${base}-${entityId}`, entity: entityId, baseRevision: (await ws.entityIds()).includes(entityId) ? (await ws.entity(entityId)).revision : 'new' });
     for (const p of out) await ws.saveProposal(p);
     saved.push(...out);
@@ -316,6 +260,12 @@ export async function onboard(ws: Workspace, agentId: string | undefined, opts: 
         const list = await listCode(codePath(ws.root, s.path!), undefined, dir);
         return list.length > 800 ? `${list.slice(0, 800).join('\n')}\n… ${list.length - 800} more — narrow with dir` : list.join('\n') || `no files under “${dir}”`;
       },
+    },
+    {
+      name: 'search',
+      description: 'Search a code-folder source with a regular expression (per line). Returns path:line: text and how many files were searched; then read() around a hit.',
+      input: z.object({ source: z.string(), pattern: z.string(), dir: z.string().default(''), ignoreCase: z.boolean().default(false) }),
+      run: async ({ source, pattern, dir, ignoreCase }) => searchCode(codePath(ws.root, sourceOf(source, ['code']).path!), pattern, { dir, ignoreCase }),
     },
     {
       name: 'read',
@@ -418,7 +368,7 @@ export async function onboard(ws: Workspace, agentId: string | undefined, opts: 
         'Call it each time you finish an entity or a batch of findings; never repeat what you already recorded.',
       input: Groups,
       run: async (input: GroupsIn) => {
-        return `recorded ${(await save(check(input), ++batches)).map((p) => p.id).join(', ')} — go on, and call propose() at the end`;
+        return `recorded ${(await save(await check(input), ++batches)).map((p) => p.id).join(', ')} — go on, and call propose() at the end`;
       },
     },
     {
@@ -428,12 +378,17 @@ export async function onboard(ws: Workspace, agentId: string | undefined, opts: 
       run: async (input: GroupsIn) => {
         // Everything may already be recorded; then propose only closes the run.
         const empty = !input.project && !input.entities;
-        if (!(empty && batches)) await save(check(input));
+        // The closing rationale says what the run covered; with everything recorded already it is saved nowhere else.
+        log(`💬 ${input.rationale}`);
+        if (!(empty && batches)) await save(await check(input));
         done = true;
         return 'proposal(s) recorded';
       },
     },
   ];
+
+  const skills = skillsFor(mode, { requirements: sources.some((s) => s.kind !== 'code'), code: sources.some((s) => s.kind === 'code') });
+  tools.push(skillTool(skills.filter((s) => !s.includes('/'))));
 
   // clarify: the finding a person couldn't answer, with its quotes, is the agent's whole brief.
   let brief = '';
@@ -461,6 +416,7 @@ export async function onboard(ws: Workspace, agentId: string | undefined, opts: 
         contracts: project.contracts.map((c) => `${c.id} (${c.title})`),
         mode,
         usePriority: registry.usePriority,
+        skills: skillsPrompt(skills, tools.map((t) => t.name)),
       }),
       prompt: mode === 'review' ? 'Start the review: call model() and sources(), then check each element.' : mode === 'clarify' ? brief : `Start onboarding. Goal: ${spec.goal}`,
       tools,
