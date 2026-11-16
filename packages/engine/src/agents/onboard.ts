@@ -7,10 +7,11 @@
 import { z } from 'zod';
 import { checkRoles, Finding, isFileSource, Op, Proposal, type Provenance, redactFields, resolveRuntime, type AgentSpec, type Evidence, type RuntimeOverride, type Workspace } from '@tc/model';
 import { readFile, stat } from 'node:fs/promises';
+import { join } from 'node:path';
 import { listOf, runAgent, type Tool } from './runtime.ts';
 import { McpPool } from '../mcp.ts';
 import { codePath, insideCode, listCode, searchCode } from '../sources.ts';
-import { members, outlineCode, typesIn, uncovered } from '../outline.ts';
+import { members, outlineCode, outlineSql, typesIn, uncovered } from '../outline.ts';
 import { flattenWorkspace, words } from '../eval.ts';
 import { skillsPrompt, skillTool } from './skills.ts';
 
@@ -600,17 +601,27 @@ ${outline ? `\nThe declarations in this area's code (types with their fields, en
 quote and propose the ones that are product behavior, and read() around them for the rules:\n${outline}` : ''}`);
       }));
       // Static pass, no agent: an entity whose name is a type in the code gets that type's fields as parameters, and
-      // its <Name>State / <Name>Status enum's variants as states. Each quotes its line; a person strikes the internals.
+      // its <Name>State / <Name>Status enum's variants as states. A SQL table of its name stands in where no type
+      // does (tasks or agents.runs for agent-run), its CHECK (status IN ...) for the enum. Each quotes its line; a person strikes the internals.
       const declareTool = tools.find((t) => t.name === 'declare')!;
       // shortcut: types are looked up in the first code source only; a project with several code sources declares from the first.
-      const types = (await Promise.all(areas.map(async (a) => typesIn(await outlineOf(a, 400_000))))).flat().map((t) => ({ ...t, source: code[0].id }));
+      const root = codePath(ws.root, code[0].path!);
+      const sqlFiles = (await listCode(root)).filter((f) => f.toLowerCase().endsWith('.sql'));
+      const tables = (await Promise.all(sqlFiles.map(async (f) => `## ${f}\n${outlineSql(await readFile(join(root, f), 'utf8')).join('\n')}`))).join('\n\n');
+      const types = [...(await Promise.all(areas.map(async (a) => typesIn(await outlineOf(a, 400_000))))).flat(), ...typesIn(tables)].map((t) => ({ ...t, source: code[0].id }));
       const pascal = (s: string) => s.split(/[^A-Za-z0-9]+/).filter(Boolean).map((w) => w[0].toUpperCase() + w.slice(1)).join('');
+      const one = (w: string) => w.replace(/ies$/, 'y').replace(/(ss|sh|ch|x)es$/, '$1').replace(/([^s])s$/, '$1');
+      // tasks.tasks → task; agents.runs → run or agent_run
+      const tableNames = (t: string) => { const [a, b] = t.includes('.') ? t.split('.') : ['', t]; return [one(b), ...(a ? [`${one(a)}_${one(b)}`] : [])]; };
       const entityIds = [...new Set([...existing, ...saved.flatMap((p) => p.ops).flatMap((op) => (op.op === 'add' && op.kind === 'entity' ? [String(op.value.id)] : []))])];
       let declared = 0;
       for (const e of entityIds) {
         const name = pascal(e);
-        const struct = types.find((t) => !t.enum && t.name === name);
-        const status = types.find((t) => t.enum && (t.name === `${name}State` || t.name === `${name}Status`));
+        const snakeId = e.replace(/-/g, '_');
+        const table = types.find((t) => t.file.toLowerCase().endsWith('.sql') && !t.enum && tableNames(t.name).includes(snakeId));
+        const struct = types.find((t) => !t.enum && t.name === name) ?? table;
+        const status = types.find((t) => t.enum && (t.name === `${name}State` || t.name === `${name}Status`))
+          ?? (table && types.find((t) => t.enum && t.file === table.file && /^(state|status)$/.test(t.name.slice(table.name.length + 1)) && t.name.startsWith(`${table.name}.`)));
         for (const [t, as] of [[struct, 'attributes'], [status, 'states']] as const)
           if (t) await declareTool.run({ entity: e, source: t.source, path: t.file, type: t.name, as, skip: [] }).then(() => declared++, () => {});
       }

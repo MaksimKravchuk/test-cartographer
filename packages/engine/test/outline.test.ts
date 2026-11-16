@@ -61,3 +61,12 @@ test('outline: typesIn lists the types with their files', () => {
     { file: 'b.rs', name: 'TaskState', enum: true },
   ]);
 });
+
+test('outline: a SQL table lists its columns, and a CHECK (status IN ...) its values as an enum', async () => {
+  const sql = "CREATE TABLE IF NOT EXISTS shop.orders (\n  id text NOT NULL,\n  status text NOT NULL CHECK (status IN ('new',\n    'paid')),\n  total numeric(10, 2),\n  PRIMARY KEY (id)\n);\n";
+  const lines = (await outlineText(sql, 'm/0001.sql'))!;
+  assert.deepEqual(lines, ['1: table shop.orders', '2:   id: text NOT NULL', "3:   status: text NOT NULL CHECK (status IN ('new',", '5:   total: numeric(10, 2)', '3: enum shop.orders.status', '3:   new', '3:   paid']);
+  assert.deepEqual((await members(sql, 'm/0001.sql', 'shop.orders')).map((m) => m.name), ['id', 'status', 'total']);
+  assert.deepEqual((await members(sql, 'm/0001.sql', 'shop.orders.status')).map((m) => m.name), ['new', 'paid']);
+  assert.deepEqual(typesIn(`## m/0001.sql\n${lines.join('\n')}`).map((t) => [t.name, t.enum]), [['shop.orders', false], ['shop.orders.status', true]]);
+});

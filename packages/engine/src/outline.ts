@@ -37,7 +37,46 @@ const ROUTE = /^\s*(#\[(utoipa::path|get|post|put|patch|delete)\b|@(\w+\.)?(rout
 
 const firstLine = (s: string, max = 140) => s.split('\n')[0].trim().slice(0, max);
 
+// SQL schema: each CREATE TABLE as a `table` with its columns, and each CHECK (col IN (...)) as an enum
+// `<table>.<col>` with its values — the stored shape of a product's entities and the states they allow.
+// shortcut: CREATE TABLE only; columns and checks added later by ALTER TABLE are left out — parse those when a project needs them.
+export function outlineSql(text: string): string[] {
+  const out: string[] = [];
+  const row = (at: number) => text.slice(0, at).split('\n').length;
+  for (const m of text.matchAll(/create\s+table\s+(?:if\s+not\s+exists\s+)?["`]?([\w.]+)["`]?\s*\(/gi)) {
+    const start = m.index + m[0].length;
+    let depth = 1;
+    let end = start;
+    while (end < text.length && depth) depth += text[end] === '(' ? 1 : text[end] === ')' ? -1 : 0, end++;
+    const body = text.slice(start, end - 1);
+    out.push(`${row(m.index)}: table ${m[1]}`);
+    const checks: string[] = [];
+    // Top-level items of the body: columns, and constraints that aren't columns.
+    let d = 0;
+    let from = 0;
+    for (let i = 0; i <= body.length; i++) {
+      const c = body[i];
+      if (c === '(') d++;
+      else if (c === ')') d--;
+      else if ((c === ',' && !d) || i === body.length) {
+        const item = body.slice(from, i);
+        const lead = item.length - item.trimStart().length;
+        const col = /^["`]?(\w+)["`]?\s+(\w+)/.exec(item.trim());
+        if (col && !/^(constraint|primary|unique|check|foreign|exclude|key|index)$/i.test(col[1])) out.push(`${row(start + from + lead)}:   ${col[1]}: ${item.trim().split('\n')[0].slice(col[1].length).trim().slice(0, 100)}`);
+        for (const k of item.matchAll(/check\s*\(\s*["`]?(\w+)["`]?\s+in\s*\(([^)]*)\)/gi)) {
+          const values = [...k[2].matchAll(/'([^']*)'/g)].map((v) => v[1]);
+          if (values.length) checks.push(`${row(start + from + (k.index ?? 0))}: enum ${m[1]}.${k[1]}`, ...values.map((v) => `${row(start + from + (k.index ?? 0))}:   ${v}`));
+        }
+        from = i + 1;
+      }
+    }
+    out.push(...checks);
+  }
+  return out;
+}
+
 export async function outlineText(text: string, file: string): Promise<string[] | undefined> {
+  if (extname(file).toLowerCase() === '.sql') return outlineSql(text);
   const grammar = GRAMMAR[extname(file).toLowerCase()];
   if (!grammar) return undefined;
   const p = await parser(grammar);
@@ -77,7 +116,9 @@ export async function outlineCode(root: string, path: string, max = 40_000): Pro
   let size = 0;
   let skipped = 0;
   for (const f of files) {
-    if (!GRAMMAR[extname(f).toLowerCase()] || /(^|\/)(tests?|__tests__|spec|fixtures?|migrations?\/\d)|\.(test|spec)\.|_test\.go$/.test(f)) continue;
+    const sql = extname(f).toLowerCase() === '.sql';
+    // Numbered migrations in a programming language replay history; SQL ones are where the schema is.
+    if ((!GRAMMAR[extname(f).toLowerCase()] && !sql) || /(^|\/)(tests?|__tests__|spec|fixtures?)\/|\.(test|spec)\.|_test\.go$/.test(f) || (!sql && /(^|\/)migrations?\/\d/.test(f))) continue;
     const abs = join(root, f);
     if ((await stat(abs)).size > 512 * 1024) continue;
     const lines = await outlineText(await readFile(abs, 'utf8'), f);
@@ -96,7 +137,7 @@ export async function outlineCode(root: string, path: string, max = 40_000): Pro
 
 // The name a declaration line declares: `pub struct Task {` → Task, `  pub due_date: Option<Day>` → due_date, `  Inbox` → Inbox.
 export const declared = (line: string) =>
-  /\b(?:struct|enum|class|interface|type|trait|protocol|record|object)\s+(\w+)/.exec(line)?.[1] ??
+  /\b(?:struct|enum|class|interface|type|trait|protocol|record|object|table)\s+([\w.]+)/.exec(line)?.[1]?.replace(/\.$/, '') ??
   (/\b(?:fn|function|def|func)\s/.test(line) ? undefined : /^(?:pub(?:\([^)]*\))?\s+|readonly\s+|(?:let|var|val|const)\s+)*(\w+)\s*(?:[:=(,{]|$)/.exec(line.trim())?.[1]);
 
 // What of an outline the model doesn't cover yet: types none of whose names the model has, the fields and
@@ -122,7 +163,7 @@ export function uncovered(outline: string, covered: (name: string) => boolean, r
       }
       if (top) {
         flush();
-        if (name && /\b(struct|enum|class|interface|type|trait|protocol|record|object)\s/.test(line)) type = { line, covered: covered(name), members: [] };
+        if (name && /\b(struct|enum|class|interface|type|trait|protocol|record|object|table)\s/.test(line)) type = { line, covered: covered(name), members: [] };
       } else if (type && name && !/\b(fn|function|def|func)\s/.test(line) && !covered(name)) type.members.push(line);
     }
     flush();
@@ -155,7 +196,7 @@ export function typesIn(outline: string): { file: string; name: string; enum: bo
     const [head, ...lines] = part.split('\n');
     const file = head.replace(/^## /, '');
     return lines.flatMap((l) => {
-      const m = /^\d+: (?:\[route\] )?.*?\b(struct|enum|class|interface|type|record)\s+(\w+)/.exec(l);
+      const m = /^\d+: (?:\[route\] )?.*?\b(struct|enum|class|interface|type|record|table)\s+([\w.]+)/.exec(l);
       return m ? [{ file, name: m[2], enum: m[1] === 'enum' }] : [];
     });
   });
