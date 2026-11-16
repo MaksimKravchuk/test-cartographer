@@ -19,7 +19,8 @@ const subscriptionEnv = () => {
 // Subagents get every tool of ours but the one that hands in the result.
 const helperPrompt = (h: Harness) =>
   `${h.system}\n\nYou are a helper: the lead agent gave you one part of this work. Do that part with the tools you have, ` +
-  `hand in what you find with record() if there is one, and answer the lead with a short summary and the evidence ids you got. ` +
+  `and when there is a record() tool, save what you found with it before you answer: evidence ids alone are lost when the run ends. ` +
+  `Then answer the lead in a few lines: what you recorded and what is left. ` +
   `Never call ${h.deliver} — only the lead finishes the run.`;
 
 export async function runClaude(h: Harness): Promise<void> {

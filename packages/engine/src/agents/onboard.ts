@@ -24,7 +24,21 @@ export type OnboardOptions = {
   mode?: 'onboard' | 'review' | 'clarify';
   // clarify: the finding to dig into.
   target?: { proposal: string; index: number };
+  // onboard from code with a live runtime: map the product into areas first, then research
+  // each area in a run of its own (its own budget, several at a time). false: one run for everything.
+  areas?: boolean;
 };
+
+// An area of the product the map run found: one module, feature or bounded context.
+const Area = z.object({
+  id: z.string().regex(/^[a-z0-9-]+$/),
+  title: z.string(),
+  paths: listOf(z.string()).default([]),
+  entities: listOf(z.string()).default([]),
+  note: z.string().default(''),
+});
+type Area = z.infer<typeof Area>;
+const AREA_RUNS = 3;
 
 // Used when cartographer.yaml has no `kind: onboard` entry — a project can
 // onboard before anyone has configured an agent at all.
@@ -66,6 +80,12 @@ instead of asking. Keep the original finding's kind for contradictions and gaps,
 only when the investigation shows them. This is one small investigation: hand everything in with a single propose(),
 in the original finding's group (project, or the same entity), without record().`,
 };
+
+const MAP_TASK = `This first run only maps the product; other runs research each area in depth. Read the file tree, the
+manifests and the module layout (routes, handlers, domain modules, migrations, jobs, docs per feature), and split
+the product into 2–12 areas a person would name: one feature or bounded context each, with its code paths and the
+entities (objects people work with) it holds. Every entity belongs to one area; leave out build, tooling and
+infrastructure. Don't propose anything: call areas() when the map covers the whole product, within about 20 calls.`;
 
 // What a run needs every time goes into the prompt; the rest a skill links to
 // and the agent reads with skill(). Reading skills follow the source kinds.
@@ -157,7 +177,6 @@ export async function onboard(ws: Workspace, agentId: string | undefined, opts: 
     return id;
   };
 
-  let done = false;
   let batches = 0;
   const saved: Proposal[] = [];
 
@@ -216,7 +235,7 @@ export async function onboard(ws: Workspace, agentId: string | undefined, opts: 
   // Writes one proposal per group straight away, so the Inbox shows it while
   // the agent works on. `batch` numbers a record() call; propose() has none.
   const tag = mode === 'onboard' ? spec.id : mode;
-  const save = async ({ rationale, project: group, entities }: Checked, batch?: number): Promise<Proposal[]> => {
+  const save = async ({ rationale, project: group, entities }: Checked, batch?: number | string): Promise<Proposal[]> => {
     const base = `${timestamp}-${tag}${batch ? `-${batch}` : ''}`;
     const createdAt = new Date().toISOString();
     const out: Proposal[] = [];
@@ -323,6 +342,8 @@ export async function onboard(ws: Workspace, agentId: string | undefined, opts: 
         return JSON.stringify({
           project: { roles: redactFields('roles', project.roles, process.env), interfaces: project.interfaces, glossary: project.glossary },
           entities: Object.values(entities).map((e: any) => ({ id: e.id, title: e.title, description: e.description, states: e.states.map((x: any) => x.id), actions: e.actions.map((x: any) => x.id), rules: e.rules.length })),
+          // Other runs of this research (areas) proposed these; extend them in their entity group instead of adding them again.
+          proposedNow: saved.flatMap((p) => p.ops).flatMap((op) => (op.kind === 'entity' && op.op === 'add' ? [{ id: op.value.id, title: op.value.title }] : [])),
           backlog: baseBacklog,
           // What earlier runs left open: questions and gaps nobody has settled yet.
           openQuestions: proposals.flatMap((p) =>
@@ -371,21 +392,23 @@ export async function onboard(ws: Workspace, agentId: string | undefined, opts: 
         return `recorded ${(await save(await check(input), ++batches)).map((p) => p.id).join(', ')} — go on, and call propose() at the end`;
       },
     },
-    {
-      name: 'propose',
-      description: 'Finish: submit the rest of the result (what record() has not saved yet) — one project-level proposal and/or one per entity. Call exactly once.',
-      input: Groups,
-      run: async (input: GroupsIn) => {
-        // Everything may already be recorded; then propose only closes the run.
-        const empty = !input.project && !input.entities;
-        // The closing rationale says what the run covered; with everything recorded already it is saved nowhere else.
-        log(`💬 ${input.rationale}`);
-        if (!(empty && batches)) await save(await check(input));
-        done = true;
-        return 'proposal(s) recorded';
-      },
-    },
   ];
+
+  // Hands in a run's result; `suffix` names the proposal when several runs (areas) hand in.
+  const proposeTool = (onDone: () => void, suffix?: string): Tool => ({
+    name: 'propose',
+    description: 'Finish: submit the rest of the result (what record() has not saved yet) — one project-level proposal and/or one per entity. Call exactly once.',
+    input: Groups,
+    run: async (input: GroupsIn) => {
+      // Everything may already be recorded; then propose only closes the run.
+      const empty = !input.project && !input.entities;
+      // The closing rationale says what the run covered; with everything recorded already it is saved nowhere else.
+      log(`💬 ${input.rationale}`);
+      if (!(empty && batches)) await save(await check(input), suffix);
+      onDone();
+      return 'proposal(s) recorded';
+    },
+  });
 
   const skills = skillsFor(mode, { requirements: sources.some((s) => s.kind !== 'code'), code: sources.some((s) => s.kind === 'code') });
   tools.push(skillTool(skills.filter((s) => !s.includes('/'))));
@@ -408,28 +431,109 @@ export async function onboard(ws: Workspace, agentId: string | undefined, opts: 
     ].filter(Boolean).join('\n');
   }
 
-  try {
-    await runAgent({
-      runtime,
-      system: system({
-        sourceList: sources.map((s) => `${s.id} (${s.kind}, priority ${s.priority}): ${s.title}`).join('; '),
-        contracts: project.contracts.map((c) => `${c.id} (${c.title})`),
-        mode,
-        usePriority: registry.usePriority,
-        skills: skillsPrompt(skills, tools.map((t) => t.name)),
-      }),
-      prompt: mode === 'review' ? 'Start the review: call model() and sources(), then check each element.' : mode === 'clarify' ? brief : `Start onboarding. Goal: ${spec.goal}`,
-      tools,
-      deliver: 'propose',
-      script: mode !== 'onboard' ? ws.path(`agents/${mode}.yaml`) : spec.script ? ws.path(spec.script) : undefined,
-      isDone: () => done,
-      onLog: log,
-      signal: opts.signal,
+  const systemPrompt = (m: Mode) =>
+    system({
+      sourceList: sources.map((s) => `${s.id} (${s.kind}, priority ${s.priority}): ${s.title}`).join('; '),
+      contracts: project.contracts.map((c) => `${c.id} (${c.title})`),
+      mode: m,
+      usePriority: registry.usePriority,
+      skills: skillsPrompt(skills, [...tools.map((t) => t.name), 'propose']),
     });
+  const live = runtime !== 'scripted' ? runtime : undefined;
+  const fanOut = mode === 'onboard' && live && opts.areas !== false && sources.some((s) => s.kind === 'code');
+  // Several runs at a time: the Agent tab reads the last usage line, so it gets their sum.
+  const usage = new Map<string, Record<string, unknown>>();
+  const areaLog = (id: string) => (line: string) => {
+    if (!line.startsWith('📊')) return log(`[${id}] ${line}`);
+    usage.set(id, JSON.parse(line.slice(2)));
+    const all = [...usage.values()];
+    const sum = (k: string) => all.reduce((n, u) => n + (Number(u[k]) || 0), 0);
+    log(`📊 ${JSON.stringify({ model: all[0].model, input: sum('input'), output: sum('output'), cacheRead: sum('cacheRead'), cacheWrite: sum('cacheWrite'), costUsd: sum('costUsd'), estimated: all.some((u) => u.estimated) || undefined, seconds: Math.max(...all.map((u) => Number(u.seconds) || 0)) })}`);
+  };
+
+  let delivered = 0;
+  try {
+    if (!fanOut) {
+      await runAgent({
+        runtime,
+        system: systemPrompt(mode),
+        prompt: mode === 'review' ? 'Start the review: call model() and sources(), then check each element.' : mode === 'clarify' ? brief : `Start onboarding. Goal: ${spec.goal}`,
+        tools: [...tools, proposeTool(() => delivered++)],
+        deliver: 'propose',
+        script: mode !== 'onboard' ? ws.path(`agents/${mode}.yaml`) : spec.script ? ws.path(spec.script) : undefined,
+        isDone: () => delivered > 0,
+        onLog: log,
+        signal: opts.signal,
+      });
+    } else {
+      // One run reads the structure and splits the product into areas; one budget can't cover a real product.
+      let areas: Area[] = [];
+      const areasTool: Tool = {
+        name: 'areas',
+        description: 'Finish the map: hand in the areas of the product (2–12), each with the code paths and the entities it holds.',
+        input: z.object({ areas: z.array(Area).min(2).max(12) }),
+        run: async ({ areas: a }: { areas: Area[] }) => {
+          areas = a;
+          return `${a.length} areas — done`;
+        },
+      };
+      await runAgent({
+        runtime: { ...live, maxSteps: Math.min(30, live.maxSteps) },
+        system: `${systemPrompt('onboard')}
+
+${MAP_TASK}`,
+        prompt: `Map the product before the research. Goal of the research: ${spec.goal}`,
+        tools: [...tools.filter((t) => ['sources', 'files', 'search', 'read', 'source', 'fetch'].includes(t.name)), areasTool],
+        deliver: 'areas',
+        isDone: () => areas.length > 0,
+        onLog: areaLog('map'),
+        signal: opts.signal,
+      });
+      if (!areas.length) throw new Error('The map run found no areas');
+      log(`🗺 ${areas.map((a) => a.id).join(', ')}`);
+      const others = (a: Area) => areas.filter((x) => x !== a).map((x) => `${x.id} (${x.title}: ${x.entities.join(', ')})`).join('; ');
+      const queue = [...areas];
+      const failures: string[] = [];
+      const worker = async () => {
+        for (let a = queue.shift(); a; a = queue.shift()) {
+          let done = false;
+          const area = a;
+          await runAgent({
+            runtime: live,
+            system: systemPrompt('onboard'),
+            prompt: `Start onboarding. Goal: ${spec.goal}
+
+This run researches one area of the product, and other runs research the rest at the same time.
+Your area: ${area.title} (${area.id}). ${area.note}
+Its code: ${area.paths.join(', ') || 'see the map'}. Entities expected here: ${area.entities.join(', ') || 'find them'}.
+Other areas, not yours: ${others(area)}.
+Go deep: every entity of this area with all its parameters, every status value, every operation (each route,
+handler, job and command), who may do it, and every check that refuses something. Model it on the entities
+listed above; when an entity of another area takes part, propose its actions or rules in its own group only if
+this area's code is where they live. model() lists what other runs proposed already (proposedNow): reuse those ids.`,
+            tools: [...tools, proposeTool(() => (done = true, delivered++), area.id)],
+            deliver: 'propose',
+            isDone: () => done,
+            onLog: areaLog(area.id),
+            signal: opts.signal,
+          }).catch((e: Error) => {
+            if (opts.signal?.aborted) throw e;
+            failures.push(`${area.id}: ${e.message}`);
+            log(`[${area.id}] ⚠ ${e.message}`);
+          });
+        }
+      };
+      await Promise.all(Array.from({ length: Math.min(AREA_RUNS, areas.length) }, worker));
+      if (failures.length) log(`⚠ ${failures.length} of ${areas.length} areas did not finish: ${failures.join('; ')}`);
+    }
+  } catch (e) {
+    // What record() saved stays in the Inbox; only a run that saved nothing failed.
+    if (opts.signal?.aborted || !saved.length) throw e;
+    log(`⚠ ${(e as Error).message} — keeping the ${saved.length} proposals recorded so far`);
   } finally {
     await mcp.close();
   }
-  if (!done) throw new Error('The agent finished without an accepted proposal (propose was never called or was rejected)');
+  if (!delivered && !saved.length) throw new Error('The agent finished without an accepted proposal (propose was never called or was rejected)');
 
   // The original leaves the queue once something replaces it; with nothing new it stays open,
   // and an answer a person gave while the agent worked stands.

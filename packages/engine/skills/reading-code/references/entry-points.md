@@ -24,6 +24,7 @@ framework you identified from the file tree; if nothing matches, try the generic
 - Spring: `@(Get|Post|Put|Patch|Delete|Request)Mapping`
 - ASP.NET: `\[Http(Get|Post|Put|Patch|Delete)` and `\.Map(Get|Post|Put|Patch|Delete)\(`
 - Go: `\.(HandleFunc|Handle|GET|POST|PUT|PATCH|DELETE)\(`
+- Rust (axum, actix, rocket, utoipa): `\.route\("|#\[(get|post|put|patch|delete)\("|#\[utoipa::path\(|routes!\(` — a `router()` per module that one file merges is the map of the API
 - GraphQL: `^\s*(type|extend type) (Query|Mutation)` and `@(Query|Mutation|Resolver)\(`
 - Generic: `['"]/(api/)?[a-z-]+(/:?\w+)*['"]`
 
@@ -44,11 +45,13 @@ framework you identified from the file tree; if nothing matches, try the generic
 - Sequelize, Mongoose: `sequelize\.define\(|extends Model|new (mongoose\.)?Schema\(`
 - SQLAlchemy, Pydantic: `\(Base\)|\(db\.Model\)|\(BaseModel\)`
 - Go: `gorm\.Model|type \w+ struct`
+- Rust: `pub struct \w+|#\[derive\([^)]*(FromRow|Serialize|Deserialize)` and `sqlx::query|query_as!` — the domain crate (often `*-domain` or `core`) holds the entities, the store crate the columns
 - Migrations and SQL: `CREATE TABLE|add_column|addColumn|ALTER TABLE`
 - API schemas: list `files()` for `openapi`, `swagger`, `.graphql`, `.proto`
 
 ## States
 
+- Rust and other enum-heavy code: `pub enum \w+` — a command or event enum lists every operation, each variant an action
 - Status enums: `enum \w*(Status|State)|(Status|State)\s*=\s*\[|TextChoices|IntegerChoices|aasm|state_machine`
 - Comparisons that reveal values: `\.(status|state)\s*(===?|!==?|!=)\s*['"\w]`
 - Hidden states: `\w+_at\b.*(null|None|nil|\?)|\bis_\w+|deleted_at|archived`
@@ -62,4 +65,5 @@ framework you identified from the file tree; if nothing matches, try the generic
 ## Conditions and refusals
 
 - Refusals: `raise \w|throw new|abort\(|ValidationError|HttpException|status\(4\d\d\)|Forbidden|Unprocessable`
+- Rust: `#\[error\("|Err\(\w+Error::|bail!\(|ensure!\(|StatusCode::(BAD_REQUEST|FORBIDDEN|NOT_FOUND|CONFLICT|UNPROCESSABLE)` — each error variant is a rule: say when it happens and what the user sees
 - Limits and deadlines: `\b(MAX|MIN|LIMIT|TIMEOUT|EXPIR|TTL)\w*|timedelta\(|\.days|hours\(`
