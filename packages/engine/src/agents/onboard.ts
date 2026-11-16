@@ -10,7 +10,8 @@ import { readFile, stat } from 'node:fs/promises';
 import { listOf, runAgent, type Tool } from './runtime.ts';
 import { McpPool } from '../mcp.ts';
 import { codePath, insideCode, listCode, searchCode } from '../sources.ts';
-import { outlineCode } from '../outline.ts';
+import { outlineCode, uncovered } from '../outline.ts';
+import { flattenWorkspace, words } from '../eval.ts';
 import { skillsPrompt, skillTool } from './skills.ts';
 
 export type OnboardOptions = {
@@ -508,45 +509,69 @@ ${MAP_TASK}`,
       if (!areas.length) throw new Error('The map run found no areas');
       log(`🗺 ${areas.map((a) => a.id).join(', ')}`);
       const others = (a: Area) => areas.filter((x) => x !== a).map((x) => `${x.id} (${x.title}: ${x.entities.join(', ')})`).join('; ');
-      const queue = [...areas];
       const failures: string[] = [];
-      const worker = async () => {
-        for (let a = queue.shift(); a; a = queue.shift()) {
-          let done = false;
-          const area = a;
-          // The area's declarations up front: a checklist of its types, fields and enums, so coverage doesn't depend on what the run happens to open.
-          const code = sources.filter((s) => s.kind === 'code');
-          const outlines = (await Promise.all(code.flatMap((s) => area.paths.map((p) => outlineCode(codePath(ws.root, s.path!), p, OUTLINE_CHARS).catch(() => ''))))).filter((o) => o.startsWith('## '));
-          const outline = outlines.join('\n\n').slice(0, OUTLINE_CHARS);
-          await runAgent({
-            runtime: live,
-            system: systemPrompt('onboard'),
-            prompt: `Start onboarding. Goal: ${spec.goal}
+      const code = sources.filter((s) => s.kind === 'code');
+      const outlineOf = async (area: Area, max: number) =>
+        (await Promise.all(code.flatMap((s) => area.paths.map((p) => outlineCode(codePath(ws.root, s.path!), p, max).catch(() => '')))))
+          .filter((o) => o.startsWith('## '))
+          .join('\n\n');
+      const research = (area: Area, suffix: string, prompt: string, maxSteps = live.maxSteps) => {
+        let done = false;
+        return runAgent({
+          runtime: { ...live, maxSteps },
+          system: systemPrompt('onboard'),
+          prompt,
+          tools: [...tools, proposeTool(() => (done = true, delivered++), suffix)],
+          deliver: 'propose',
+          isDone: () => done,
+          onLog: areaLog(suffix),
+          signal: opts.signal,
+        }).catch((e: Error) => {
+          if (opts.signal?.aborted) throw e;
+          failures.push(`${suffix}: ${e.message}`);
+          log(`[${suffix}] ⚠ ${e.message}`);
+        });
+      };
+      const inParallel = async (jobs: (() => Promise<void>)[]) => {
+        const queue = [...jobs];
+        await Promise.all(Array.from({ length: Math.min(AREA_RUNS, queue.length) }, async () => {
+          for (let job = queue.shift(); job; job = queue.shift()) await job();
+        }));
+      };
+      const brief = (area: Area) => `Start onboarding. Goal: ${spec.goal}
 
 This run researches one area of the product, and other runs research the rest at the same time.
 Your area: ${area.title} (${area.id}). ${area.note}
 Its code: ${area.paths.join(', ') || 'see the map'}. Entities expected here: ${area.entities.join(', ') || 'find them'}.
-Other areas, not yours: ${others(area)}.
+Other areas, not yours: ${others(area)}.`;
+      await inParallel(areas.map((area) => async () => {
+        // The area's declarations up front: a checklist of its types, fields and enums, so coverage doesn't depend on what the run happens to open.
+        const outline = (await outlineOf(area, OUTLINE_CHARS)).slice(0, OUTLINE_CHARS);
+        await research(area, area.id, `${brief(area)}
 Go deep: every entity of this area with all its parameters, every status value, every operation (each route,
 handler, job and command), who may do it, and every check that refuses something. Model it on the entities
 listed above; when an entity of another area takes part, propose its actions or rules in its own group only if
 this area's code is where they live. model() lists what other runs proposed already (proposedNow): reuse those ids.
 ${outline ? `\nThe declarations in this area's code (types with their fields, enums with their variants), as a checklist —
-quote and propose the ones that are product behavior, and read() around them for the rules:\n${outline}` : ''}`,
-            tools: [...tools, proposeTool(() => (done = true, delivered++), area.id)],
-            deliver: 'propose',
-            isDone: () => done,
-            onLog: areaLog(area.id),
-            signal: opts.signal,
-          }).catch((e: Error) => {
-            if (opts.signal?.aborted) throw e;
-            failures.push(`${area.id}: ${e.message}`);
-            log(`[${area.id}] ⚠ ${e.message}`);
-          });
-        }
-      };
-      await Promise.all(Array.from({ length: Math.min(AREA_RUNS, areas.length) }, worker));
-      if (failures.length) log(`⚠ ${failures.length} of ${areas.length} areas did not finish: ${failures.join('; ')}`);
+quote and propose the ones that are product behavior, and read() around them for the rules:\n${outline}` : ''}`);
+      }));
+      // Coverage pass: what each area's code declares that nothing in the model names yet goes back to a run of its own.
+      const known = new Set((await flattenWorkspace(ws)).filter((x) => x.cat !== 'rule' && x.cat !== 'transition').flatMap((x) => x.names.map((n) => words(n).join(' '))));
+      const covered = (name: string) => known.has(words(name).join(' '));
+      await inParallel(areas.map((area) => async () => {
+        const gaps = uncovered(await outlineOf(area, 400_000), covered).slice(0, OUTLINE_CHARS);
+        if (!gaps) return;
+        log(`[${area.id}] 🔎 ${gaps.split('\n').filter((l) => !l.startsWith('## ')).length} declarations have nothing in the model yet`);
+        await research(area, `${area.id}-gaps`, `${brief(area)}
+An earlier run researched this area. These declarations of its code have nothing in the model yet (no entity,
+parameter, state or action of that name). Go through them: for each that is product behavior — a user or client
+sees it, changes it, or it decides what happens — read() around it and propose it in the right entity group:
+a parameter, a state (a variant of a status enum), an action (a variant of a command enum, a route), a rule, or
+a new entity. Call model() first and extend the entities there (proposedNow too); don't add an entity again.
+Skip internals and say nothing about them.
+
+${gaps}`, Math.ceil(live.maxSteps / 2));
+      }));
     }
   } catch (e) {
     // What record() saved stays in the Inbox; only a run that saved nothing failed.

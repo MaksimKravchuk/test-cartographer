@@ -218,29 +218,32 @@ export function matchModel(ref: Item[], cand: Item[], threshold = 0.5): Match[] 
   matches.push(...matchNames(of(ref, 'subject'), of(cand, 'subject'), threshold, (r, c) => best(r.names, c.names)));
   const objects = matchNames(of(ref, 'object'), of(cand, 'object'), threshold, (r, c) => best(r.names, c.names));
   matches.push(...objects);
-  const refItem = new Map(ref.map((x) => [x.key, x]));
-  for (const om of objects) {
-    const [ro, co] = [refItem.get(om.ref)!, cand.find((x) => x.key === om.cand)!];
+  // A model object's parts are looked for in every reference object its names fit, not only the closest one:
+  // one product concept is often split differently on the two sides (a review's session, settings, decisions).
+  const refObjects = of(ref, 'object');
+  for (const co of of(cand, 'object').filter((c) => objects.some((m) => m.cand === c.key))) {
+    const ros = refObjects.filter((r) => objects.some((m) => m.ref === r.key && m.cand === co.key) || best(r.names, co.names) >= threshold);
+    const inRef = (cat: Category) => ros.flatMap((ro) => of(ref, cat, ro.key));
     // "Create task" in Task is "create": the object's own words say nothing.
-    const drop = new Set([...ro.names, ...co.names].flatMap(words));
-    for (const cat of ['param', 'state'] as const) matches.push(...matchNames(of(ref, cat, ro.key), of(cand, cat, co.key), threshold, (r, c) => best(r.names, c.names)));
-    matches.push(...matchNames(of(ref, 'action', ro.key), of(cand, 'action', co.key), threshold, (r, c) => best(r.names, c.names, drop, true)));
+    const drop = new Set([...ros.flatMap((ro) => ro.names), ...co.names].flatMap(words));
+    for (const cat of ['param', 'state'] as const) matches.push(...matchNames(inRef(cat), of(cand, cat, co.key), threshold, (r, c) => best(r.names, c.names)));
+    matches.push(...matchNames(inRef('action'), of(cand, 'action', co.key), threshold, (r, c) => best(r.names, c.names, drop, true)));
     // A transition is found when a model transition joins states that match the reference's from and to.
     const stateOf = new Map(matches.filter((m) => m.cand.startsWith(`${co.key}/state:`)).map((m) => [m.cand.slice(`${co.key}/state:`.length), m.ref]));
-    const fits = (refSide: string[], s: string) =>
-      s === '@new' ? refSide.includes('@new') : refSide.includes('*') || refSide.some((x) => `${ro.key}/state:${x}` === stateOf.get(s));
+    const fits = (t: Item, refSide: string[], s: string) =>
+      s === '@new' ? refSide.includes('@new') : refSide.includes('*') || refSide.some((x) => `${t.object}/state:${x}` === stateOf.get(s));
     const actionOf = new Map(matches.filter((m) => m.cand.startsWith(`${co.key}/action:`)).map((m) => [m.cand, m.ref]));
     const taken = new Set<string>();
     for (const c of of(cand, 'transition', co.key)) {
-      const fitting = of(ref, 'transition', ro.key).filter((t) => fits(t.from!, c.from![0]) && fits(t.to!, c.to![0]));
+      const fitting = inRef('transition').filter((t) => fits(t, t.from!, c.from![0]) && fits(t, t.to!, c.to![0]));
       // Two transitions between the same states (reject and cancel): the one with the matching action, then one not taken yet.
-      const sameAction = (t: Item) => !!t.action && actionOf.get(`${co.key}/action:${c.action}`) === `${ro.key}/action:${t.action}`;
+      const sameAction = (t: Item) => !!t.action && actionOf.get(`${co.key}/action:${c.action}`) === `${t.object}/action:${t.action}`;
       const r = fitting.find((t) => sameAction(t) && !taken.has(t.key)) ?? fitting.find((t) => !taken.has(t.key)) ?? fitting[0];
       if (r) taken.add(r.key);
       if (r) matches.push({ ref: r.key, cand: c.key, score: 1, by: 'name' });
     }
     // Rules are prose: overlap of the words that carry meaning, a weak signal the judge replaces.
-    matches.push(...matchNames(of(ref, 'rule', ro.key), of(cand, 'rule', co.key), 0.34, (r, c) => best(r.names, c.names, drop)));
+    matches.push(...matchNames(inRef('rule'), of(cand, 'rule', co.key), 0.34, (r, c) => best(r.names, c.names, drop)));
   }
   return matches;
 }

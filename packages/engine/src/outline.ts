@@ -87,3 +87,34 @@ export async function outlineCode(root: string, path: string, max = 40_000): Pro
   if (!parts.length) return `No declarations in a known language under “${path || '.'}”`;
   return parts.join('\n\n') + (skipped ? `\n\n… ${skipped} more files left out — outline a narrower folder` : '');
 }
+
+// The name a declaration line declares: `pub struct Task {` → Task, `  pub due_date: Option<Day>` → due_date, `  Inbox` → Inbox.
+const declared = (line: string) =>
+  /\b(?:struct|enum|class|interface|type|trait|protocol|record|object)\s+(\w+)/.exec(line)?.[1] ??
+  (/\b(?:fn|function|def|func)\s/.test(line) ? undefined : /^(?:pub(?:\([^)]*\))?\s+|readonly\s+|(?:let|var|val|const)\s+)*(\w+)\s*(?:[:=(,{]|$)/.exec(line.trim())?.[1]);
+
+// What of an outline the model doesn't cover yet: types none of whose names the model has, and the fields and
+// variants of the other types it lacks. Functions are left out: they are read for actions, not listed as gaps.
+export function uncovered(outline: string, covered: (name: string) => boolean): string {
+  const out: string[] = [];
+  for (const part of outline.split(/\n\n(?=## )/)) {
+    const [head, ...lines] = part.split('\n');
+    const keep: string[] = [];
+    let type: { line: string; covered: boolean; members: string[] } | undefined;
+    const flush = () => {
+      if (type && (!type.covered || type.members.length)) keep.push(type.line, ...type.members);
+      type = undefined;
+    };
+    for (const line of lines) {
+      const top = /^\d+: \S/.test(line);
+      const name = declared(line.replace(/^\d+:\s*/, ''));
+      if (top) {
+        flush();
+        if (name && /\b(struct|enum|class|interface|type|trait|protocol|record|object)\s/.test(line)) type = { line, covered: covered(name), members: [] };
+      } else if (type && name && !/\b(fn|function|def|func)\s/.test(line) && !covered(name)) type.members.push(line);
+    }
+    flush();
+    if (keep.length) out.push([head, ...keep].join('\n'));
+  }
+  return out.join('\n\n');
+}
