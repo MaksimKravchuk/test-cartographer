@@ -213,6 +213,9 @@ function matchNames(refs: Item[], cands: Item[], threshold: number, score: (r: I
     }
     if (top) found.add(top.r.key);
     if (top) out.push({ ref: top.r.key, cand: c.key, score: Math.round(top.s * 100) / 100, by: 'name' });
+    // The reference may list one thing twice, once per surface (the REST read and the MCP get_task): an exact match finds every copy.
+    if (top?.s === 1)
+      for (const r of refs) if (r !== top.r && score(r, c) === 1) found.add(r.key), out.push({ ref: r.key, cand: c.key, score: 1, by: 'name' });
   }
   return out;
 }
@@ -234,15 +237,18 @@ export function matchModel(ref: Item[], cand: Item[], threshold = 0.5): Match[] 
     for (const cat of ['param', 'state'] as const) matches.push(...matchNames(inRef(cat), of(cand, cat, co.key), threshold, (r, c) => best(r.names, c.names)));
     matches.push(...matchNames(inRef('action'), of(cand, 'action', co.key), threshold, (r, c) => best(r.names, c.names, drop, true)));
     // A transition is found when a model transition joins states that match the reference's from and to.
-    const stateOf = new Map(matches.filter((m) => m.cand.startsWith(`${co.key}/state:`)).map((m) => [m.cand.slice(`${co.key}/state:`.length), m.ref]));
+    const stateOf = new Map<string, Set<string>>();
+    for (const m of matches.filter((m) => m.cand.startsWith(`${co.key}/state:`))) {
+      const s = m.cand.slice(`${co.key}/state:`.length);
+      stateOf.set(s, new Set([...(stateOf.get(s) ?? []), m.ref]));
+    }
     const fits = (t: Item, refSide: string[], s: string) =>
-      s === '@new' ? refSide.includes('@new') : refSide.includes('*') || refSide.some((x) => `${t.object}/state:${x}` === stateOf.get(s));
-    const actionOf = new Map(matches.filter((m) => m.cand.startsWith(`${co.key}/action:`)).map((m) => [m.cand, m.ref]));
+      s === '@new' ? refSide.includes('@new') : refSide.includes('*') || refSide.some((x) => !!stateOf.get(s)?.has(`${t.object}/state:${x}`));
     const taken = new Set<string>();
     for (const c of of(cand, 'transition', co.key)) {
       const fitting = inRef('transition').filter((t) => fits(t, t.from!, c.from![0]) && fits(t, t.to!, c.to![0]));
       // Two transitions between the same states (reject and cancel): the one with the matching action, then one not taken yet.
-      const sameAction = (t: Item) => !!t.action && actionOf.get(`${co.key}/action:${c.action}`) === `${t.object}/action:${t.action}`;
+      const sameAction = (t: Item) => !!t.action && matches.some((m) => m.cand === `${co.key}/action:${c.action}` && m.ref === `${t.object}/action:${t.action}`);
       const r = fitting.find((t) => sameAction(t) && !taken.has(t.key)) ?? fitting.find((t) => !taken.has(t.key)) ?? fitting[0];
       if (r) taken.add(r.key);
       if (r) matches.push({ ref: r.key, cand: c.key, score: 1, by: 'name' });
