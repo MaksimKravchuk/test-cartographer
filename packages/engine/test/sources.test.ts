@@ -34,7 +34,7 @@ test('checkSources: file, code folder (skipping node_modules), missing folder, M
     assert.equal(byId.wiki.ok, false);
     assert.match(byId.wiki.detail, /not allowed/);
   } finally {
-    await rm(dir, { recursive: true, force: true });
+    await rm(dir, { recursive: true, force: true, maxRetries: 5 }); // Windows: a git child may still hold the folder
   }
 });
 
@@ -54,7 +54,7 @@ test('insideCode: symlinks out of the folder or to a .env file are refused', asy
     await assert.rejects(() => insideCode(root, '../secret.txt'), /outside/);
     await assert.rejects(() => insideCode(root, 'missing.ts'), /No file/);
   } finally {
-    await rm(dir, { recursive: true, force: true });
+    await rm(dir, { recursive: true, force: true, maxRetries: 5 });
   }
 });
 
@@ -70,7 +70,7 @@ test('searchCode: hits carry file and line; no match says how much was searched;
     assert.equal(await searchCode(dir, 'CRON', { dir: 'src', ignoreCase: true }), 'no match (searched 1 of 1 files under src)');
     await assert.rejects(searchCode(dir, '('), /Bad pattern/);
   } finally {
-    await rm(dir, { recursive: true, force: true });
+    await rm(dir, { recursive: true, force: true, maxRetries: 5 });
   }
 });
 
@@ -90,7 +90,7 @@ test('listCode: a big folder that fills the cap does not hide the others, and a 
     await symlink(join(dir, 'android'), join(dir, 'rust', 'out'), 'junction'); // junction: no admin needed on Windows
     await assert.rejects(listCode(join(dir, 'rust'), 5, 'out'), /outside the code folder/);
   } finally {
-    await rm(dir, { recursive: true, force: true });
+    await rm(dir, { recursive: true, force: true, maxRetries: 5 });
   }
 });
 
@@ -107,6 +107,6 @@ test('listCode: in a git repo, .gitignore decides and untracked files count; .en
     assert.deepEqual(await listCode(dir), ['.gitignore', 'backend/app/main.py']);
     assert.deepEqual(await listCode(join(dir, 'backend')), ['app/main.py']);
   } finally {
-    await rm(dir, { recursive: true, force: true });
+    await rm(dir, { recursive: true, force: true, maxRetries: 5 });
   }
 });
