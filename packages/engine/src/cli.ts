@@ -18,6 +18,9 @@ const usage = `Test Cartographer
   tc export md             export scenarios to export/*.md
   tc explore <agent> [--scripted]  run an explorer agent (--scripted: from a script, no model)
   tc onboard [agent] [--scripted]  run the onboarding agent over the knowledge sources
+  tc eval <reference> [--judge <provider>] [--model m] [--out file.md]
+                           compare the model (with every proposal as if accepted) to a reference
+                           (a reference YAML or another workspace): recall, precision, extras
   tc backlog               show epics → features → stories, with totals and unmapped stories
   tc runtimes              sign-in state of the runtimes agents run in: Claude Code, Codex, Copilot, Cursor
   tc runtimes test <provider> [--model m]  short end-to-end run: sign-in, MCP bridge, tool calls
@@ -36,6 +39,9 @@ const { values, positionals } = parseArgs({
     scripted: { type: 'boolean' },
     model: { type: 'string' },
     open: { type: 'boolean' },
+    judge: { type: 'string' },
+    out: { type: 'string' },
+    json: { type: 'string' },
   },
 });
 
@@ -160,6 +166,18 @@ switch (cmd) {
     const proposals = await onboard(ws, arg, { onLog: (l) => console.log(l), provider: values.scripted ? 'scripted' : 'live' });
     for (const p of proposals)
       console.log(`\n✔ proposal ${p.id}${p.entity ? ` (${p.entity})` : ' (project)'}: ${plural(p.ops.length, 'change')}, ${plural(p.findings.length, 'finding')}`);
+    break;
+  }
+  case 'eval': {
+    if (!arg) throw new Error('tc eval <reference.yaml | workspace dir>');
+    const { evaluate, evaluationMarkdown } = await import('./eval.ts');
+    const judge = values.judge ? { provider: AgentProvider.parse(values.judge), model: values.model, onLog: (l: string) => console.error(l) } : undefined;
+    const e = await evaluate(ws, resolve(arg), { judge });
+    const md = evaluationMarkdown(e, `${ws.root} vs ${arg}`);
+    const { writeFile } = await import('node:fs/promises');
+    if (values.out) await writeFile(values.out, md);
+    if (values.json) await writeFile(values.json, JSON.stringify(e, null, 1));
+    console.log(values.out ? md.split('\n## ')[0] : md);
     break;
   }
   case 'backlog': {

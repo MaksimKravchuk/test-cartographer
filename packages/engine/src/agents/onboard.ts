@@ -1,14 +1,19 @@
-// Onboarding agent: reads the knowledge sources a person uploaded (product
-// docs, tracker exports, contracts, notes) and proposes the first SOAR map —
-// roles, entities, their models — plus the backlog. Unlike the explorer it
-// never touches a running app: everything it knows comes from what was
-// uploaded, and every operation must cite an exact quote from it.
+// Research agent: reads the knowledge sources of a project (product docs,
+// tracker exports, code folders, systems behind MCP) and proposes the model —
+// roles, entities, their models — plus the backlog; in review mode it checks
+// the existing model against them. Unlike the explorer it never touches a
+// running app, and every operation must cite an exact quote from a source.
+// How it works is in skills/ (see skills.ts); the prompt here is only the task.
 import { z } from 'zod';
 import { checkRoles, Finding, isFileSource, Op, Proposal, type Provenance, redactFields, resolveRuntime, type AgentSpec, type Evidence, type RuntimeOverride, type Workspace } from '@tc/model';
 import { readFile, stat } from 'node:fs/promises';
+import { join } from 'node:path';
 import { listOf, runAgent, type Tool } from './runtime.ts';
 import { McpPool } from '../mcp.ts';
-import { codePath, insideCode, listCode } from '../sources.ts';
+import { codePath, insideCode, listCode, searchCode } from '../sources.ts';
+import { members, outlineCode, outlined, outlineSql, typesIn, uncovered } from '../outline.ts';
+import { flattenWorkspace, words } from '../eval.ts';
+import { skillsPrompt, skillTool } from './skills.ts';
 
 export type OnboardOptions = {
   onLog?: (line: string) => void;
@@ -22,7 +27,27 @@ export type OnboardOptions = {
   mode?: 'onboard' | 'review' | 'clarify';
   // clarify: the finding to dig into.
   target?: { proposal: string; index: number };
+  // onboard with a live runtime: map the product into areas first, then research each area in a run
+  // of its own (its own budget, several at a time). Default: when the code sources hold AREAS_FROM_FILES files or more.
+  areas?: boolean;
 };
+
+// An area of the product the map run found: one module, feature or bounded context.
+const Area = z.object({
+  id: z.string().regex(/^[a-z0-9-]+$/),
+  title: z.string(),
+  paths: z.array(z.string()).default([]),
+  entities: z.array(z.string()).default([]),
+  note: z.string().default(''),
+});
+type Area = z.infer<typeof Area>;
+const AREA_RUNS = 3;
+const AREAS_FROM_FILES = 500;
+const OUTLINE_CHARS = 15_000;
+// Agents hand in after a few dozen items whatever the budget: a shorter list per run gets each item looked at.
+const GAP_RUNS = 5;
+const GAP_CHARS = 8_000;
+const LIFECYCLES_PER_RUN = 5;
 
 // Used when cartographer.yaml has no `kind: onboard` entry — a project can
 // onboard before anyone has configured an agent at all.
@@ -52,124 +77,53 @@ function findLines(source: string, quote: string): { from: number; to: number } 
   return { from: source.slice(0, m.index).split('\n').length, to: source.slice(0, m.index + m[0].length).split('\n').length };
 }
 
-const MODE_GOAL: Record<'onboard' | 'review' | 'clarify', string> = {
-  onboard: 'read everything known about the product — docs, tracker exports, contracts, notes, the code, systems behind MCP — and propose the SOAR model plus the backlog.',
-  review: `review the model a person already has against everything known about the product. For every subject, object,
-action and rule in model({ entity }), look for confirmation or contradiction in the sources; propose what the model is missing.
-Report each disagreement as a finding (kind=contradiction) whose refs name the element ("rule:<entity>.<id>",
-"action:<entity>.<id>") and whose evidence quotes every side; say in the note which side wins by priority and why.
-An element with status "planned" is required but not built yet: code that lacks it is not a contradiction.
-A rule found only in the code is behavior, not a requirement: propose it and say so in a finding (kind=gap).
-Cover every element, so the review fills a table of element × source: where a source says the same as the model,
-add a finding (kind=confirmation) with that element in refs and the quote as evidence; where you looked and found
-nothing, add a finding (kind=gap) with the source ids you searched in \`searched\` and the files or queries in its note.`,
-  clarify: `give a person enough context to answer one finding they couldn't answer as written (it is quoted in the
+type Mode = NonNullable<OnboardOptions['mode']>;
+const MODE_GOAL: Record<Mode, string> = {
+  onboard: 'read everything known about the product — docs, tracker exports, contracts, notes, the code, systems behind MCP — and propose its model plus the backlog.',
+  review: 'review the model a person already has against everything known about the product, element by element and source by source, and propose what the model is missing.',
+  clarify: `give a person enough context to answer one finding they could not answer as written (it is quoted in the
 first message). Investigate it: read the sources it touches and find where it shows for a user — the screen, the API route
 and the response field, the CLI command — and quote what you find. Then replace it with findings a person can answer
-on the spot, each in plain words and self-contained: what you found and where (with quotes as evidence), what is still
-unknown, and the question. Each finding asks ONE thing: split a finding that bundles unrelated asks. Give likely answers
-in \`options\` when yes/no doesn't fit. When the sources settle a part on their own, say so in a finding
-(kind=confirmation, with the quote) instead of asking. Keep the original finding's kind for contradictions and gaps,
-and its refs. Propose model changes only when the investigation shows them. Hand everything in with one propose(),
-in the original's group (project, or the same entity).`,
+on the spot. When the sources settle a part on their own, say so in a finding (kind=confirmation, with the quote)
+instead of asking. Keep the original finding's kind for contradictions and gaps, and its refs. Propose model changes
+only when the investigation shows them. This is one small investigation: hand everything in with a single propose(),
+in the original finding's group (project, or the same entity), without record().`,
 };
 
-const system = (p: { sourceList: string; contracts: string[]; mode: 'onboard' | 'review' | 'clarify'; usePriority: boolean }) => `You are working for Test Cartographer: ${MODE_GOAL[p.mode]}
+const MAP_TASK = `This first run only maps the product; other runs research each area in depth. Read the file tree, the
+manifests and the module layout (routes, handlers, domain modules, migrations, jobs, docs per feature; outline()
+shows a folder's types and enums in one call), and split
+the product into 2–12 areas a person would name: one feature or bounded context each, with its code paths and the
+entities (objects people work with) it holds. Every entity belongs to one area; leave out build, tooling and
+infrastructure, and whatever the goal puts out of scope. Don't propose anything: call areas() when the map covers the whole product, within about 20 calls.`;
 
-The model is Subject / Object / Action / Rule (SOAR): roles (human or system), entities with variants, states,
-actions, transitions (who may move the entity from state to state) and permits (who may act without changing
-state), and rules (conditions on a transition). Nothing you propose changes the model directly — a person
-reviews every operation and decides accept / observe / reject.
+// What a run needs every time goes into the prompt; the rest a skill links to
+// and the agent reads with skill(). Reading skills follow the source kinds.
+const skillsFor = (mode: Mode, kinds: { requirements: boolean; code: boolean }) => [
+  ...(mode === 'clarify' ? [] : ['planning-investigation']),
+  ...(mode === 'review' ? ['reviewing-model'] : []),
+  ...(kinds.requirements ? ['reading-requirements'] : []),
+  ...(kinds.code ? ['reading-code'] : []),
+  'citing-evidence',
+  'asking-questions',
+  'proposing-model-changes',
+  'proposing-model-changes/references/entity-elements.md',
+  'proposing-model-changes/references/project-elements.md',
+];
 
-The backlog is a view over that model, not a second one: epics group features, a feature is a slice of the
-model by action (\`<entity>.<action>\`, cross-entity), and a story cites the exact elements it specifies. Stories
-are sources and slices — everything about *behavior* still belongs in the model, not in the backlog.
+const system = (p: { sourceList: string; contracts: string[]; mode: Mode; usePriority: boolean; skills: string }) => `You are a research agent of Test Cartographer, where people and agents rebuild a product's specification
+from its sources and derive tests from it. Your task: ${MODE_GOAL[p.mode]}
+
+Nothing you propose changes the model directly: a person reviews every operation and finding and decides.
+Your job is to make each one easy to check — about one thing, in the product's words, with its evidence.
 
 Sources (id, kind, priority — 1 is the strongest): ${p.sourceList || 'none'}.
 ${p.usePriority ? 'When sources disagree, the lower priority number wins: requirements usually outrank code. Still report the disagreement.' : 'Priorities are off: report every disagreement and let the person decide.'}
-How to read them: uploaded files — source({ id }); code folders — files({ source }) then read({ source, path });
-MCP sources — fetch({ source, args? }) (the tool and default args are set per source; you may pass other args).
+How to read them: uploaded files — source({ id }); code folders — files({ source }), outline({ source, path }),
+search({ source, pattern }) and read({ source, path }); MCP sources — fetch({ source, args? }) (the tool and default args are set per source; you may pass other args).
 ${p.contracts.length ? `Available contracts: ${p.contracts.join(', ')}.` : ''}
 
-Rules:
-- Call sources() first and read what's relevant from every source before proposing anything. In a code folder,
-  start from the file list and read what implements the model's actions (routes, handlers, domain logic); skip tests,
-  generated files and assets.
-- Call model() first, then model({ entity }) for each entity it lists, and don't propose what it already has — use op=update for a field that changed, never
-  op=add for something that already exists.
-- Name things with the words in model().glossary: a synonym there is the same thing as its term, not a new one.
-  When two names look like the same thing (the docs say Location, the code says place), ask in a finding
-  (kind=question) with \`synonym: { term: "<the model's word>", synonym: "<the other word>" }\`: a yes files it
-  in the glossary. When yes/no doesn't fit a question, give its likely answers in \`options\` (up to 6, short);
-  a person may still answer in words.
-- When a source can't be read or looks incomplete (a folder an AGENTS.md or README describes has no files,
-  a page is empty), report it as kind=source with what you tried, not as a gap: it is a problem with the
-  inputs, not the product.
-- Every operation needs at least one quote: call quote({ source, text, path? }) with the exact text (path: the
-  file inside a code folder) (it doesn't need
-  to line-wrap the way the source does, but the words and punctuation must match) and put the evidence id it
-  returns in that op's own \`evidence\` array. quote() fails if the text isn't actually in the source — never
-  paraphrase, and never cite an evidence id in a group other than the one the quote was taken for.
-- One finding asks one thing: two unrelated questions are two findings, so each can be answered on its own. Write a
-  question so a person can answer it without opening the code: say what you found, where it shows (screen, API field,
-  command), and what exactly is unknown.
-- Never invent a requirement. If no source says it, it isn't one: don't propose it as a rule, add a finding
-  (kind=question) saying what you looked for and where.
-- When a search finds nothing, say where you searched (which sources, files or queries) in the finding's note, so
-  "not found" can be told apart from "not looked for".
-- model() lists openQuestions that earlier runs left. Try to answer each one from the sources. End the rationale
-  with one line per open question: answered, partly or still open, and why. model().answers are what a person
-  already answered: take them as given and don't ask again.
-- Describe what the product does, not how it's built: a rule names behavior a user or tester can see ("a buyer
-  can cancel until payment"), never a function, table or flag. Avoid untestable words like "usually" or "may".
-- A state's \`match\` should only name a field/value when a source actually says what the app shows for it;
-  otherwise leave \`match: {}\` and add a finding (kind=question) asking where that state is observable.
-- If two sources disagree, or a source contradicts what model() already has, report it as a finding
-  (kind=contradiction) instead of silently picking one side. If a tracker story can't be mapped to any model
-  element yet (the behavior isn't proposed, or doesn't exist), leave its \`covers\` empty or partial and add a
-  finding (kind=gap) instead of inventing a ref.
-- Hand in what you find as you go: each time you finish an entity (or a batch of findings), call record() with it,
-  so a person can start reviewing while you work on. record() and propose() take the same groups; never send
-  the same operation or finding twice. Call propose() exactly once at the end with whatever is left (or just
-  the rationale, when record() already has everything). Each call takes one project-level group (project: { ops, findings }) for roles, interfaces,
-  new entities, epics, features and stories, and one group per entity you change (entities: { <id>: { ops,
-  findings } }) for that entity's own attributes/states/actions/transitions/permits/rules/invariants.
-
-Element shapes (op=add, value):
-Project-level (in project.ops):
-- role: { id, title, kind: "human"|"system", interface?: "<interface id>", login?: { action, args } }
-- interface: { id, title, baseUrl }
-- entity: { id, title, description?, key?, reader?, variants?: [{ id, title }] } — creates entities/<id>.yaml;
-  leave \`reader\` out when nobody knows how to read this entity back yet.
-- epic: { id, title, description?, key?, url? }
-- feature: { id, title, description?, epic?: "<epic id>", key?, url?, actions: ["<entity>.<action>", …] } — e.g.
-  actions: ["order.place", "order.pay"] for a checkout feature spanning the order entity's place and pay actions.
-- story: { id, title, text?, acceptance: [string, …], feature?: "<feature id>", epic?: "<epic id>", key?, url?,
-  trackerStatus?, covers: ["<action|transition|permit|rule|journey>:<entity>.<id>", …] } — e.g. covers:
-  ["transition:order.pay", "action:order.cancel"] once those elements exist (proposed or confirmed); leave
-  covers empty and add a gap finding when they don't yet.
-Entity-level (in entities.<id>.ops) — unchanged from an explorer's proposal:
-- variant: { id, title }
-- attribute: { id: "<field name the reader returns>", title, type: "text"|"number"|"money"|"date"|"bool"|"enum"|"link"|"file"|"other", values?: [string] (enum), entity?: "<entity id>" (link), by?: ["<role id>", …], note? }
-  A parameter of the object as the product stores it (title, status, price, due date). Take it from code — models,
-  migrations, API schemas — or from what read() returns. Keep only what someone changes or a rule refers to, not
-  every column. \`by\` lists who may change it (everyone else must be refused); \`note\` holds a condition in plain
-  words ("admin only while Created"). A status-like enum is a lifecycle: its values are what states match on.
-- state: { id, title, variants?: [id], match: { <field>: <value> } }
-- action: { id, title, kind?: "create"|"read"|"update"|"command"|"delete", changes?: ["<attribute id>", …] }
-- transition: { id, title, from, to, action: "<action id>", by: ["<role id>", …], guards?: [text], effects?: [{ description, field?, equals? }] }
-- permit: { id, title, action: "<action id>", by: ["<role id>", …], states?: [id], effects?: [...] }
-- scenario (a journey): { id, title, start, path: ["<transition id>", …] }
-- action may also carry by: ["<role id>", …] — who performs it, when no transition or permit says so yet.
-- rule: { id, title, text, action: "<action id>" } — knowledge in the product's words; add transition: "<transition id>"
-  and requires: [{ kind: "authenticated" } | { kind: "roles", roles: [id] } | { kind: "entity-state", relation, states: [id] }]
-  when the rule is a checkable condition on a transition.
-- invariant: { id, title, text, states?: [id], holds?: { <field>: <value> } } — what is always true of the object in
-  those states, whatever led there ("a shipped order is always paid for"); add holds when a reader field shows it,
-  and every test then checks it after each read.
-For op=update: { kind, id, set: { fields } }. For op=remove: { kind, id } (entities can't be removed this way).
-
-When you're done, call propose() exactly once.`;
+${p.skills}`;
 
 export async function onboard(ws: Workspace, agentId: string | undefined, opts: OnboardOptions = {}): Promise<Proposal[]> {
   const log = opts.onLog ?? (() => {});
@@ -188,11 +142,12 @@ export async function onboard(ws: Workspace, agentId: string | undefined, opts: 
   const sources = registry.sources.filter((s) => s.enabled);
   const mcp = new McpPool(project, ws.root);
   const { backlog: baseBacklog, revision: backlogRevision } = await ws.backlog();
+  const existing = await ws.entityIds();
 
   const sourceOf = (id: string, kinds?: string[]) => {
     const s = sources.find((x) => x.id === id);
     if (!s) throw new Error(`Unknown source “${id}”. Available: ${sources.map((x) => x.id).join(', ')}`);
-    if (kinds && !kinds.includes(isFileSource(s) ? 'file' : s.kind)) throw new Error(`Source “${id}” is a ${s.kind} source — use ${isFileSource(s) ? 'source()' : s.kind === 'code' ? 'files() and read()' : 'fetch()'}`);
+    if (kinds && !kinds.includes(isFileSource(s) ? 'file' : s.kind)) throw new Error(`Source “${id}” is a ${s.kind} source — use ${isFileSource(s) ? 'source()' : s.kind === 'code' ? 'files(), search() and read()' : 'fetch()'}`);
     return s;
   };
   const textCache = new Map<string, string>();
@@ -232,7 +187,6 @@ export async function onboard(ws: Workspace, agentId: string | undefined, opts: 
     return id;
   };
 
-  let done = false;
   let batches = 0;
   const saved: Proposal[] = [];
 
@@ -248,7 +202,7 @@ export async function onboard(ws: Workspace, agentId: string | undefined, opts: 
 
   type Group = { ops: Op[]; findings: Finding[] };
   type Checked = { rationale: string; project?: Group; entities: [string, Group][] };
-  const check = ({ rationale, project: projectIn, entities: entitiesIn }: GroupsIn): Checked => {
+  const check = async ({ rationale, project: projectIn, entities: entitiesIn }: GroupsIn): Promise<Checked> => {
     const known = new Set(evidence.map((e) => e.id));
     if (!projectIn && !entitiesIn) throw new Error('needs at least a project or an entities group');
     const parsedProject = projectIn && parseGroup('project', projectIn.ops, projectIn.findings, known);
@@ -267,13 +221,31 @@ export async function onboard(ws: Workspace, agentId: string | undefined, opts: 
       }),
     );
     if (badRoles.length) throw new Error(badRoles.join('\n'));
+    // An entity group must change an entity that exists or that an entity op adds (now or earlier in this run).
+    const added = [...saved.filter((p) => !p.entity).flatMap((p) => p.ops), ...(parsedProject?.ops ?? [])].flatMap((op) => (op.kind === 'entity' && op.op === 'add' ? [String(op.value.id)] : []));
+    const entityIds = new Set([...existing, ...added]);
+    const strays = parsedEntities.map(([id]) => id).filter((id) => !entityIds.has(id));
+    if (strays.length) throw new Error(`No entity ${strays.map((id) => `“${id}”`).join(', ')}: there are ${[...entityIds].join(', ') || 'none'}. Add a new one with an entity op in project.ops, or use an existing id.`);
+    // A transition, permit or rule names an action of its entity: one that exists, or one added in this run.
+    const catalog = await ws.catalog();
+    const badActions = parsedEntities.flatMap(([id, group]) => {
+      const actions = new Set([
+        ...(catalog[id]?.actions ?? []).map((a) => a.id),
+        ...[...saved.filter((p) => p.entity === id).flatMap((p) => p.ops), ...group.ops].flatMap((op) => (op.kind === 'action' && op.op === 'add' ? [String(op.value.id)] : [])),
+      ]);
+      return group.ops.flatMap((op, i) => {
+        const action = op.op === 'add' && ['transition', 'permit', 'rule'].includes(op.kind) ? op.value.action : undefined;
+        return typeof action === 'string' && !actions.has(action) ? [`entity “${id}” op #${i}: ${op.kind} “${String((op as { value: Record<string, unknown> }).value.id)}” names action “${action}”, which “${id}” doesn't have — add it with kind=action in the same call`] : [];
+      });
+    });
+    if (badActions.length) throw new Error(badActions.join('\n'));
     return { rationale, project: parsedProject, entities: parsedEntities };
   };
 
   // Writes one proposal per group straight away, so the Inbox shows it while
   // the agent works on. `batch` numbers a record() call; propose() has none.
   const tag = mode === 'onboard' ? spec.id : mode;
-  const save = async ({ rationale, project: group, entities }: Checked, batch?: number): Promise<Proposal[]> => {
+  const save = async ({ rationale, project: group, entities }: Checked, batch?: number | string): Promise<Proposal[]> => {
     const base = `${timestamp}-${tag}${batch ? `-${batch}` : ''}`;
     const createdAt = new Date().toISOString();
     const out: Proposal[] = [];
@@ -282,7 +254,8 @@ export async function onboard(ws: Workspace, agentId: string | undefined, opts: 
       out.push(Proposal.parse({ agent: spec.id, createdAt, rationale, evidence: evidence.filter((e) => refs.has(e.id)), ops: g.ops, findings: g.findings, ...extra }));
     };
     if (group) make(group, { id: base, baseRevision: backlogRevision });
-    for (const [entityId, g] of entities)
+    // An entity group with nothing in it would only add an empty card to the Inbox.
+    for (const [entityId, g] of entities.filter(([, g]) => g.ops.length || g.findings.length))
       make(g, { id: `${base}-${entityId}`, entity: entityId, baseRevision: (await ws.entityIds()).includes(entityId) ? (await ws.entity(entityId)).revision : 'new' });
     for (const p of out) await ws.saveProposal(p);
     saved.push(...out);
@@ -315,6 +288,22 @@ export async function onboard(ws: Workspace, agentId: string | undefined, opts: 
         const s = sourceOf(source, ['code']);
         const list = await listCode(codePath(ws.root, s.path!), undefined, dir);
         return list.length > 800 ? `${list.slice(0, 800).join('\n')}\n… ${list.length - 800} more — narrow with dir` : list.join('\n') || `no files under “${dir}”`;
+      },
+    },
+    {
+      name: 'search',
+      description: 'Search a code-folder source with a regular expression (per line). Returns path:line: text and how many files were searched; then read() around a hit.',
+      input: z.object({ source: z.string(), pattern: z.string(), dir: z.string().default(''), ignoreCase: z.boolean().default(false) }),
+      run: async ({ source, pattern, dir, ignoreCase }) => searchCode(codePath(ws.root, sourceOf(source, ['code']).path!), pattern, { dir, ignoreCase }),
+    },
+    {
+      name: 'outline',
+      description: 'The declarations of a code file or of every file under a folder: types with their fields, enums with their variants, functions, each with its line and doc comment. Tests are left out. Use it before read() to see a module whole.',
+      input: z.object({ source: z.string(), path: z.string().default('') }),
+      run: async ({ source, path }) => {
+        const root = codePath(ws.root, sourceOf(source, ['code']).path!);
+        if (path) await insideCode(root, path);
+        return outlineCode(root, path);
       },
     },
     {
@@ -365,6 +354,12 @@ export async function onboard(ws: Workspace, agentId: string | undefined, opts: 
             : v;
         const entities = Object.fromEntries(redactFields('entities', Object.values(await ws.catalog()), process.env).map((e) => [e.id, compact(e)]));
         if (entity) {
+          // An entity this research proposed: what the runs proposed for it so far.
+          const added = saved.flatMap((p) => p.ops).find((op) => op.op === 'add' && op.kind === 'entity' && op.value.id === entity);
+          if (!entities[entity] && added && added.op === 'add') {
+            const ops = saved.filter((p) => p.entity === entity).flatMap((p) => p.ops).flatMap((op) => (op.op === 'add' ? [{ kind: op.kind, ...Object.fromEntries(Object.entries(op.value).filter(([k]) => ['id', 'title', 'from', 'to', 'action', 'by', 'type', 'values'].includes(k))) }] : []));
+            return JSON.stringify({ proposed: true, ...added.value, elements: ops });
+          }
           if (!entities[entity]) throw new Error(`No entity “${entity}”: there are ${Object.keys(entities).join(', ') || 'none'}`);
           return JSON.stringify(entities[entity]);
         }
@@ -373,6 +368,8 @@ export async function onboard(ws: Workspace, agentId: string | undefined, opts: 
         return JSON.stringify({
           project: { roles: redactFields('roles', project.roles, process.env), interfaces: project.interfaces, glossary: project.glossary },
           entities: Object.values(entities).map((e: any) => ({ id: e.id, title: e.title, description: e.description, states: e.states.map((x: any) => x.id), actions: e.actions.map((x: any) => x.id), rules: e.rules.length })),
+          // Other runs of this research (areas) proposed these; extend them in their entity group instead of adding them again.
+          proposedNow: saved.flatMap((p) => p.ops).flatMap((op) => (op.kind === 'entity' && op.op === 'add' ? [{ id: op.value.id, title: op.value.title }] : [])),
           backlog: baseBacklog,
           // What earlier runs left open: questions and gaps nobody has settled yet.
           openQuestions: proposals.flatMap((p) =>
@@ -412,28 +409,69 @@ export async function onboard(ws: Workspace, agentId: string | undefined, opts: 
       },
     },
     {
+      name: 'declare',
+      description:
+        'Propose a type\'s fields as parameters (as: "attributes") or an enum\'s variants as states (as: "states") of an entity, in one call: ' +
+        'each gets its declaration line as evidence and is recorded at once. List in `skip` the ones that are internals nobody sees. ' +
+        'Add types, links, enum values, rights and conditions afterwards with record() update ops where they matter.',
+      input: z.object({ entity: z.string(), source: z.string(), path: z.string(), type: z.string(), as: z.enum(['attributes', 'states']), skip: z.array(z.string()).default([]) }),
+      run: async ({ entity, source, path, type, as, skip }: { entity: string; source: string; path: string; type: string; as: 'attributes' | 'states'; skip: string[] }) => {
+        const { rel, text } = await codeText(source, path);
+        const found = await members(text, rel, type);
+        if (!found.length) throw new Error(`No fields or variants of “${type}” in ${rel} — check the name with outline()`);
+        const snake = (n: string) => n.replace(/([a-z0-9])([A-Z])/g, '$1_$2').replace(/[^A-Za-z0-9]+/g, '_').toLowerCase().replace(/^_|_$/g, '');
+        const title = (n: string) => snake(n).replace(/_/g, ' ').replace(/^./, (c) => c.toUpperCase());
+        const have = new Set(saved.filter((p) => p.entity === entity).flatMap((p) => p.ops).flatMap((op) => (op.op === 'add' ? [String(op.value.id)] : [])));
+        const kind = as === 'attributes' ? 'attribute' : 'state';
+        // A first guess from the declaration; the agent corrects what matters.
+        const typeOf = (line: string, name: string) =>
+          /\bbool(ean)?\b/i.test(line) ? 'bool'
+          : /_at$|_on$|date|time|instant|day\b/i.test(`${name} ${line.split(/[:=]/)[1] ?? ''}`) ? 'date'
+          : /\b([iu](8|16|32|64|size)|f(32|64)|int|integer|float|double|decimal|number|long)\b/i.test(line) ? 'number'
+          : /\b(string|str|text)\b/i.test(line) ? 'text'
+          : 'other';
+        const ops = found
+          .filter((m) => !skip.includes(m.name) && !have.has(snake(m.name)))
+          .map((m) => {
+            const evidence = addEvidence({ kind: 'source', summary: m.line, source, path: `${rel}#L${m.row}-L${m.row}` });
+            const value = kind === 'attribute' ? { id: snake(m.name), title: title(m.name), type: typeOf(m.line, m.name) } : { id: snake(m.name).replace(/_/g, '-'), title: title(m.name), match: {} };
+            return { op: 'add', kind, value, evidence: [evidence] };
+          });
+        if (!ops.length) return `nothing new: every ${as === 'attributes' ? 'field' : 'variant'} of ${type} is already proposed or skipped`;
+        const out = await save(await check({ rationale: `${type} in ${rel}: its ${as === 'attributes' ? 'fields' : 'variants'}`, entities: { [entity]: { ops, findings: [] } } }), ++batches);
+        return `recorded ${ops.length} ${as} of ${entity} (${ops.map((o) => o.value.id).join(', ')}) in ${out.map((p) => p.id).join(', ')}`;
+      },
+    },
+    {
       name: 'record',
       description:
         'Save part of the result now, in the same shape as propose(): a person starts reviewing it while you go on. ' +
         'Call it each time you finish an entity or a batch of findings; never repeat what you already recorded.',
       input: Groups,
       run: async (input: GroupsIn) => {
-        return `recorded ${(await save(check(input), ++batches)).map((p) => p.id).join(', ')} — go on, and call propose() at the end`;
-      },
-    },
-    {
-      name: 'propose',
-      description: 'Finish: submit the rest of the result (what record() has not saved yet) — one project-level proposal and/or one per entity. Call exactly once.',
-      input: Groups,
-      run: async (input: GroupsIn) => {
-        // Everything may already be recorded; then propose only closes the run.
-        const empty = !input.project && !input.entities;
-        if (!(empty && batches)) await save(check(input));
-        done = true;
-        return 'proposal(s) recorded';
+        return `recorded ${(await save(await check(input), ++batches)).map((p) => p.id).join(', ')} — go on, and call propose() at the end`;
       },
     },
   ];
+
+  // Hands in a run's result; `suffix` names the proposal when several runs (areas) hand in.
+  const proposeTool = (onDone: () => void, suffix?: string): Tool => ({
+    name: 'propose',
+    description: 'Finish: submit the rest of the result (what record() has not saved yet) — one project-level proposal and/or one per entity. Call exactly once.',
+    input: Groups,
+    run: async (input: GroupsIn) => {
+      // Everything may already be recorded; then propose only closes the run.
+      const empty = !input.project && !input.entities;
+      // The closing rationale says what the run covered; with everything recorded already it is saved nowhere else.
+      log(`💬 ${input.rationale}`);
+      if (!(empty && batches)) await save(await check(input), suffix);
+      onDone();
+      return 'proposal(s) recorded';
+    },
+  });
+
+  const skills = skillsFor(mode, { requirements: sources.some((s) => s.kind !== 'code'), code: sources.some((s) => s.kind === 'code') });
+  tools.push(skillTool(skills.filter((s) => !s.includes('/'))));
 
   // clarify: the finding a person couldn't answer, with its quotes, is the agent's whole brief.
   let brief = '';
@@ -453,27 +491,209 @@ export async function onboard(ws: Workspace, agentId: string | undefined, opts: 
     ].filter(Boolean).join('\n');
   }
 
-  try {
-    await runAgent({
-      runtime,
-      system: system({
-        sourceList: sources.map((s) => `${s.id} (${s.kind}, priority ${s.priority}): ${s.title}`).join('; '),
-        contracts: project.contracts.map((c) => `${c.id} (${c.title})`),
-        mode,
-        usePriority: registry.usePriority,
-      }),
-      prompt: mode === 'review' ? 'Start the review: call model() and sources(), then check each element.' : mode === 'clarify' ? brief : `Start onboarding. Goal: ${spec.goal}`,
-      tools,
-      deliver: 'propose',
-      script: mode !== 'onboard' ? ws.path(`agents/${mode}.yaml`) : spec.script ? ws.path(spec.script) : undefined,
-      isDone: () => done,
-      onLog: log,
-      signal: opts.signal,
+  const systemPrompt = (m: Mode) =>
+    system({
+      sourceList: sources.map((s) => `${s.id} (${s.kind}, priority ${s.priority}): ${s.title}`).join('; '),
+      contracts: project.contracts.map((c) => `${c.id} (${c.title})`),
+      mode: m,
+      usePriority: registry.usePriority,
+      skills: skillsPrompt(skills, [...tools.map((t) => t.name), 'propose']),
     });
+  const live = runtime !== 'scripted' ? runtime : undefined;
+  // One budget covers a small codebase, and splitting it only scatters one entity over several runs.
+  const codeFiles = async () => (await Promise.all(sources.filter((s) => s.kind === 'code').map((s) => listCode(codePath(ws.root, s.path!)).then((l) => l.length, () => 0)))).reduce((a, b) => a + b, 0);
+  const fanOut = mode === 'onboard' && live && (opts.areas ?? (await codeFiles()) >= AREAS_FROM_FILES);
+  // Several runs at a time: the Agent tab reads the last usage line, so it gets their sum.
+  const usage = new Map<string, Record<string, unknown>>();
+  const areaLog = (id: string) => (line: string) => {
+    if (!line.startsWith('📊')) return log(`[${id}] ${line}`);
+    usage.set(id, JSON.parse(line.slice(2)));
+    const all = [...usage.values()];
+    const sum = (k: string) => all.reduce((n, u) => n + (Number(u[k]) || 0), 0);
+    log(`📊 ${JSON.stringify({ model: all[0].model, input: sum('input'), output: sum('output'), cacheRead: sum('cacheRead'), cacheWrite: sum('cacheWrite'), costUsd: sum('costUsd'), estimated: all.some((u) => u.estimated) || undefined, seconds: Math.max(...all.map((u) => Number(u.seconds) || 0)) })}`);
+  };
+
+  let delivered = 0;
+  try {
+    if (!fanOut) {
+      await runAgent({
+        runtime,
+        system: systemPrompt(mode),
+        prompt: mode === 'review' ? 'Start the review: call model() and sources(), then check each element.' : mode === 'clarify' ? brief : `Start onboarding. Goal: ${spec.goal}`,
+        tools: [...tools, proposeTool(() => delivered++)],
+        deliver: 'propose',
+        script: mode !== 'onboard' ? ws.path(`agents/${mode}.yaml`) : spec.script ? ws.path(spec.script) : undefined,
+        isDone: () => delivered > 0,
+        onLog: log,
+        signal: opts.signal,
+      });
+    } else {
+      // One run reads the structure and splits the product into areas; one budget can't cover a real product.
+      let areas: Area[] = [];
+      const areasTool: Tool = {
+        name: 'areas',
+        description: 'Finish the map: hand in the areas of the product (2–12), each with the code paths and the entities it holds.',
+        input: z.object({ areas: z.array(Area).min(2).max(12) }),
+        run: async ({ areas: a }: { areas: Area[] }) => {
+          areas = a;
+          return `${a.length} areas — done`;
+        },
+      };
+      await runAgent({
+        runtime: { ...live, maxSteps: Math.min(30, live.maxSteps) },
+        system: `${systemPrompt('onboard')}
+
+${MAP_TASK}`,
+        prompt: `Map the product before the research. Goal of the research: ${spec.goal}`,
+        tools: [...tools.filter((t) => ['sources', 'files', 'search', 'outline', 'read', 'source', 'fetch'].includes(t.name)), areasTool],
+        deliver: 'areas',
+        isDone: () => areas.length > 0,
+        onLog: areaLog('map'),
+        signal: opts.signal,
+      });
+      if (!areas.length) throw new Error('The map run found no areas');
+      // Code no area claims would get no run: its folders become one more area, so the map can't leave a part out.
+      const code = sources.filter((s) => s.kind === 'code');
+      const claimed = (f: string) => areas.some((a) => a.paths.some((p) => { const d = p.replace(/^\.?\/+|\/+$/g, ''); return !d || f === d || f.startsWith(`${d}/`); }));
+      const unclaimed = (await Promise.all(code.map((s) => listCode(codePath(ws.root, s.path!)))))
+        .flat()
+        .filter((f) => outlined(f) && !/(^|\/)(tests?|__tests__|spec|fixtures?)\/|\.(test|spec)\.|_test\.go$/i.test(f) && !claimed(f));
+      if (unclaimed.length) {
+        // shortcut: past 200 files their folders stand in, and a folder also outlines claimed subfolders; list files in pieces if that gets noisy.
+        const dirs = unclaimed.length <= 200 ? unclaimed : [...new Set(unclaimed.map((f) => f.split('/').slice(0, -1).join('/') || f))];
+        areas.push({ id: 'unclaimed', title: 'Code no other area covers', paths: dirs, entities: [], note: 'Find the product behavior in this code: new entities, or what it adds to the entities of other areas.' });
+      }
+      log(`🗺 ${areas.map((a) => `${a.id} (${a.paths.length} paths)`).join(', ')}${unclaimed.length ? ` — ${unclaimed.length} code files no area claimed went to “unclaimed”` : ''}`);
+      const others = (a: Area) => areas.filter((x) => x !== a).map((x) => `${x.id} (${x.title}: ${x.entities.join(', ')})`).join('; ');
+      const failures: string[] = [];
+      const outlineOf = async (area: Area, max: number) =>
+        (await Promise.all(code.flatMap((s) => area.paths.map((p) => outlineCode(codePath(ws.root, s.path!), p, max).catch(() => '')))))
+          .filter((o) => o.startsWith('## '))
+          .join('\n\n');
+      const research = (area: Area, suffix: string, prompt: string, maxSteps = live.maxSteps) => {
+        let done = false;
+        return runAgent({
+          runtime: { ...live, maxSteps },
+          system: systemPrompt('onboard'),
+          prompt,
+          tools: [...tools, proposeTool(() => (done = true, delivered++), suffix)],
+          deliver: 'propose',
+          isDone: () => done,
+          onLog: areaLog(suffix),
+          signal: opts.signal,
+        }).catch((e: Error) => {
+          if (opts.signal?.aborted) throw e;
+          failures.push(`${suffix}: ${e.message}`);
+          log(`[${suffix}] ⚠ ${e.message}`);
+        });
+      };
+      const inParallel = async (jobs: (() => Promise<void>)[]) => {
+        const queue = [...jobs];
+        await Promise.all(Array.from({ length: Math.min(AREA_RUNS, queue.length) }, async () => {
+          for (let job = queue.shift(); job; job = queue.shift()) await job();
+        }));
+      };
+      const brief = (area: Area) => `Start onboarding. Goal: ${spec.goal}
+
+This run researches one area of the product, and other runs research the rest at the same time.
+Your area: ${area.title} (${area.id}). ${area.note}
+Its code: ${area.paths.join(', ') || 'see the map'}. Entities expected here: ${area.entities.join(', ') || 'find them'}.
+Other areas, not yours: ${others(area)}.`;
+      await inParallel(areas.map((area) => async () => {
+        // The area's declarations up front: a checklist of its types, fields and enums, so coverage doesn't depend on what the run happens to open.
+        const outline = (await outlineOf(area, OUTLINE_CHARS)).slice(0, OUTLINE_CHARS);
+        await research(area, area.id, `${brief(area)}
+Go deep: every entity of this area with all its parameters, every status value, every operation (each route,
+handler, job and command), who may do it, and every check that refuses something. Model it on the entities
+listed above; when an entity of another area takes part, propose its actions or rules in its own group only if
+this area's code is where they live. model() lists what other runs proposed already (proposedNow): reuse those ids.
+${outline ? `\nThe declarations in this area's code (types with their fields, enums with their variants), as a checklist —
+quote and propose the ones that are product behavior, and read() around them for the rules:\n${outline}` : ''}`);
+      }));
+      // Static pass, no agent: an entity whose name is a type in the code gets that type's fields as parameters, and
+      // its <Name>State / <Name>Status enum's variants as states. A SQL table of its name stands in where no type
+      // does (tasks or agents.runs for agent-run), its CHECK (status IN ...) for the enum. Each quotes its line; a person strikes the internals.
+      const declareTool = tools.find((t) => t.name === 'declare')!;
+      // shortcut: types are looked up in the first code source only; a project with several code sources declares from the first.
+      const root = codePath(ws.root, code[0].path!);
+      const sqlFiles = (await listCode(root)).filter((f) => f.toLowerCase().endsWith('.sql'));
+      const tables = (await Promise.all(sqlFiles.map(async (f) => `## ${f}\n${outlineSql(await readFile(join(root, f), 'utf8')).join('\n')}`))).join('\n\n');
+      const types = [...(await Promise.all(areas.map(async (a) => typesIn(await outlineOf(a, 400_000))))).flat(), ...typesIn(tables)].map((t) => ({ ...t, source: code[0].id }));
+      const pascal = (s: string) => s.split(/[^A-Za-z0-9]+/).filter(Boolean).map((w) => w[0].toUpperCase() + w.slice(1)).join('');
+      const one = (w: string) => w.replace(/ies$/, 'y').replace(/(ss|sh|ch|x)es$/, '$1').replace(/([^s])s$/, '$1');
+      // tasks.tasks → task; agents.runs → run or agent_run
+      const tableNames = (t: string) => { const [a, b] = t.includes('.') ? t.split('.') : ['', t]; return [one(b), ...(a ? [`${one(a)}_${one(b)}`] : [])]; };
+      const entityIds = [...new Set([...existing, ...saved.flatMap((p) => p.ops).flatMap((op) => (op.op === 'add' && op.kind === 'entity' ? [String(op.value.id)] : []))])];
+      const declared: string[] = [];
+      for (const e of entityIds) {
+        const name = pascal(e);
+        const snakeId = e.replace(/-/g, '_');
+        const table = types.find((t) => t.file.toLowerCase().endsWith('.sql') && !t.enum && tableNames(t.name).includes(snakeId));
+        const struct = types.find((t) => !t.enum && t.name === name) ?? table;
+        const status = types.find((t) => t.enum && (t.name === `${name}State` || t.name === `${name}Status`))
+          ?? (table && types.find((t) => t.enum && t.file === table.file && /^(state|status)$/.test(t.name.slice(table.name.length + 1)) && t.name.startsWith(`${table.name}.`)));
+        for (const [t, as] of [[struct, 'attributes'], [status, 'states']] as const)
+          if (t) await declareTool.run({ entity: e, source: t.source, path: t.file, type: t.name, as, skip: [] }).then(() => declared.push(`${e} ← ${t.name}`), () => {});
+      }
+      if (declared.length) log(`📐 ${declared.length} types declared from the code without an agent: ${declared.join(', ')}`);
+      // Coverage pass: what each area's code declares that nothing in the model names yet goes back to a run of its own.
+      const model = await flattenWorkspace(ws);
+      const known = new Set(model.filter((x) => x.cat !== 'rule' && x.cat !== 'transition').flatMap((x) => x.names.map((n) => words(n).join(' '))));
+      const covered = (name: string) => known.has(words(name).join(' '));
+      // A handler is explained by an action when the action's and its entity's words cover the handler's name (create_task: task's "create").
+      const actionWords = model.filter((x) => x.cat === 'action').flatMap((x) => x.names.map((n) => new Set([...words(n), ...words(x.object ?? '')])));
+      const routeCovered = (handler: string) => actionWords.some((w) => words(handler).every((h) => w.has(h)));
+      // Gaps go out in pieces of GAP_CHARS, a run each, so a big area isn't cut to what one run can read.
+      const jobs = await Promise.all(areas.map(async (area) => {
+        const files = uncovered(await outlineOf(area, 400_000), covered, routeCovered).split(/\n\n(?=## )/).filter(Boolean);
+        const chunks: string[] = [];
+        for (const f of files) {
+          const last = chunks.length - 1;
+          if (last >= 0 && chunks[last].length + f.length < GAP_CHARS) chunks[last] += `\n\n${f}`;
+          else chunks.push(f.slice(0, GAP_CHARS));
+        }
+        const count = files.join('\n').split('\n').filter((l) => l && !l.startsWith('## ')).length;
+        if (count) log(`[${area.id}] 🔎 ${count} declarations have nothing in the model yet${chunks.length > GAP_RUNS ? ` — the first ${GAP_RUNS} of ${chunks.length} parts get a run` : ''}`);
+        return chunks.slice(0, GAP_RUNS).map((gaps, i) => () => research(area, `${area.id}-gaps${i ? i + 1 : ''}`, `${brief(area)}
+An earlier run researched this area. These declarations of its code have nothing in the model yet (no entity,
+parameter, state or action of that name; [route] marks an API handler no action explains). Go through them: for
+each that is product behavior — a user or client sees it, changes it, or it decides what happens — read() around
+it and propose it in the right entity group: a parameter, a state (a variant of a status enum), an action (a variant
+of a command enum, a route), a rule, or a new entity. declare() takes a whole type at once. Call model() first and
+extend the entities there (proposedNow too); don't add an entity again. Skip internals and say nothing about them.
+
+${gaps}`));
+      }));
+      await inParallel(jobs.flat());
+      // Lifecycle pass: every entity with states, as proposed so far, gets its ways in and out of each state checked.
+      const items = await flattenWorkspace(ws);
+      const lifecycles = [...new Set(items.filter((x) => x.cat === 'state').map((x) => x.object!))].map((e) => {
+        const states = items.filter((x) => x.cat === 'state' && x.object === e).map((x) => x.key.split(':').pop()!);
+        const moves = items.filter((x) => x.cat === 'transition' && x.object === e).map((x) => `${x.from?.[0]} → ${x.to?.[0]}${x.action ? ` (${x.action})` : ''}`);
+        const into = new Set(items.filter((x) => x.cat === 'transition' && x.object === e).map((x) => x.to?.[0]));
+        const lonely = states.filter((s) => !into.has(s));
+        return { e, text: `- ${e}: states ${states.join(', ')}; transitions ${moves.join('; ') || 'none'}${lonely.length ? `; nothing leads into ${lonely.join(', ')}` : ''}` };
+      });
+      const batches = Array.from({ length: Math.ceil(lifecycles.length / LIFECYCLES_PER_RUN) }, (_, i) => lifecycles.slice(i * LIFECYCLES_PER_RUN, (i + 1) * LIFECYCLES_PER_RUN));
+      if (batches.length) log(`🔁 lifecycles of ${lifecycles.length} entities, ${batches.length} runs`);
+      await inParallel(batches.map((b, i) => () => research({ id: `lifecycles-${i + 1}`, title: 'Lifecycles', paths: [], entities: b.map((x) => x.e), note: '' }, `lifecycles-${i + 1}`, `Start onboarding. Goal: ${spec.goal}
+
+Earlier runs proposed these entities with states. Complete each lifecycle from the code: the status enum's every
+value is a state; for every state find how an instance enters it and leaves it — the handler, command, job, timer or
+webhook that does it, who may, and what is checked first — and propose each move as a transition (with its action,
+by, guards) in the entity's group, adding the actions it needs. Creation is a transition from "@new". A state nothing
+leads into is a gap to close or to report. Call model({ entity }) for each before you change it.
+
+${b.map((x) => x.text).join('\n')}`)));
+    }
+  } catch (e) {
+    // What record() saved stays in the Inbox; only a run that saved nothing failed.
+    if (opts.signal?.aborted || !saved.length) throw e;
+    log(`⚠ ${(e as Error).message} — keeping the ${saved.length} proposals recorded so far`);
   } finally {
     await mcp.close();
   }
-  if (!done) throw new Error('The agent finished without an accepted proposal (propose was never called or was rejected)');
+  if (!delivered && !saved.length) throw new Error('The agent finished without an accepted proposal (propose was never called or was rejected)');
 
   // The original leaves the queue once something replaces it; with nothing new it stays open,
   // and an answer a person gave while the agent worked stands.

@@ -44,6 +44,31 @@ test('model() lists entities; model({ entity }) gives one, and an unknown id say
   }
 });
 
+test('onboarding refuses changes to an entity that is neither in the model nor added', async () => {
+  const dir = join(repo, `.tc-test-${process.pid}-stray`);
+  try {
+    await cp(join(repo, 'workspace'), dir, { recursive: true, filter: (src) => !src.includes('node_modules') });
+    await writeFile(
+      join(dir, 'agents/onboarding.yaml'),
+      'steps:\n  - call: propose\n    input: { rationale: r, entities: { ghost: { ops: [], findings: [] } } }\n',
+    );
+    await assert.rejects(onboard(new Workspace(dir), undefined, { provider: 'scripted' }), /No entity “ghost”: there are .*order/);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('an entity group with nothing in it leaves no proposal', async () => {
+  const dir = join(repo, `.tc-test-${process.pid}-empty`);
+  try {
+    await cp(join(repo, 'workspace'), dir, { recursive: true, filter: (src) => !src.includes('node_modules') });
+    await writeFile(join(dir, 'agents/onboarding.yaml'), 'steps:\n  - call: propose\n    input: { rationale: r, entities: { order: { ops: [], findings: [] } } }\n');
+    assert.deepEqual(await onboard(new Workspace(dir), undefined, { provider: 'scripted' }), []);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
 test('clarify (scripted): replaces a finding a person could not answer with single-topic ones, and closes it', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'tc-clarify-'));
   try {
@@ -69,6 +94,39 @@ test('clarify (scripted): replaces a finding a person could not answer with sing
     await ws.saveProposal({ ...answered, resolutions: [{ finding: 0, verdict: 'answered', note: 'Only on the project page', at: '' }] });
     await onboard(ws, undefined, { provider: 'scripted', mode: 'clarify', target: { proposal: 'bundled', index: 0 } });
     assert.equal((await ws.proposal('bundled')).resolutions[0].verdict, 'answered');
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('a transition that names an action the entity lacks is refused, unless the same call adds the action', async () => {
+  const dir = join(repo, `.tc-test-${process.pid}-action`);
+  const script = (ops: string) => `steps:\n  - call: propose\n    input: { rationale: r, entities: { order: { ops: [${ops}] } } }\n`;
+  const transition = '{ op: add, kind: transition, value: { id: t1, title: T, from: paid, to: cancelled, action: nope, by: [seller] } }';
+  try {
+    await cp(join(repo, 'workspace'), dir, { recursive: true, filter: (src) => !src.includes('node_modules') });
+    await writeFile(join(dir, 'agents/onboarding.yaml'), script(transition));
+    await assert.rejects(onboard(new Workspace(dir), undefined, { provider: 'scripted' }), /transition “t1” names action “nope”, which “order” doesn't have/);
+    await writeFile(join(dir, 'agents/onboarding.yaml'), script(`{ op: add, kind: action, value: { id: nope, title: Nope } }, ${transition}`));
+    assert.equal((await onboard(new Workspace(dir), undefined, { provider: 'scripted' }))[0].ops.length, 2);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('declare: a type’s fields become parameters of an entity, each quoting its line; ones proposed already are left out', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'tc-declare-'));
+  try {
+    await cp(join(repo, 'workspace'), dir, { recursive: true, filter: (src) => !src.includes('node_modules') && !src.includes(`${join('workspace', 'proposals')}`) });
+    const reg = join(dir, 'sources.yaml');
+    await writeFile(reg, (await readFile(reg, 'utf8')).replace('../demo/shop', join(repo, 'demo/shop')));
+    const call = 'call: declare\n    input: { entity: order, source: shop-code, path: domain.ts, type: Order, as: attributes, skip: [history] }';
+    await writeFile(join(dir, 'agents/onboarding.yaml'), `steps:\n  - ${call}\n  - ${call}\n  - call: propose\n    input: { rationale: r }\n`);
+    const saved = await onboard(new Workspace(dir), undefined, { provider: 'scripted' });
+    assert.equal(saved.length, 1, 'the second call finds nothing new');
+    const ids = saved[0].ops.map((o) => o.op === 'add' && o.value.id);
+    assert.ok(ids.includes('status') && !ids.includes('history'), ids.join());
+    assert.match(saved[0].evidence.find((e) => e.summary.startsWith('status'))!.path!, /^domain\.ts#L22-L22$/);
   } finally {
     await rm(dir, { recursive: true, force: true });
   }

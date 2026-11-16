@@ -155,6 +155,8 @@ Compiled scenarios carry their backlog trace as `@epic:<id>`, `@feature:<id>`, `
 
 ### Agent proposals
 
+How agents work — planning a run, reading requirements and code, exploring an app, citing evidence, asking questions — is written as [Agent Skills](packages/engine/skills/README.md): plain `SKILL.md` folders the engine hands to whichever runtime runs the agent.
+
 An agent works in one role's interface: it opens pages, takes snapshots, clicks, and prepares data. The result is `proposals/*.yaml`: a patch to the model (`add` / `update` / `remove`) plus findings (gap, contradiction, question) and evidence. For each operation a person picks one:
 
 - **Accept as requirement** — the element becomes `confirmed`, tests check it;

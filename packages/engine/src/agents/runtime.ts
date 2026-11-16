@@ -157,7 +157,7 @@ export async function runAgent(run: AgentRun): Promise<void> {
   run.onLog(`▶ ${runtimes[runtime.provider].title}${runtime.model ? ` · ${runtime.model}` : ''}${runtime.effort ? ` · effort ${runtime.effort}` : ''}${runtime.subagents ? ' · subagents' : ''}`);
   try {
     const delegation = runtime.subagents
-      ? `\n\nYou may hand separate parts of the work (a source, an object, a batch of checks) to subagents; they share this budget. Only you call ${run.deliver}: tell every subagent not to.`
+      ? `\n\nYou may hand separate parts of the work (a source, an object, a batch of checks) to subagents; they share this budget, so give each a narrow part. Only you call ${run.deliver}: tell every subagent not to, and to save its part with record() when the run has one.`
       : '';
     const system = `${run.system}\n\nThis run has a budget of ${limit} tool calls; ${run.deliver} doesn't count against it.${delegation}`;
     const t0 = Date.now();
