@@ -13,6 +13,9 @@ const GRAMMAR: Record<string, string> = {
   '.scala': 'scala', '.dart': 'dart', '.ex': 'elixir', '.exs': 'elixir', '.c': 'c', '.h': 'c', '.cpp': 'cpp', '.hpp': 'cpp', '.cc': 'cpp', '.vue': 'vue', '.lua': 'lua', '.zig': 'zig',
 };
 
+// A file the outline reads: a known language, or a SQL schema.
+export const outlined = (file: string) => Boolean(GRAMMAR[extname(file).toLowerCase()]) || extname(file).toLowerCase() === '.sql';
+
 // Node types across the grammars that declare something a model can use.
 const DECL = new Set(`struct_item enum_item enum_variant field_declaration function_item function_signature_item impl_item trait_item mod_item type_item const_item macro_definition
 class_declaration abstract_class_declaration interface_declaration type_alias_declaration enum_declaration function_declaration method_definition public_field_definition

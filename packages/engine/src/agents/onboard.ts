@@ -11,7 +11,7 @@ import { join } from 'node:path';
 import { listOf, runAgent, type Tool } from './runtime.ts';
 import { McpPool } from '../mcp.ts';
 import { codePath, insideCode, listCode, searchCode } from '../sources.ts';
-import { members, outlineCode, outlineSql, typesIn, uncovered } from '../outline.ts';
+import { members, outlineCode, outlined, outlineSql, typesIn, uncovered } from '../outline.ts';
 import { flattenWorkspace, words } from '../eval.ts';
 import { skillsPrompt, skillTool } from './skills.ts';
 
@@ -552,10 +552,20 @@ ${MAP_TASK}`,
         signal: opts.signal,
       });
       if (!areas.length) throw new Error('The map run found no areas');
-      log(`🗺 ${areas.map((a) => a.id).join(', ')}`);
+      // Code no area claims would get no run: its folders become one more area, so the map can't leave a part out.
+      const code = sources.filter((s) => s.kind === 'code');
+      const claimed = (f: string) => areas.some((a) => a.paths.some((p) => { const d = p.replace(/^\.?\/+|\/+$/g, ''); return !d || f === d || f.startsWith(`${d}/`); }));
+      const unclaimed = (await Promise.all(code.map((s) => listCode(codePath(ws.root, s.path!)))))
+        .flat()
+        .filter((f) => outlined(f) && !/(^|\/)(tests?|__tests__|spec|fixtures?)\/|\.(test|spec)\.|_test\.go$/i.test(f) && !claimed(f));
+      if (unclaimed.length) {
+        // shortcut: past 200 files their folders stand in, and a folder also outlines claimed subfolders; list files in pieces if that gets noisy.
+        const dirs = unclaimed.length <= 200 ? unclaimed : [...new Set(unclaimed.map((f) => f.split('/').slice(0, -1).join('/') || f))];
+        areas.push({ id: 'unclaimed', title: 'Code no other area covers', paths: dirs, entities: [], note: 'Find the product behavior in this code: new entities, or what it adds to the entities of other areas.' });
+      }
+      log(`🗺 ${areas.map((a) => `${a.id} (${a.paths.length} paths)`).join(', ')}${unclaimed.length ? ` — ${unclaimed.length} code files no area claimed went to “unclaimed”` : ''}`);
       const others = (a: Area) => areas.filter((x) => x !== a).map((x) => `${x.id} (${x.title}: ${x.entities.join(', ')})`).join('; ');
       const failures: string[] = [];
-      const code = sources.filter((s) => s.kind === 'code');
       const outlineOf = async (area: Area, max: number) =>
         (await Promise.all(code.flatMap((s) => area.paths.map((p) => outlineCode(codePath(ws.root, s.path!), p, max).catch(() => '')))))
           .filter((o) => o.startsWith('## '))
@@ -614,7 +624,7 @@ quote and propose the ones that are product behavior, and read() around them for
       // tasks.tasks → task; agents.runs → run or agent_run
       const tableNames = (t: string) => { const [a, b] = t.includes('.') ? t.split('.') : ['', t]; return [one(b), ...(a ? [`${one(a)}_${one(b)}`] : [])]; };
       const entityIds = [...new Set([...existing, ...saved.flatMap((p) => p.ops).flatMap((op) => (op.op === 'add' && op.kind === 'entity' ? [String(op.value.id)] : []))])];
-      let declared = 0;
+      const declared: string[] = [];
       for (const e of entityIds) {
         const name = pascal(e);
         const snakeId = e.replace(/-/g, '_');
@@ -623,9 +633,9 @@ quote and propose the ones that are product behavior, and read() around them for
         const status = types.find((t) => t.enum && (t.name === `${name}State` || t.name === `${name}Status`))
           ?? (table && types.find((t) => t.enum && t.file === table.file && /^(state|status)$/.test(t.name.slice(table.name.length + 1)) && t.name.startsWith(`${table.name}.`)));
         for (const [t, as] of [[struct, 'attributes'], [status, 'states']] as const)
-          if (t) await declareTool.run({ entity: e, source: t.source, path: t.file, type: t.name, as, skip: [] }).then(() => declared++, () => {});
+          if (t) await declareTool.run({ entity: e, source: t.source, path: t.file, type: t.name, as, skip: [] }).then(() => declared.push(`${e} ← ${t.name}`), () => {});
       }
-      if (declared) log(`📐 ${declared} types declared from the code without an agent`);
+      if (declared.length) log(`📐 ${declared.length} types declared from the code without an agent: ${declared.join(', ')}`);
       // Coverage pass: what each area's code declares that nothing in the model names yet goes back to a run of its own.
       const model = await flattenWorkspace(ws);
       const known = new Set(model.filter((x) => x.cat !== 'rule' && x.cat !== 'transition').flatMap((x) => x.names.map((n) => words(n).join(' '))));
