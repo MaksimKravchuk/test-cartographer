@@ -148,3 +148,15 @@ export async function members(text: string, file: string, type: string): Promise
   }
   return out;
 }
+
+// The types an outline declares, with their file: `struct Task` → { file, name: 'Task', enum: false }.
+export function typesIn(outline: string): { file: string; name: string; enum: boolean }[] {
+  return outline.split(/\n\n(?=## )/).flatMap((part) => {
+    const [head, ...lines] = part.split('\n');
+    const file = head.replace(/^## /, '');
+    return lines.flatMap((l) => {
+      const m = /^\d+: (?:\[route\] )?.*?\b(struct|enum|class|interface|type|record)\s+(\w+)/.exec(l);
+      return m ? [{ file, name: m[2], enum: m[1] === 'enum' }] : [];
+    });
+  });
+}

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { members, outlineText, uncovered } from '../src/outline.ts';
+import { members, outlineText, typesIn, uncovered } from '../src/outline.ts';
 
 test('outline: fields, variants and doc comments of a Rust module, one line each; bodies left out', async () => {
   const src = `/// A thing to do.
@@ -53,4 +53,11 @@ test('outline: members lists a type’s fields or variants with their lines', as
   assert.deepEqual((await members(src, 'x.rs', 'Task')).map((m) => [m.name, m.row]), [['due', 3], ['done', 4]]);
   assert.deepEqual((await members(src, 'x.rs', 'TaskState')).map((m) => m.name), ['Inbox', 'Done']);
   assert.deepEqual(await members(src, 'x.rs', 'Nope'), []);
+});
+
+test('outline: typesIn lists the types with their files', () => {
+  assert.deepEqual(typesIn('## a.rs\n1: pub struct Task {\n2:   pub title: String\n\n## b.rs\n4: pub enum TaskState {'), [
+    { file: 'a.rs', name: 'Task', enum: false },
+    { file: 'b.rs', name: 'TaskState', enum: true },
+  ]);
 });

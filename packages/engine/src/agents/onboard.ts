@@ -10,7 +10,7 @@ import { readFile, stat } from 'node:fs/promises';
 import { listOf, runAgent, type Tool } from './runtime.ts';
 import { McpPool } from '../mcp.ts';
 import { codePath, insideCode, listCode, searchCode } from '../sources.ts';
-import { members, outlineCode, uncovered } from '../outline.ts';
+import { members, outlineCode, typesIn, uncovered } from '../outline.ts';
 import { flattenWorkspace, words } from '../eval.ts';
 import { skillsPrompt, skillTool } from './skills.ts';
 
@@ -43,7 +43,9 @@ type Area = z.infer<typeof Area>;
 const AREA_RUNS = 3;
 const AREAS_FROM_FILES = 500;
 const OUTLINE_CHARS = 15_000;
-const GAP_RUNS = 3;
+// Agents hand in after a few dozen items whatever the budget: a shorter list per run gets each item looked at.
+const GAP_RUNS = 5;
+const GAP_CHARS = 8_000;
 const LIFECYCLES_PER_RUN = 5;
 
 // Used when cartographer.yaml has no `kind: onboard` entry — a project can
@@ -597,6 +599,22 @@ this area's code is where they live. model() lists what other runs proposed alre
 ${outline ? `\nThe declarations in this area's code (types with their fields, enums with their variants), as a checklist —
 quote and propose the ones that are product behavior, and read() around them for the rules:\n${outline}` : ''}`);
       }));
+      // Static pass, no agent: an entity whose name is a type in the code gets that type's fields as parameters, and
+      // its <Name>State / <Name>Status enum's variants as states. Each quotes its line; a person strikes the internals.
+      const declareTool = tools.find((t) => t.name === 'declare')!;
+      // shortcut: types are looked up in the first code source only; a project with several code sources declares from the first.
+      const types = (await Promise.all(areas.map(async (a) => typesIn(await outlineOf(a, 400_000))))).flat().map((t) => ({ ...t, source: code[0].id }));
+      const pascal = (s: string) => s.split(/[^A-Za-z0-9]+/).filter(Boolean).map((w) => w[0].toUpperCase() + w.slice(1)).join('');
+      const entityIds = [...new Set([...existing, ...saved.flatMap((p) => p.ops).flatMap((op) => (op.op === 'add' && op.kind === 'entity' ? [String(op.value.id)] : []))])];
+      let declared = 0;
+      for (const e of entityIds) {
+        const name = pascal(e);
+        const struct = types.find((t) => !t.enum && t.name === name);
+        const status = types.find((t) => t.enum && (t.name === `${name}State` || t.name === `${name}Status`));
+        for (const [t, as] of [[struct, 'attributes'], [status, 'states']] as const)
+          if (t) await declareTool.run({ entity: e, source: t.source, path: t.file, type: t.name, as, skip: [] }).then(() => declared++, () => {});
+      }
+      if (declared) log(`📐 ${declared} types declared from the code without an agent`);
       // Coverage pass: what each area's code declares that nothing in the model names yet goes back to a run of its own.
       const model = await flattenWorkspace(ws);
       const known = new Set(model.filter((x) => x.cat !== 'rule' && x.cat !== 'transition').flatMap((x) => x.names.map((n) => words(n).join(' '))));
@@ -604,14 +622,14 @@ quote and propose the ones that are product behavior, and read() around them for
       // A handler is explained by an action when the action's and its entity's words cover the handler's name (create_task: task's "create").
       const actionWords = model.filter((x) => x.cat === 'action').flatMap((x) => x.names.map((n) => new Set([...words(n), ...words(x.object ?? '')])));
       const routeCovered = (handler: string) => actionWords.some((w) => words(handler).every((h) => w.has(h)));
-      // Gaps go out in pieces of OUTLINE_CHARS, a run each, so a big area isn't cut to what one run can read.
+      // Gaps go out in pieces of GAP_CHARS, a run each, so a big area isn't cut to what one run can read.
       const jobs = await Promise.all(areas.map(async (area) => {
         const files = uncovered(await outlineOf(area, 400_000), covered, routeCovered).split(/\n\n(?=## )/).filter(Boolean);
         const chunks: string[] = [];
         for (const f of files) {
           const last = chunks.length - 1;
-          if (last >= 0 && chunks[last].length + f.length < OUTLINE_CHARS) chunks[last] += `\n\n${f}`;
-          else chunks.push(f.slice(0, OUTLINE_CHARS));
+          if (last >= 0 && chunks[last].length + f.length < GAP_CHARS) chunks[last] += `\n\n${f}`;
+          else chunks.push(f.slice(0, GAP_CHARS));
         }
         const count = files.join('\n').split('\n').filter((l) => l && !l.startsWith('## ')).length;
         if (count) log(`[${area.id}] 🔎 ${count} declarations have nothing in the model yet${chunks.length > GAP_RUNS ? ` — the first ${GAP_RUNS} of ${chunks.length} parts get a run` : ''}`);
