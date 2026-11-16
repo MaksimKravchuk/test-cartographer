@@ -2,7 +2,7 @@
 name: reading-code
 description: Recovers product behavior from source code - entry points, entities and their parameters, lifecycle states, who may do what, and the conditions on each action - while leaving implementation details out. Use when a run has a code-folder source, to find what the product actually does and compare it with what the requirements say.
 metadata:
-  tools: "files search read quote skill"
+  tools: "files outline search read quote skill"
 ---
 
 # Reading code
@@ -19,7 +19,9 @@ it, and say so in a finding (kind=gap) that names where you looked for a require
 2. **Find the entry points** with `search()` rather than reading file after file. Entry points are not only
    HTTP routes: scheduled jobs, queue consumers and webhooks are actions of a system role. Patterns for common
    frameworks are in [references/entry-points.md](references/entry-points.md).
-3. **Find the entities.** Data models, migrations and API schemas give entities and their parameters. Keep a
+3. **Find the entities.** `outline({ source, path })` on the domain and model folders lists every type with its
+   fields and every enum with its variants in one call: start there, then `read()` only what needs a closer look.
+   Data models, migrations and API schemas give entities and their parameters. Keep a
    parameter only if someone changes it or a rule refers to it — not every column.
 4. **Trace each action** — entity by entity, every entity on the map, not only the first few — from its
    entry point to the data it changes, with `read()` around the hits. Note who may call it, what is checked

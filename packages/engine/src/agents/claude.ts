@@ -79,7 +79,8 @@ export async function runClaude(h: Harness): Promise<void> {
       const sum = (f: (u: (typeof all)[number][1]) => number) => all.reduce((n, [, u]) => n + f(u), 0);
       const cacheRead = sum((u) => u.cacheReadInputTokens);
       const cacheWrite = sum((u) => u.cacheCreationInputTokens);
-      const main = all.find(([id]) => id === h.runtime.model) ?? all[0];
+      // The run's own model did most of the work; Claude Code also calls a small model on the side, and `sonnet` is an alias.
+      const main = all.find(([id]) => id === h.runtime.model) ?? all.toSorted(([, a], [, b]) => b.outputTokens - a.outputTokens)[0];
       h.onUsage({ model: main?.[0], input: sum((u) => u.inputTokens) + cacheRead + cacheWrite, output: sum((u) => u.outputTokens), cacheRead, cacheWrite, costUsd: m.total_cost_usd, context: context && main ? { ...context, window: main[1].contextWindow } : context });
       if (m.subtype !== 'success') throw new Error(`Claude Code stopped (${m.subtype}): ${m.errors.join('; ') || 'no details'}`);
       if (m.is_error) throw new Error(`Claude Code: ${m.result}`);

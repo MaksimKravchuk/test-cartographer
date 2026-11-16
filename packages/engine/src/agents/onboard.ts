@@ -10,6 +10,7 @@ import { readFile, stat } from 'node:fs/promises';
 import { listOf, runAgent, type Tool } from './runtime.ts';
 import { McpPool } from '../mcp.ts';
 import { codePath, insideCode, listCode, searchCode } from '../sources.ts';
+import { outlineCode } from '../outline.ts';
 import { skillsPrompt, skillTool } from './skills.ts';
 
 export type OnboardOptions = {
@@ -82,7 +83,8 @@ in the original finding's group (project, or the same entity), without record().
 };
 
 const MAP_TASK = `This first run only maps the product; other runs research each area in depth. Read the file tree, the
-manifests and the module layout (routes, handlers, domain modules, migrations, jobs, docs per feature), and split
+manifests and the module layout (routes, handlers, domain modules, migrations, jobs, docs per feature; outline()
+shows a folder's types and enums in one call), and split
 the product into 2–12 areas a person would name: one feature or bounded context each, with its code paths and the
 entities (objects people work with) it holds. Every entity belongs to one area; leave out build, tooling and
 infrastructure. Don't propose anything: call areas() when the map covers the whole product, within about 20 calls.`;
@@ -109,8 +111,8 @@ Your job is to make each one easy to check — about one thing, in the product's
 
 Sources (id, kind, priority — 1 is the strongest): ${p.sourceList || 'none'}.
 ${p.usePriority ? 'When sources disagree, the lower priority number wins: requirements usually outrank code. Still report the disagreement.' : 'Priorities are off: report every disagreement and let the person decide.'}
-How to read them: uploaded files — source({ id }); code folders — files({ source }), search({ source, pattern }) and
-read({ source, path }); MCP sources — fetch({ source, args? }) (the tool and default args are set per source; you may pass other args).
+How to read them: uploaded files — source({ id }); code folders — files({ source }), outline({ source, path }),
+search({ source, pattern }) and read({ source, path }); MCP sources — fetch({ source, args? }) (the tool and default args are set per source; you may pass other args).
 ${p.contracts.length ? `Available contracts: ${p.contracts.join(', ')}.` : ''}
 
 ${p.skills}`;
@@ -285,6 +287,16 @@ export async function onboard(ws: Workspace, agentId: string | undefined, opts: 
       description: 'Search a code-folder source with a regular expression (per line). Returns path:line: text and how many files were searched; then read() around a hit.',
       input: z.object({ source: z.string(), pattern: z.string(), dir: z.string().default(''), ignoreCase: z.boolean().default(false) }),
       run: async ({ source, pattern, dir, ignoreCase }) => searchCode(codePath(ws.root, sourceOf(source, ['code']).path!), pattern, { dir, ignoreCase }),
+    },
+    {
+      name: 'outline',
+      description: 'The declarations of a code file or of every file under a folder: types with their fields, enums with their variants, functions, each with its line and doc comment. Tests are left out. Use it before read() to see a module whole.',
+      input: z.object({ source: z.string(), path: z.string().default('') }),
+      run: async ({ source, path }) => {
+        const root = codePath(ws.root, sourceOf(source, ['code']).path!);
+        if (path) await insideCode(root, path);
+        return outlineCode(root, path);
+      },
     },
     {
       name: 'read',
@@ -483,7 +495,7 @@ export async function onboard(ws: Workspace, agentId: string | undefined, opts: 
 
 ${MAP_TASK}`,
         prompt: `Map the product before the research. Goal of the research: ${spec.goal}`,
-        tools: [...tools.filter((t) => ['sources', 'files', 'search', 'read', 'source', 'fetch'].includes(t.name)), areasTool],
+        tools: [...tools.filter((t) => ['sources', 'files', 'search', 'outline', 'read', 'source', 'fetch'].includes(t.name)), areasTool],
         deliver: 'areas',
         isDone: () => areas.length > 0,
         onLog: areaLog('map'),

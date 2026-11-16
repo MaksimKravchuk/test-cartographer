@@ -24,7 +24,7 @@ framework you identified from the file tree; if nothing matches, try the generic
 - Spring: `@(Get|Post|Put|Patch|Delete|Request)Mapping`
 - ASP.NET: `\[Http(Get|Post|Put|Patch|Delete)` and `\.Map(Get|Post|Put|Patch|Delete)\(`
 - Go: `\.(HandleFunc|Handle|GET|POST|PUT|PATCH|DELETE)\(`
-- Rust (axum, actix, rocket, utoipa): `\.route\("|#\[(get|post|put|patch|delete)\("|#\[utoipa::path\(|routes!\(` — a `router()` per module that one file merges is the map of the API
+- Rust (axum, actix, rocket, utoipa): `\.route\("|#\[(get|post|put|patch|delete)\("|#\[utoipa::path\(|routes!\(` — the file that merges every module's router is the map of the API
 - GraphQL: `^\s*(type|extend type) (Query|Mutation)` and `@(Query|Mutation|Resolver)\(`
 - Generic: `['"]/(api/)?[a-z-]+(/:?\w+)*['"]`
 
