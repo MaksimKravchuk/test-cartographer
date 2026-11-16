@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { outlineText, uncovered } from '../src/outline.ts';
+import { members, outlineText, uncovered } from '../src/outline.ts';
 
 test('outline: fields, variants and doc comments of a Rust module, one line each; bodies left out', async () => {
   const src = `/// A thing to do.
@@ -46,4 +46,11 @@ test('outline: route handlers are marked, and uncovered lists the ones no action
   const lines = await outlineText('#[utoipa::path(get, path = "/tasks")]\npub async fn list_tasks() {}\n#[utoipa::path(post, path = "/tasks")]\npub async fn create_task() {}\nfn helper() {}\n', 'api.rs');
   assert.deepEqual(lines, ['2: [route] pub async fn list_tasks() {}', '4: [route] pub async fn create_task() {}', '5: fn helper() {}']);
   assert.equal(uncovered(`## api.rs\n${lines!.join('\n')}`, () => false, (h) => h === 'create_task'), '## api.rs\n2: [route] pub async fn list_tasks() {}');
+});
+
+test('outline: members lists a type’s fields or variants with their lines', async () => {
+  const src = 'pub struct Task {\n    /// Due.\n    pub due: Option<Day>,\n    pub done: bool,\n}\nimpl Task {\n    pub fn x(&self) {}\n}\npub enum TaskState { Inbox, Done }\n';
+  assert.deepEqual((await members(src, 'x.rs', 'Task')).map((m) => [m.name, m.row]), [['due', 3], ['done', 4]]);
+  assert.deepEqual((await members(src, 'x.rs', 'TaskState')).map((m) => m.name), ['Inbox', 'Done']);
+  assert.deepEqual(await members(src, 'x.rs', 'Nope'), []);
 });

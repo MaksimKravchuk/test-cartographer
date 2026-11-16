@@ -48,7 +48,7 @@ test('skillsPrompt: puts skills and asked-for references in, and refuses a skill
   assert.match(prompt, /<skill name="proposing-model-changes">\n# Proposing model changes/);
   assert.match(prompt, /<reference skill="proposing-model-changes" file="references\/entity-elements.md">/);
   assert.doesNotMatch(prompt, /^---$/m, 'frontmatter stays out of the prompt');
-  assert.throws(() => skillsPrompt(['reading-code'], tools), /needs tools this run doesn't have: files, outline, search, read, quote, skill/);
+  assert.throws(() => skillsPrompt(['reading-code'], tools), /needs tools this run doesn't have: files, outline, search, read, quote, declare, skill/);
 });
 
 test('skill(): reads a reference of a skill the run has, and says what exists otherwise', async () => {

@@ -10,7 +10,7 @@ import { readFile, stat } from 'node:fs/promises';
 import { listOf, runAgent, type Tool } from './runtime.ts';
 import { McpPool } from '../mcp.ts';
 import { codePath, insideCode, listCode, searchCode } from '../sources.ts';
-import { outlineCode, uncovered } from '../outline.ts';
+import { members, outlineCode, uncovered } from '../outline.ts';
 import { flattenWorkspace, words } from '../eval.ts';
 import { skillsPrompt, skillTool } from './skills.ts';
 
@@ -395,6 +395,40 @@ export async function onboard(ws: Workspace, agentId: string | undefined, opts: 
         const lines = file ? findLines(src, text) : null;
         const id = addEvidence({ kind: 'source', summary: text, source, path: lines ? `${file}#L${lines.from}-L${lines.to}` : file });
         return JSON.stringify({ evidence: id });
+      },
+    },
+    {
+      name: 'declare',
+      description:
+        'Propose a type\'s fields as parameters (as: "attributes") or an enum\'s variants as states (as: "states") of an entity, in one call: ' +
+        'each gets its declaration line as evidence and is recorded at once. List in `skip` the ones that are internals nobody sees. ' +
+        'Add types, links, enum values, rights and conditions afterwards with record() update ops where they matter.',
+      input: z.object({ entity: z.string(), source: z.string(), path: z.string(), type: z.string(), as: z.enum(['attributes', 'states']), skip: z.array(z.string()).default([]) }),
+      run: async ({ entity, source, path, type, as, skip }: { entity: string; source: string; path: string; type: string; as: 'attributes' | 'states'; skip: string[] }) => {
+        const { rel, text } = await codeText(source, path);
+        const found = await members(text, rel, type);
+        if (!found.length) throw new Error(`No fields or variants of “${type}” in ${rel} — check the name with outline()`);
+        const snake = (n: string) => n.replace(/([a-z0-9])([A-Z])/g, '$1_$2').replace(/[^A-Za-z0-9]+/g, '_').toLowerCase().replace(/^_|_$/g, '');
+        const title = (n: string) => snake(n).replace(/_/g, ' ').replace(/^./, (c) => c.toUpperCase());
+        const have = new Set(saved.filter((p) => p.entity === entity).flatMap((p) => p.ops).flatMap((op) => (op.op === 'add' ? [String(op.value.id)] : [])));
+        const kind = as === 'attributes' ? 'attribute' : 'state';
+        // A first guess from the declaration; the agent corrects what matters.
+        const typeOf = (line: string, name: string) =>
+          /\bbool(ean)?\b/i.test(line) ? 'bool'
+          : /_at$|_on$|date|time|instant|day\b/i.test(`${name} ${line.split(/[:=]/)[1] ?? ''}`) ? 'date'
+          : /\b([iu](8|16|32|64|size)|f(32|64)|int|integer|float|double|decimal|number|long)\b/i.test(line) ? 'number'
+          : /\b(string|str|text)\b/i.test(line) ? 'text'
+          : 'other';
+        const ops = found
+          .filter((m) => !skip.includes(m.name) && !have.has(snake(m.name)))
+          .map((m) => {
+            const evidence = addEvidence({ kind: 'source', summary: m.line, source, path: `${rel}#L${m.row}-L${m.row}` });
+            const value = kind === 'attribute' ? { id: snake(m.name), title: title(m.name), type: typeOf(m.line, m.name) } : { id: snake(m.name).replace(/_/g, '-'), title: title(m.name), match: {} };
+            return { op: 'add', kind, value, evidence: [evidence] };
+          });
+        if (!ops.length) return `nothing new: every ${as === 'attributes' ? 'field' : 'variant'} of ${type} is already proposed or skipped`;
+        const out = await save(await check({ rationale: `${type} in ${rel}: its ${as === 'attributes' ? 'fields' : 'variants'}`, entities: { [entity]: { ops, findings: [] } } }), ++batches);
+        return `recorded ${ops.length} ${as} of ${entity} (${ops.map((o) => o.value.id).join(', ')}) in ${out.map((p) => p.id).join(', ')}`;
       },
     },
     {

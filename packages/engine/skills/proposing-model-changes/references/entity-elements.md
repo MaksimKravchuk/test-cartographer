@@ -8,7 +8,7 @@ The `value` of an `op: add`, by kind. `?` marks an optional field. Role and acti
   name the entity's reader returns. `type` is one of `text`, `number`, `money`, `date`, `bool`, `enum`,
   `link`, `file`, `other`; `values` lists an enum's values; `entity` is the target of a link. `by` lists the
   roles that may change it — everyone else must be refused; `note` holds a condition in plain words
-  ("admin only while Created"). Keep only parameters someone changes or a rule refers to. A status-like
+  ("admin only while Created"). Keep every parameter a user or client can see, system-set ones too. A status-like
   enum is a lifecycle: its values are what states match on.
 - **state**: `{ id, title, variants?, match }`
   `match` is `{ <field the reader returns>: <value> }`, or `{}` when it is not known how the state shows.

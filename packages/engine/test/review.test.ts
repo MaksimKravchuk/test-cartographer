@@ -113,3 +113,21 @@ test('a transition that names an action the entity lacks is refused, unless the 
     await rm(dir, { recursive: true, force: true });
   }
 });
+
+test('declare: a type’s fields become parameters of an entity, each quoting its line; ones proposed already are left out', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'tc-declare-'));
+  try {
+    await cp(join(repo, 'workspace'), dir, { recursive: true, filter: (src) => !src.includes('node_modules') && !src.includes(`${join('workspace', 'proposals')}`) });
+    const reg = join(dir, 'sources.yaml');
+    await writeFile(reg, (await readFile(reg, 'utf8')).replace('../demo/shop', join(repo, 'demo/shop')));
+    const call = 'call: declare\n    input: { entity: order, source: shop-code, path: domain.ts, type: Order, as: attributes, skip: [history] }';
+    await writeFile(join(dir, 'agents/onboarding.yaml'), `steps:\n  - ${call}\n  - ${call}\n  - call: propose\n    input: { rationale: r }\n`);
+    const saved = await onboard(new Workspace(dir), undefined, { provider: 'scripted' });
+    assert.equal(saved.length, 1, 'the second call finds nothing new');
+    const ids = saved[0].ops.map((o) => o.op === 'add' && o.value.id);
+    assert.ok(ids.includes('status') && !ids.includes('history'), ids.join());
+    assert.match(saved[0].evidence.find((e) => e.summary.startsWith('status'))!.path!, /^domain\.ts#L22-L22$/);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});

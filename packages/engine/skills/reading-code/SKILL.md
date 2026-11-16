@@ -2,7 +2,7 @@
 name: reading-code
 description: Recovers product behavior from source code - entry points, entities and their parameters, lifecycle states, who may do what, and the conditions on each action - while leaving implementation details out. Use when a run has a code-folder source, to find what the product actually does and compare it with what the requirements say.
 metadata:
-  tools: "files outline search read quote skill"
+  tools: "files outline search read quote declare skill"
 ---
 
 # Reading code
@@ -25,6 +25,9 @@ it, and say so in a finding (kind=gap) that names where you looked for a require
    user or a client can see — in a screen, an API response, an export — including the ones the system sets
    (`created_at`, `completed_at`): tests check them. Leave out storage internals nobody sees.
    An enum of commands or events lists the operations: each variant a user can trigger is an action.
+   Once a type is an entity, `declare({ entity, source, path, type, as: "attributes" })` proposes all its fields
+   in one call, and `as: "states"` its status enum's variants; name internals in `skip`. Then spend your calls on
+   what only reading shows: types of links and enums, who may change what, the rules.
 4. **Trace each action** — entity by entity, every entity on the map, not only the first few — from its
    entry point to the data it changes. One action per operation a user or client can call: a route, an MCP
    tool, a CLI command, a button, reads too (list, get, search, export); don't fold several into one. Trace

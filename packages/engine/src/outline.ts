@@ -95,7 +95,7 @@ export async function outlineCode(root: string, path: string, max = 40_000): Pro
 }
 
 // The name a declaration line declares: `pub struct Task {` → Task, `  pub due_date: Option<Day>` → due_date, `  Inbox` → Inbox.
-const declared = (line: string) =>
+export const declared = (line: string) =>
   /\b(?:struct|enum|class|interface|type|trait|protocol|record|object)\s+(\w+)/.exec(line)?.[1] ??
   (/\b(?:fn|function|def|func)\s/.test(line) ? undefined : /^(?:pub(?:\([^)]*\))?\s+|readonly\s+|(?:let|var|val|const)\s+)*(\w+)\s*(?:[:=(,{]|$)/.exec(line.trim())?.[1]);
 
@@ -129,4 +129,22 @@ export function uncovered(outline: string, covered: (name: string) => boolean, r
     if (keep.length) out.push([head, ...keep].join('\n'));
   }
   return out.join('\n\n');
+}
+
+// The fields or variants of one type in a file: name, the declaration line and its line number.
+export async function members(text: string, file: string, type: string): Promise<{ name: string; line: string; row: number }[]> {
+  const lines = (await outlineText(text, file)) ?? [];
+  const at = lines.findIndex((l) => /^\d+: \S/.test(l) && declared(l.replace(/^\d+:\s*/, '').replace('[route] ', '')) === type);
+  if (at < 0) return [];
+  const out: { name: string; line: string; row: number }[] = [];
+  for (const l of lines.slice(at + 1)) {
+    if (!/^\d+:   \S/.test(l)) {
+      if (/^\d+: \S/.test(l)) break;
+      continue;
+    }
+    const decl = l.replace(/^\d+:\s*/, '').replace(/ {2}(\/\/|\/\*|#).*$/, '');
+    const name = /\b(fn|function|def|func)\s/.test(decl) ? undefined : declared(decl);
+    if (name) out.push({ name, line: decl, row: Number(l.split(':')[0]) });
+  }
+  return out;
 }
