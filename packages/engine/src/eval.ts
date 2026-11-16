@@ -21,8 +21,11 @@ type Conf = 'high' | 'medium' | 'low';
 // ── Reference format (YAML) ──────────────────────────────────────────────────
 const Names = z.array(z.string()).default([]);
 const Conf = z.enum(['high', 'medium', 'low']).default('high');
-const RefItem = z.object({ id: z.string(), names: Names, conf: Conf, area: z.string().optional(), where: z.string().optional() });
-const RefRule = z.object({ text: z.string(), conf: Conf, kind: z.string().optional(), area: z.string().optional(), where: z.string().optional() });
+// internal: storage, protocol or infrastructure mechanics that no user or API client sees. Agents are told to leave
+// those out of the model, so they get a recall of their own. An internal object makes everything in it internal.
+const Internal = z.boolean().default(false);
+const RefItem = z.object({ id: z.string(), names: Names, conf: Conf, area: z.string().optional(), where: z.string().optional(), internal: Internal });
+const RefRule = z.object({ text: z.string(), conf: Conf, kind: z.string().optional(), area: z.string().optional(), where: z.string().optional(), internal: Internal });
 const RefTransition = z.object({
   // State ids of this object, "@new" for creation, or "*" for any state.
   from: z.array(z.string()),
@@ -30,6 +33,7 @@ const RefTransition = z.object({
   action: z.string().optional(),
   conf: Conf,
   where: z.string().optional(),
+  internal: Internal,
 });
 const RefObject = RefItem.extend({
   params: z.array(RefItem.extend({ values: z.array(z.string()).optional() })).default([]),
@@ -59,6 +63,7 @@ export type Item = {
   from?: string[];
   to?: string[];
   action?: string; // a transition's action id
+  internal?: boolean; // reference only: nothing a user or client sees
 };
 
 // A reference item may name several things at once ("Move / complete / cancel / reopen", "Job, dead letter"):
@@ -67,19 +72,19 @@ const parts = (names: string[]) => [...new Set(names.flatMap((n) => [n, ...(n.sp
 
 export function flattenReference(ref: Reference): Item[] {
   const out: Item[] = [];
-  for (const s of ref.subjects) out.push({ cat: 'subject', key: s.id, names: parts([s.id, ...s.names]), conf: s.conf, area: s.area, where: s.where });
-  ref.rules.forEach((r, i) => out.push({ cat: 'rule', key: `rule/${i}`, names: [r.text], conf: r.conf, area: r.area, where: r.where }));
+  for (const s of ref.subjects) out.push({ cat: 'subject', key: s.id, names: parts([s.id, ...s.names]), conf: s.conf, area: s.area, where: s.where, internal: s.internal });
+  ref.rules.forEach((r, i) => out.push({ cat: 'rule', key: `rule/${i}`, names: [r.text], conf: r.conf, area: r.area, where: r.where, internal: r.internal }));
   for (const o of ref.objects) {
-    out.push({ cat: 'object', key: o.id, names: parts([o.id, ...o.names]), conf: o.conf, area: o.area, where: o.where });
-    const add = (cat: Category, x: { id: string; names: string[]; conf: Conf; where?: string }) =>
-      out.push({ cat, key: `${o.id}/${cat}:${x.id}`, object: o.id, names: parts([x.id, ...x.names]), conf: x.conf, area: o.area, where: x.where });
+    out.push({ cat: 'object', key: o.id, names: parts([o.id, ...o.names]), conf: o.conf, area: o.area, where: o.where, internal: o.internal });
+    const add = (cat: Category, x: { id: string; names: string[]; conf: Conf; where?: string; internal: boolean }) =>
+      out.push({ cat, key: `${o.id}/${cat}:${x.id}`, object: o.id, names: parts([x.id, ...x.names]), conf: x.conf, area: o.area, where: x.where, internal: o.internal || x.internal });
     o.params.forEach((x) => add('param', x));
     o.states.forEach((x) => add('state', x));
     o.actions.forEach((x) => add('action', x));
     o.transitions.forEach((t, i) =>
-      out.push({ cat: 'transition', key: `${o.id}/transition:${i}`, object: o.id, names: [`${t.from.join('|')} → ${t.to.join('|')}${t.action ? ` (${t.action})` : ''}`], conf: t.conf, area: o.area, where: t.where, from: t.from, to: t.to, action: t.action }),
+      out.push({ cat: 'transition', key: `${o.id}/transition:${i}`, object: o.id, names: [`${t.from.join('|')} → ${t.to.join('|')}${t.action ? ` (${t.action})` : ''}`], conf: t.conf, area: o.area, where: t.where, from: t.from, to: t.to, action: t.action, internal: o.internal || t.internal }),
     );
-    o.rules.forEach((r, i) => out.push({ cat: 'rule', key: `${o.id}/rule:${i}`, object: o.id, names: [r.text], conf: r.conf, area: r.area ?? o.area, where: r.where }));
+    o.rules.forEach((r, i) => out.push({ cat: 'rule', key: `${o.id}/rule:${i}`, object: o.id, names: [r.text], conf: r.conf, area: r.area ?? o.area, where: r.where, internal: o.internal || r.internal }));
   }
   return out;
 }
@@ -318,10 +323,10 @@ export async function judge(ref: Item[], cand: Item[], matches: Match[], opts: J
 }
 
 // ── Scores and report ─────────────────────────────────────────────────────────
-export type CategoryScore = { cat: Category; ref: number; found: number; refHigh: number; foundHigh: number; model: number; matched: number; recall: number; recallHigh: number; precision: number };
+export type CategoryScore = { cat: Category; ref: number; found: number; refHigh: number; foundHigh: number; refVisible: number; foundVisible: number; model: number; matched: number; recall: number; recallHigh: number; recallVisible: number; precision: number };
 export type Evaluation = {
   scores: CategoryScore[];
-  areas: { area: string; ref: number; found: number; recall: number }[];
+  areas: { area: string; ref: number; found: number; recall: number; recallVisible: number }[];
   missing: Item[]; // reference items nothing matched
   extras: Item[]; // model items that match nothing in the reference: invented, or the reference lacks them
   contradicted: (Contradiction & { text: string; refText?: string })[];
@@ -342,14 +347,17 @@ export function score(ref: Item[], cand: Item[], matches: Match[], contradicted:
     const f = r.filter((x) => found.has(x.key)).length;
     const high = r.filter((x) => x.conf === 'high');
     const fh = high.filter((x) => found.has(x.key)).length;
+    const visible = r.filter((x) => !x.internal);
+    const fv = visible.filter((x) => found.has(x.key)).length;
     const matched = m.filter((x) => used.has(x.key)).length;
-    return { cat: c, ref: r.length, found: f, refHigh: high.length, foundHigh: fh, model: m.length, matched, recall: pct(f, r.length), recallHigh: pct(fh, high.length), precision: pct(matched, m.length) };
+    return { cat: c, ref: r.length, found: f, refHigh: high.length, foundHigh: fh, refVisible: visible.length, foundVisible: fv, model: m.length, matched, recall: pct(f, r.length), recallHigh: pct(fh, high.length), recallVisible: pct(fv, visible.length), precision: pct(matched, m.length) };
   });
   const areaNames = [...new Set(ref.map((x) => x.area ?? '—'))];
   const areas = areaNames.map((a) => {
     const r = ref.filter((x) => (x.area ?? '—') === a);
     const f = r.filter((x) => found.has(x.key)).length;
-    return { area: a, ref: r.length, found: f, recall: pct(f, r.length) };
+    const v = r.filter((x) => !x.internal);
+    return { area: a, ref: r.length, found: f, recall: pct(f, r.length), recallVisible: pct(v.filter((x) => found.has(x.key)).length, v.length) };
   });
   const text = (k?: string) => [...ref, ...cand].find((x) => x.key === k)?.names.filter(Boolean).join(' / ');
   return {
@@ -381,24 +389,24 @@ export function evaluationMarkdown(e: Evaluation, title: string, limit = 40): st
   const lines = [
     `# ${title}`,
     '',
-    '| Category | Reference | Found | Recall | Recall (high conf.) | Model | Matched | Precision |',
-    '|---|---:|---:|---:|---:|---:|---:|---:|',
-    ...e.scores.map((s) => `| ${s.cat} | ${s.ref} | ${s.found} | ${s.recall}% | ${s.recallHigh}% (${s.foundHigh}/${s.refHigh}) | ${s.model} | ${s.matched} | ${s.precision}% |`),
+    '| Category | Reference | Found | Recall | Recall (high conf.) | Recall (visible) | Model | Matched | Precision |',
+    '|---|---:|---:|---:|---:|---:|---:|---:|---:|',
+    ...e.scores.map((s) => `| ${s.cat} | ${s.ref} | ${s.found} | ${s.recall}% | ${s.recallHigh}% (${s.foundHigh}/${s.refHigh}) | ${s.recallVisible}% (${s.foundVisible}/${s.refVisible}) | ${s.model} | ${s.matched} | ${s.precision}% |`),
     '',
     '## Recall by area',
     '',
-    '| Area | Reference | Found | Recall |',
-    '|---|---:|---:|---:|',
-    ...e.areas.sort((a, b) => b.ref - a.ref).map((a) => `| ${a.area} | ${a.ref} | ${a.found} | ${a.recall}% |`),
+    '| Area | Reference | Found | Recall | Recall (visible) |',
+    '|---|---:|---:|---:|---:|',
+    ...e.areas.sort((a, b) => b.ref - a.ref).map((a) => `| ${a.area} | ${a.ref} | ${a.found} | ${a.recall}% | ${a.recallVisible}% |`),
     '',
     `## Contradicted by the reference (${e.contradicted.length}) — review: the reference may be the one that is wrong`,
     '',
     ...e.contradicted.slice(0, limit).map((c) => `- **${c.text}** vs ${c.refText ?? c.ref ?? '?'} — ${c.why}`),
     '',
-    `## Missing, high confidence (${e.missing.filter((x) => x.conf === 'high').length})`,
+    `## Missing, high confidence, visible (${e.missing.filter((x) => x.conf === 'high' && !x.internal).length})`,
     '',
     ...CATEGORIES.flatMap((c) => {
-      const m = e.missing.filter((x) => x.cat === c && x.conf === 'high');
+      const m = e.missing.filter((x) => x.cat === c && x.conf === 'high' && !x.internal);
       return m.length ? [`- **${c}** (${m.length}): ${m.slice(0, limit).map((x) => (c === 'rule' || c === 'transition' ? x.names[0].slice(0, 120) : x.key)).join('; ')}`] : [];
     }),
     '',

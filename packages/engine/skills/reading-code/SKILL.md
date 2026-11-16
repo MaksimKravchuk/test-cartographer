@@ -27,8 +27,8 @@ it, and say so in a finding (kind=gap) that names where you looked for a require
    An enum of commands or events lists the operations: each variant a user can trigger is an action.
 4. **Trace each action** — entity by entity, every entity on the map, not only the first few — from its
    entry point to the data it changes. One action per operation a user or client can call: a route, an MCP
-   tool, a CLI command, a button; don't fold several into one. Trace it with `read()` around the hits. Note
-   who may call it, what is checked first, and what changes.
+   tool, a CLI command, a button, reads too (list, get, search, export); don't fold several into one. Trace
+   it with `read()` around the hits. Note who may call it, what is checked first, and what changes.
 5. **Consolidate**, then quote. One action is often checked in three places (a handler checks the state, a
    model checks expiry, a service checks stock): that is one rule with three conditions, not three rules.
 

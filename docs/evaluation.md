@@ -18,7 +18,8 @@ project.
 
 For each category — subject, object, param, state, transition, action, rule:
 
-- **recall**: reference items some model item matches, of all reference items; also over high-confidence items only;
+- **recall**: reference items some model item matches, of all reference items; also over high-confidence items only,
+  and over visible ones (items not marked `internal`);
 - **precision**: model items that match a reference item, of all model items;
 - **missing**: reference items nothing matched (high confidence first);
 - **not in the reference**: model items that match nothing. Some are invented, some are things the reference lacks;
@@ -46,6 +47,7 @@ error by definition.
 name: My product
 subjects:
   - { id: member, names: [Signed-in user, owner], conf: high, area: identity }
+  - { id: outbox-flusher, internal: true }  # storage, protocol or infrastructure no user or client sees
 objects:
   - id: task
     names: [Next step, tasks.tasks]       # synonyms: code, database, API, UI, docs
@@ -61,5 +63,9 @@ objects:
       - { text: A waiting task needs who it waits for, conf: high, where: 'src/tasks.rs:140' }
 rules: []                                 # rules no single object owns
 ```
+
+`internal: true` marks what no user or API client sees: storage, protocol and infrastructure mechanics. The research
+agents are told to leave those out, so they count in the full recall but not in the visible one. An internal object
+makes everything in it internal.
 
 Keep references of private products out of this repository: pass a path outside it.

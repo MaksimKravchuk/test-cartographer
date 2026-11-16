@@ -41,3 +41,9 @@ test('outline: uncovered keeps the types and members the model lacks', async () 
   const known = new Set(['task', 'title', 'place', 'name']);
   assert.equal(uncovered(`## x.rs\n${lines!.join('\n')}`, (n) => known.has(n.toLowerCase())), '## x.rs\n1: pub struct Task {\n3:   pub due: Day\n5: pub enum Mood { Calm, Busy }\n5:   Calm\n5:   Busy');
 });
+
+test('outline: route handlers are marked, and uncovered lists the ones no action explains', async () => {
+  const lines = await outlineText('#[utoipa::path(get, path = "/tasks")]\npub async fn list_tasks() {}\n#[utoipa::path(post, path = "/tasks")]\npub async fn create_task() {}\nfn helper() {}\n', 'api.rs');
+  assert.deepEqual(lines, ['2: [route] pub async fn list_tasks() {}', '4: [route] pub async fn create_task() {}', '5: fn helper() {}']);
+  assert.equal(uncovered(`## api.rs\n${lines!.join('\n')}`, () => false, (h) => h === 'create_task'), '## api.rs\n2: [route] pub async fn list_tasks() {}');
+});

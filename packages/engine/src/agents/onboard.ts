@@ -556,15 +556,19 @@ ${outline ? `\nThe declarations in this area's code (types with their fields, en
 quote and propose the ones that are product behavior, and read() around them for the rules:\n${outline}` : ''}`);
       }));
       // Coverage pass: what each area's code declares that nothing in the model names yet goes back to a run of its own.
-      const known = new Set((await flattenWorkspace(ws)).filter((x) => x.cat !== 'rule' && x.cat !== 'transition').flatMap((x) => x.names.map((n) => words(n).join(' '))));
+      const model = await flattenWorkspace(ws);
+      const known = new Set(model.filter((x) => x.cat !== 'rule' && x.cat !== 'transition').flatMap((x) => x.names.map((n) => words(n).join(' '))));
       const covered = (name: string) => known.has(words(name).join(' '));
+      // A handler is explained by an action when the action's and its entity's words cover the handler's name (create_task: task's "create").
+      const actionWords = model.filter((x) => x.cat === 'action').flatMap((x) => x.names.map((n) => new Set([...words(n), ...words(x.object ?? '')])));
+      const routeCovered = (handler: string) => actionWords.some((w) => words(handler).every((h) => w.has(h)));
       await inParallel(areas.map((area) => async () => {
-        const gaps = uncovered(await outlineOf(area, 400_000), covered).slice(0, OUTLINE_CHARS);
+        const gaps = uncovered(await outlineOf(area, 400_000), covered, routeCovered).slice(0, OUTLINE_CHARS);
         if (!gaps) return;
         log(`[${area.id}] 🔎 ${gaps.split('\n').filter((l) => !l.startsWith('## ')).length} declarations have nothing in the model yet`);
         await research(area, `${area.id}-gaps`, `${brief(area)}
 An earlier run researched this area. These declarations of its code have nothing in the model yet (no entity,
-parameter, state or action of that name). Go through them: for each that is product behavior — a user or client
+parameter, state or action of that name; [route] marks an API handler no action explains). Go through them: for each that is product behavior — a user or client
 sees it, changes it, or it decides what happens — read() around it and propose it in the right entity group:
 a parameter, a state (a variant of a status enum), an action (a variant of a command enum, a route), a rule, or
 a new entity. Call model() first and extend the entities there (proposedNow too); don't add an entity again.

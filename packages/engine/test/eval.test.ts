@@ -24,7 +24,7 @@ test('eval: names match across wording, synonyms and wildcard transitions; extra
 
   const ref = flattenReference(
     Reference.parse({
-      subjects: [{ id: 'member', names: ['Signed-in user', 'owner'] }, { id: 'operator', conf: 'low' }],
+      subjects: [{ id: 'member', names: ['Signed-in user', 'owner'] }, { id: 'operator', conf: 'low' }, { id: 'sync-worker', conf: 'low', internal: true }],
       objects: [
         {
           id: 'task',
@@ -56,6 +56,7 @@ test('eval: names match across wording, synonyms and wildcard transitions; extra
   const by = Object.fromEntries(e.scores.map((s) => [s.cat, s]));
   assert.equal(by.subject.found, 1);
   assert.equal(by.subject.recallHigh, 100); // the low-confidence operator doesn't count there
+  assert.deepEqual([by.subject.ref, by.subject.refVisible], [3, 2]); // the internal worker counts only in the full recall
   assert.equal(by.object.found, 1);
   assert.deepEqual([by.param.found, by.param.precision], [1, 50]); // dueDate = due_date; priority is an extra
   assert.equal(by.state.found, 2); // done = completed through its synonym

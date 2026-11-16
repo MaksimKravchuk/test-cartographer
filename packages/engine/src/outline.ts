@@ -32,6 +32,9 @@ async function parser(grammar: string): Promise<Parser> {
   return p;
 }
 
+// An attribute or decorator that serves the function as an HTTP route (utoipa, actix, rocket, Spring, NestJS, Flask, FastAPI).
+const ROUTE = /^\s*(#\[(utoipa::path|get|post|put|patch|delete)\b|@(\w+\.)?(route|get|post|put|patch|delete|(Get|Post|Put|Patch|Delete|Request)(Mapping)?)\()/i;
+
 const firstLine = (s: string, max = 140) => s.split('\n')[0].trim().slice(0, max);
 
 export async function outlineText(text: string, file: string): Promise<string[] | undefined> {
@@ -48,11 +51,14 @@ export async function outlineText(text: string, file: string): Promise<string[] 
       // A doc comment right above says what the declaration means: its first line, of a block of line comments too.
       let c = n.previousNamedSibling;
       let top: Node | null = null;
+      let route = false;
       // Attributes and decorators (#[derive], @Entity) may sit between the comment and the declaration.
       for (let row = n.startPosition.row; c && /comment|attribute|decorator|annotation/.test(c.type) && c.endPosition.row >= row - 1; row = c.startPosition.row, c = c.previousNamedSibling)
         if (c.type.includes('comment')) top = c;
+        else route ||= ROUTE.test(c.text);
       const doc = top ? `  ${firstLine(top.text, 100)}` : '';
-      out.push(`${n.startPosition.row + 1}: ${'  '.repeat(depth)}${firstLine(n.text)}${doc}`);
+      route ||= ROUTE.test(firstLine(n.text));
+      out.push(`${n.startPosition.row + 1}: ${'  '.repeat(depth)}${route ? '[route] ' : ''}${firstLine(n.text)}${doc}`);
       next = depth + 1;
     }
     if (BODY.has(n.type) && depth > 0) return;
@@ -93,9 +99,9 @@ const declared = (line: string) =>
   /\b(?:struct|enum|class|interface|type|trait|protocol|record|object)\s+(\w+)/.exec(line)?.[1] ??
   (/\b(?:fn|function|def|func)\s/.test(line) ? undefined : /^(?:pub(?:\([^)]*\))?\s+|readonly\s+|(?:let|var|val|const)\s+)*(\w+)\s*(?:[:=(,{]|$)/.exec(line.trim())?.[1]);
 
-// What of an outline the model doesn't cover yet: types none of whose names the model has, and the fields and
-// variants of the other types it lacks. Functions are left out: they are read for actions, not listed as gaps.
-export function uncovered(outline: string, covered: (name: string) => boolean): string {
+// What of an outline the model doesn't cover yet: types none of whose names the model has, the fields and
+// variants of the other types it lacks, and route handlers no action explains. Other functions are left out.
+export function uncovered(outline: string, covered: (name: string) => boolean, routeCovered: (name: string) => boolean = covered): string {
   const out: string[] = [];
   for (const part of outline.split(/\n\n(?=## )/)) {
     const [head, ...lines] = part.split('\n');
@@ -108,6 +114,12 @@ export function uncovered(outline: string, covered: (name: string) => boolean): 
     for (const line of lines) {
       const top = /^\d+: \S/.test(line);
       const name = declared(line.replace(/^\d+:\s*/, ''));
+      const handler = /\[route\][^\n]*?\b(?:fn|function|def|func)\s+(\w+)/.exec(line)?.[1] ?? (/\[route\]/.test(line) ? /(\w+)\s*\(/.exec(line.replace(/^.*?\)\s*/, ''))?.[1] : undefined);
+      if (handler) {
+        if (top) flush();
+        if (!routeCovered(handler)) keep.push(line.trimEnd());
+        continue;
+      }
       if (top) {
         flush();
         if (name && /\b(struct|enum|class|interface|type|trait|protocol|record|object)\s/.test(line)) type = { line, covered: covered(name), members: [] };
