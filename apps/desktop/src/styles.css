@@ -1232,3 +1232,8 @@ button.chip.ref, button.chip.rule, .spec-doc .tests { cursor: pointer; }
 details.lint { margin-top: var(--s3); }
 section.review { margin-top: var(--s4); }
 button.access-cell { border: 0; padding: 0; font: inherit; font-size: 0.75rem; cursor: pointer; }
+
+/* Table mode: the toolbar takes its own row, so when it wraps it pushes the table down instead of covering it. */
+.map:has(> .lifecycle-scroll) { display: flex; flex-direction: column; }
+.map:has(> .lifecycle-scroll) > .map-toolbar { position: static; padding: var(--s3); }
+.map > .lifecycle-scroll { position: static; flex: 1; min-height: 0; }
