@@ -1231,3 +1231,4 @@ button.chip.ref, button.chip.rule, .spec-doc .tests { cursor: pointer; }
 .table-scroll:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
 details.lint { margin-top: var(--s3); }
 section.review { margin-top: var(--s4); }
+button.access-cell { border: 0; padding: 0; font: inherit; font-size: 0.75rem; cursor: pointer; }

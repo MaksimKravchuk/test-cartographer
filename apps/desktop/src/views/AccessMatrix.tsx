@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import type { AccessDecision, Cell, Coverage, Entity } from '@tc/model';
 import type { ProjectState } from '../api.ts';
+import { Tip } from '../ui.tsx';
 
 // Not imported from '@tc/model': any *value* import from that package pulls
 // in its whole index (including the Node-only workspace.ts) and breaks the
@@ -89,12 +90,22 @@ function RoleGroup({ title, colSpan, children }: { title: string; colSpan: numbe
 function AccessCellView({ cell }: { cell: { decision: AccessDecision; result: Cell | null } }) {
   const symbol = { allowed: '✓', undecided: '?', denied: '×' }[cell.decision];
   const title = cell.result ? `${cell.decision} — ${cell.result.status}${cell.result.error ? `: ${cell.result.error}` : ''}` : cell.decision;
+  if (!cell.result)
+    return (
+      <span className={`access-cell ${cell.decision}`}>
+        <span aria-hidden>{symbol}</span>
+        <span className="sr-only">{title}</span>
+      </span>
+    );
+  // With a run result, the cell opens a hint with the status and any error.
   return (
-    <span className={`access-cell ${cell.decision}`}>
-      <span aria-hidden>{symbol}</span>
-      {cell.result && <i className={`dot ${cell.result.status}`} aria-hidden />}
-      <span className="sr-only">{title}</span>
-    </span>
+    <Tip toggle tip={title}>
+      <button type="button" className={`access-cell ${cell.decision}`}>
+        <span aria-hidden>{symbol}</span>
+        <i className={`dot ${cell.result.status}`} aria-hidden />
+        <span className="sr-only">{title}</span>
+      </button>
+    </Tip>
   );
 }
 
