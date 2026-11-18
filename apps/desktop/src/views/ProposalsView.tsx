@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import type { Backlog, Decision, Entity, Evidence, Op } from '@tc/model';
+import { Modal, Tip } from '../ui.tsx';
 import { api, fileUrl, type EntityState, type EntitySummary, type ProjectDecideResult, type ProjectState, type ProposalState, type SourceInfo } from '../api.ts';
 
 type Props = {
@@ -117,10 +118,10 @@ function describeProject(op: Op, ctx: ProjectCtx): Described {
       const extra = (
         <div className="proposal-story-body">
           <div className="muted">{feature ? `Feature: ${refTitle('feature', feature, ctx)}` : epic ? `Epic: ${refTitle('epic', epic, ctx)}` : 'No feature or epic yet'}</div>
-          {(v.text as string) && <p style={{ margin: '6px 0' }}>{v.text as string}</p>}
+          {(v.text as string) && <p>{v.text as string}</p>}
           {acceptance.length > 0 && <ul className="proposal-list">{acceptance.map((a, i) => <li key={i}>{a}</li>)}</ul>}
           {covers.length > 0 && (
-            <div className="chips" style={{ justifyContent: 'start' }}>{covers.map((c) => <span key={c} className="chip ref">{c}</span>)}</div>
+            <div className="chips start">{covers.map((c) => <span key={c} className="chip ref">{c}</span>)}</div>
           )}
         </div>
       );
@@ -133,9 +134,9 @@ function describeProject(op: Op, ctx: ProjectCtx): Described {
       const extra = (
         <div className="proposal-story-body">
           {epic && <div className="muted">Epic: {refTitle('epic', epic, ctx)}</div>}
-          {(v.description as string) && <p style={{ margin: '6px 0' }}>{v.description as string}</p>}
+          {(v.description as string) && <p>{v.description as string}</p>}
           {actions.length > 0 && (
-            <div className="chips" style={{ justifyContent: 'start' }}>{actions.map((a) => <span key={a} className="chip ref">{a}</span>)}</div>
+            <div className="chips start">{actions.map((a) => <span key={a} className="chip ref">{a}</span>)}</div>
           )}
         </div>
       );
@@ -164,8 +165,8 @@ function describeProject(op: Op, ctx: ProjectCtx): Described {
 
 function EvidenceThumb({ e, onOpen }: { e: Evidence; onOpen(): void }) {
   return (
-    <button className="evidence" onClick={onOpen} title={e.summary}>
-      {e.path?.endsWith('.png') ? <img src={fileUrl(e.path)} alt="" loading="lazy" /> : <div style={{ height: 86, padding: 8, fontSize: 11 }} className="id">{e.kind}</div>}
+    <button type="button" className="evidence" onClick={onOpen}>
+      {e.path?.endsWith('.png') ? <img src={fileUrl(e.path)} alt="" loading="lazy" /> : <div className="id evidence-kind">{e.kind}</div>}
       <span>
         <b>{e.id}</b> {e.summary}
       </span>
@@ -242,13 +243,13 @@ export function ProposalsView(props: Props) {
         {!p && <div className="empty">This proposal is gone.</div>}
         {p && (
           <>
-            <h1 style={{ fontSize: 20, margin: 0 }}>{agents.find((a) => a.id === p.agent)?.title ?? p.agent}</h1>
+            <h1>{agents.find((a) => a.id === p.agent)?.title ?? p.agent}</h1>
             <div className="muted">
               <span className="id">{p.id}</span>
               {p.entity ? <>, entity: {props.entities.find((e) => e.id === p.entity)?.title ?? p.entity}</> : <>, project-level proposal</>}
               {p.role && <>, role: {project.project.roles.find((r) => r.id === p.role)?.title ?? p.role}</>}
               , {p.entity ? 'model' : 'backlog'} at proposal time: <span className="id">{p.baseRevision}</span>
-              {p.stale && p.status === 'pending' && <span style={{ color: 'var(--warn)' }}> — the {p.entity ? 'model' : 'backlog'} has changed since</span>}
+              {p.stale && p.status === 'pending' && <span className="t-warn"> — the {p.entity ? 'model' : 'backlog'} has changed since</span>}
             </div>
             <p className="rationale">{p.rationale}</p>
 
@@ -267,9 +268,9 @@ export function ProposalsView(props: Props) {
               </div>
             ))}
 
-            <h3 style={{ margin: '24px 0 10px', fontSize: 14 }}>Model changes</h3>
+            <h2 className="changes-h">Model changes</h2>
             {p.status === 'pending' && p.ops.some((op) => !noStatusKinds.has(op.kind)) && (
-              <p className="muted" style={{ margin: '0 0 10px' }}>
+              <p className="muted changes-note">
                 <b>Accept as requirement</b>: the product must do this, tests check it. <b>Observed only</b>: the product does this but no
                 source requires it, so it's recorded, not enforced. <b>Not built yet</b>: required, tested once it's built.
               </p>
@@ -306,14 +307,18 @@ export function ProposalsView(props: Props) {
                           {noObserve ? 'Apply' : 'Accept as requirement'}
                         </button>
                         {!noObserve && (
-                          <button className="btn small ghost" title="The product does this, but no source requires it: recorded, not enforced" disabled={busy || !!conflict} onClick={() => apply([{ op: i, verdict: 'observe' }])}>
-                            Observed only
-                          </button>
+                          <Tip tip="The product does this, but no source requires it: recorded, not enforced">
+                            <button className="btn small ghost" disabled={busy || !!conflict} onClick={() => apply([{ op: i, verdict: 'observe' }])}>
+                              Observed only
+                            </button>
+                          </Tip>
                         )}
                         {!noObserve && (
-                          <button className="btn small ghost" title="Required, but not built yet: no tests until it is" disabled={busy || !!conflict} onClick={() => apply([{ op: i, verdict: 'plan' }])}>
-                            Not built yet
-                          </button>
+                          <Tip tip="Required, but not built yet: no tests until it is">
+                            <button className="btn small ghost" disabled={busy || !!conflict} onClick={() => apply([{ op: i, verdict: 'plan' }])}>
+                              Not built yet
+                            </button>
+                          </Tip>
                         )}
                         <button className="btn small ghost" disabled={busy} onClick={() => apply([{ op: i, verdict: 'reject' }])}>
                           Strike out
@@ -357,21 +362,15 @@ export function ProposalsView(props: Props) {
       </div>
 
       {lightbox && (
-        <div className="lightbox" onClick={() => setLightbox(null)} role="dialog" aria-label={lightbox.summary}>
-          <figure onClick={(e) => e.stopPropagation()}>
-            {lightbox.path?.endsWith('.png') ? (
-              <img src={fileUrl(lightbox.path)} alt={lightbox.summary} />
-            ) : lightbox.path ? (
-              <iframe title={lightbox.id} src={fileUrl(lightbox.path)} style={{ width: 640, height: 420, border: 0, background: 'var(--surface)' }} />
-            ) : (
-              <div style={{ padding: 16 }}>{lightbox.url}</div>
-            )}
-            <figcaption>
-              <b>{lightbox.id}</b> {lightbox.summary}
-              {lightbox.url && <div className="id">{lightbox.url}</div>}
-            </figcaption>
-          </figure>
-        </div>
+        <Modal wide title={<>{lightbox.id} <span className="muted">{lightbox.summary}</span></>} onClose={() => setLightbox(null)}>
+          {lightbox.path?.endsWith('.png') ? (
+            <img className="evidence-full" src={fileUrl(lightbox.path)} alt={lightbox.summary} />
+          ) : lightbox.path ? (
+            // Pages an agent saved from the app under test: no scripts, no same-origin access to the engine.
+            <iframe className="evidence-page" title={lightbox.summary} sandbox="" src={fileUrl(lightbox.path)} />
+          ) : null}
+          {lightbox.url && <p className="id">{lightbox.url}</p>}
+        </Modal>
       )}
     </div>
   );

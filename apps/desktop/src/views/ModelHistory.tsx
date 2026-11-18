@@ -77,7 +77,7 @@ export function Editable({ title, label, busy, onSave, as: Tag = 'span', bare }:
     return (
       <>
         {!bare && <Tag>{title}</Tag>}
-        <button className="btn small ghost" disabled={busy} aria-label={`Rename ${label}`} title="Rename" onClick={() => setDraft(title)}>Rename</button>
+        <button className="btn small ghost" disabled={busy} aria-label={`Rename ${label}`} onClick={() => setDraft(title)}>Rename</button>
       </>
     );
   const save = () => {
@@ -93,7 +93,8 @@ export function Editable({ title, label, busy, onSave, as: Tag = 'span', bare }:
       onChange={(e) => setDraft(e.target.value)}
       onBlur={save}
       onKeyDown={(e) => {
-        if (e.key === 'Enter') save();
+        // Not while an input method is still composing the word.
+        if (e.key === 'Enter' && !e.nativeEvent.isComposing) save();
         if (e.key === 'Escape') setDraft(null);
       }}
     />

@@ -12,7 +12,7 @@ describe('renderMarkdown', () => {
     expect(container.querySelectorAll('li')).toHaveLength(2);
     expect(container.querySelector('p b')?.textContent).toBe('Paid');
     expect(container.querySelector('.tests')?.textContent).toBe('2 tests');
-    expect(container.querySelector('.tests')?.getAttribute('title')).toBe('a/b\nc/d');
+    expect(container.querySelector('.tests + .tip')?.textContent).toBe('a/b\nc/d');
     expect(container.querySelector('li i')?.textContent).toBe('plain');
   });
 });

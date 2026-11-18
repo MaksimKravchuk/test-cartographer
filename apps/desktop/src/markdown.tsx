@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { Tip } from './ui.tsx';
 
 // Just enough Markdown for the spec the engine writes: headings, "- " lists,
 // paragraphs, **bold**, _italic_ and `code`. A list item's trailing
@@ -30,7 +31,9 @@ function item(text: string, key: number) {
   return (
     <li key={key}>
       {inline(text.slice(0, m.index))}{' '}
-      <span className="tests" title={tests.join('\n')}>{tests.length} {tests.length === 1 ? 'test' : 'tests'}</span>
+      <Tip toggle tip={tests.join('\n')}>
+        <button type="button" className="tests">{tests.length} {tests.length === 1 ? 'test' : 'tests'}</button>
+      </Tip>
     </li>
   );
 }

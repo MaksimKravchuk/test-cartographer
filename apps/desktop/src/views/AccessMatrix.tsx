@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import type { AccessDecision, Cell, Coverage, Entity } from '@tc/model';
 import type { ProjectState } from '../api.ts';
+import { Tip } from '../ui.tsx';
 
 // Not imported from '@tc/model': any *value* import from that package pulls
 // in its whole index (including the Node-only workspace.ts) and breaks the
@@ -62,7 +63,7 @@ export function AccessMatrix({ coverage, entity, project, variant }: { coverage:
           })}
         </tbody>
       </table>
-      <div className="legend access-legend" aria-label="Legend">
+      <div className="legend access-legend" role="group" aria-label="Legend">
         <span className="access-cell allowed">✓</span><span>allowed</span>
         <span className="access-cell undecided">?</span><span>undecided — an observed or proposed element, not yet a requirement</span>
         <span className="access-cell denied">×</span><span>denied — nothing allows it (closed world)</span>
@@ -89,11 +90,22 @@ function RoleGroup({ title, colSpan, children }: { title: string; colSpan: numbe
 function AccessCellView({ cell }: { cell: { decision: AccessDecision; result: Cell | null } }) {
   const symbol = { allowed: '✓', undecided: '?', denied: '×' }[cell.decision];
   const title = cell.result ? `${cell.decision} — ${cell.result.status}${cell.result.error ? `: ${cell.result.error}` : ''}` : cell.decision;
+  if (!cell.result)
+    return (
+      <span className={`access-cell ${cell.decision}`}>
+        <span aria-hidden>{symbol}</span>
+        <span className="sr-only">{title}</span>
+      </span>
+    );
+  // With a run result, the cell opens a hint with the status and any error.
   return (
-    <span className={`access-cell ${cell.decision}`} title={title}>
-      {symbol}
-      {cell.result && <i className={`dot ${cell.result.status}`} />}
-    </span>
+    <Tip toggle tip={title}>
+      <button type="button" className={`access-cell ${cell.decision}`}>
+        <span aria-hidden>{symbol}</span>
+        <i className={`dot ${cell.result.status}`} aria-hidden />
+        <span className="sr-only">{title}</span>
+      </button>
+    </Tip>
   );
 }
 

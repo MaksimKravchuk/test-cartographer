@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import type { Disagreement, Lint, Resolution, Source } from '@tc/model';
 import { api, type EntityState, type EntitySummary, type ProjectDecideResult, type ProjectState, type ProposalState } from '../api.ts';
 import { ProposalsView } from './ProposalsView.tsx';
+import { Tip } from '../ui.tsx';
 
 // Everything that waits for a person, in one queue: contradictions between
 // sources, agents' questions, gaps, problems reading a source, and proposed
@@ -158,7 +159,7 @@ export function InboxView(props: Props) {
 
   return (
     <div className="inbox">
-      <div className="inbox-list" aria-label="Queue">
+      <section className="inbox-list" aria-label="Queue">
         <div className="filters" role="group" aria-label="Show">
           <button aria-pressed={filter === 'all'} onClick={() => setFilter('all')}>All {items.length}</button>
           {groups.map((g) => count(g.kind) > 0 && (
@@ -184,7 +185,7 @@ export function InboxView(props: Props) {
         <label className="settled-toggle">
           <input type="checkbox" checked={showSettled} onChange={(e) => setShowSettled(e.target.checked)} /> Show settled
         </label>
-      </div>
+      </section>
 
       <div className="inbox-detail">
         {!item && <p className="muted">{report ? 'Pick an item on the left.' : 'Loading…'}</p>}
@@ -261,9 +262,11 @@ export function InboxView(props: Props) {
                 </>
               )}
               {!item.d.resolution && (
-                <button className="btn" disabled={busy || props.running} title="An agent digs into the sources and rewrites this so you can answer it" onClick={() => clarify(item)}>
-                  Need more context <span className="kbd">M</span>
-                </button>
+                <Tip tip="An agent digs into the sources and rewrites this so you can answer it">
+                  <button type="button" className="btn" disabled={busy || props.running} onClick={() => clarify(item)}>
+                    Need more context <span className="kbd">M</span>
+                  </button>
+                </Tip>
               )}
               <span className="spacer" />
               <span className="muted hint">

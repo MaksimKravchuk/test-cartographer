@@ -24,7 +24,7 @@ export function ExportView({ onError }: { onError(m: string): void }) {
       </p>
       <div className="row" style={{ marginBottom: 20 }}>
         <button className="btn primary" disabled={busy} onClick={run}>Export to Markdown</button>
-        <button className="btn" disabled title="Links to the same scenarios and their IDs; not implemented in the first release">Sync with Allure TestOps</button>
+        <span className="muted">Sync with Allure TestOps comes in a later release.</span>
       </div>
       {files?.map((f) => (
         <div key={f.path}>

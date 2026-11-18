@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import type { DragEvent } from 'react';
 import type { FileSourceKind, Source, SourceKind } from '@tc/model';
 import { api, type ProjectState, type SourceCheck, type SourceInfo } from '../api.ts';
+import { MenuItem, Modal, Popup } from '../ui.tsx';
 
 type Props = {
   project: ProjectState;
@@ -29,7 +30,6 @@ function readAsText(file: File): Promise<string> {
 // one form at a time from the Add source menu. Agents start from Ask agent.
 export function OnboardingView({ project, reloadToken, onError }: Props) {
   const [adding, setAdding] = useState<Adding>(null);
-  const [menu, setMenu] = useState(false);
   const [sources, setSources] = useState<SourceInfo[] | null>(null);
   const [kind, setKind] = useState<FileSourceKind>('doc');
   const [usePriority, setUsePriority] = useState(true);
@@ -141,10 +141,6 @@ export function OnboardingView({ project, reloadToken, onError }: Props) {
     void addFiles(e.dataTransfer.files);
   };
 
-  const open = (a: Adding) => {
-    setAdding(a);
-    setMenu(false);
-  };
 
   return (
     <div className="page onboarding">
@@ -154,25 +150,22 @@ export function OnboardingView({ project, reloadToken, onError }: Props) {
           <p className="lede" style={{ margin: 0 }}>What agents read: product docs, tracker exports, API contracts, notes, the code, and systems such as Confluence or Jira through MCP.</p>
         </div>
         <span className="spacer" />
-        <label className="switch-label" title="Off: every disagreement between sources goes to you">
-          <input type="checkbox" role="switch" checked={usePriority} disabled={busy} onChange={(e) => act(() => api.setUsePriority(e.target.checked))} />
+        <label className="switch-label">
+          <input type="checkbox" switch="" role="switch" checked={usePriority} disabled={busy} aria-describedby="prio-hint" onChange={(e) => act(() => api.setUsePriority(e.target.checked))} />
           Use priorities
         </label>
         <button className="btn" disabled={checking || !sources?.length} onClick={checkAccess}>{checking ? 'Checking…' : 'Check access'}</button>
-        <div className="menu-anchor">
-          <button className="btn primary" aria-haspopup="menu" aria-expanded={menu} onClick={() => setMenu(!menu)}>
-            Add source <span aria-hidden className="caret">▾</span>
-          </button>
-          {menu && (
-            <div className="menu" role="menu" aria-label="Add source">
-              <button role="menuitem" onClick={() => open('file')}><b>Document</b><small>Upload or paste a product doc, tracker export, API contract or note</small></button>
-              <button role="menuitem" onClick={() => open('code')}><b>Code folder</b><small>A repository or folder on this computer</small></button>
-              <button role="menuitem" onClick={() => open('mcp')}><b>Through MCP</b><small>Confluence, Jira and other systems behind an MCP server</small></button>
-            </div>
-          )}
-        </div>
+        <Popup menu name="Add source" className="menu" triggerClass="btn primary" label={<>Add source <span aria-hidden className="caret">▾</span></>}>
+          <MenuItem title="Document" detail="Upload or paste a product doc, tracker export, API contract or note" onSelect={() => setAdding('file')} />
+          <MenuItem title="Code folder" detail="A repository or folder on this computer" onSelect={() => setAdding('code')} />
+          <MenuItem title="Through MCP" detail="Confluence, Jira and other systems behind an MCP server" onSelect={() => setAdding('mcp')} />
+        </Popup>
       </div>
-      {usePriority && <p className="muted hint-line">When sources disagree, the one with the higher priority stands: 1 is the strongest. Requirements outrank code by default.</p>}
+      <p className="muted hint-line" id="prio-hint">
+        {usePriority
+          ? 'When sources disagree, the one with the higher priority stands: 1 is the strongest. Requirements outrank code by default.'
+          : 'Priorities are off: every disagreement between sources goes to you.'}
+      </p>
 
       <div className="sources-list">
         <table className="grid">
@@ -195,7 +188,7 @@ export function OnboardingView({ project, reloadToken, onError }: Props) {
                 <td className="muted"><span className="id">{where(s)}</span></td>
                 <td>
                   {checks[s.id] ? (
-                    <span className="access" title={checks[s.id].detail}><span className={`dot ${checks[s.id].ok ? 'ok' : 'bad'}`} /> {checks[s.id].ok ? 'readable' : 'no access'} <span className="muted">{checks[s.id].detail}</span></span>
+                    <span className="access"><span className={`dot ${checks[s.id].ok ? 'ok' : 'bad'}`} /> {checks[s.id].ok ? 'readable' : 'no access'} <span className="muted">{checks[s.id].detail}</span></span>
                   ) : <span className="access muted"><span className="dot" /> not checked</span>}
                 </td>
                 <td>
@@ -276,9 +269,9 @@ export function OnboardingView({ project, reloadToken, onError }: Props) {
                 onDrop={onDrop}
               >
                 <p>Drag files here, or</p>
-                <label className="btn small" style={{ cursor: 'pointer' }}>
+                <label className="btn small file-pick">
                   Choose files…
-                  <input type="file" multiple style={{ display: 'none' }} disabled={busy} onChange={(e) => { void addFiles(e.target.files ?? []); e.target.value = ''; }} />
+                  <input type="file" className="sr-only" multiple disabled={busy} onChange={(e) => { void addFiles(e.target.files ?? []); e.target.value = ''; }} />
                 </label>
                 <p className="muted">Read as text. Binary or oversized files come back with a clear error.</p>
               </div>
@@ -298,12 +291,9 @@ export function OnboardingView({ project, reloadToken, onError }: Props) {
       )}
 
       {viewing && (
-        <div className="lightbox" onClick={() => setViewing(null)} role="dialog" aria-label={viewing.source.title}>
-          <figure onClick={(e) => e.stopPropagation()} style={{ width: 'min(900px, 90vw)' }}>
-            <pre className="md" style={{ maxHeight: '70vh', overflow: 'auto', margin: 0 }}>{viewing.text}</pre>
-            <figcaption><b>{viewing.source.title}</b> <span className="id">{viewing.source.file}</span></figcaption>
-          </figure>
-        </div>
+        <Modal wide title={<>{viewing.source.title} <span className="id">{viewing.source.file}</span></>} onClose={() => setViewing(null)}>
+          <pre className="md source-text" tabIndex={0} role="region" aria-label={`Text of ${viewing.source.title}`}>{viewing.text}</pre>
+        </Modal>
       )}
     </div>
   );

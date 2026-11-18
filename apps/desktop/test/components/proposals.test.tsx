@@ -36,7 +36,7 @@ describe('ProposalsView', () => {
   it('names what each way of accepting means', () => {
     render(<ProposalsView {...props} entities={[{ id: 'auth', title: 'Auth' }] as never} />);
     expect(screen.getByRole('button', { name: 'Accept as requirement' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Observed only' })).toHaveAttribute('title', expect.stringMatching(/no source requires it/));
+    expect(screen.getByRole('button', { name: 'Observed only' })).toHaveAccessibleDescription(/no source requires it/);
     expect(screen.getByRole('button', { name: 'Not built yet' })).toBeInTheDocument();
   });
 });

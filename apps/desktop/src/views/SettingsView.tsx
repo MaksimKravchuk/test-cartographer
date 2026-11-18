@@ -56,9 +56,13 @@ export function SettingsView({ project, onSaved, onError }: Props) {
               <td><input className="text" value={x.title} onChange={(e) => setIface(i, { title: e.target.value })} /></td>
               <td><input className="text" value={x.baseUrl} onChange={(e) => setIface(i, { baseUrl: e.target.value })} /></td>
               <td>
-                <button className="btn small" disabled={draft.interfaces.length === 1 || draft.roles.some((r) => r.interface === x.id)} title="Interfaces used by a role can't be removed" onClick={() => setDraft({ ...draft, interfaces: draft.interfaces.filter((_, n) => n !== i) })}>
-                  Remove
-                </button>
+                {draft.roles.some((r) => r.interface === x.id) ? (
+                  <span className="muted">Used by a role</span>
+                ) : (
+                  <button type="button" className="btn small" disabled={draft.interfaces.length === 1} onClick={() => setDraft({ ...draft, interfaces: draft.interfaces.filter((_, n) => n !== i) })}>
+                    Remove
+                  </button>
+                )}
               </td>
             </tr>
           ))}

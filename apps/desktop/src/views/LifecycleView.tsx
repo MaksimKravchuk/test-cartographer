@@ -114,8 +114,8 @@ export function LifecycleView(props: Props) {
                 const picked = cell?.from === from && cell.to === to;
                 if (!xs.length)
                   return (
-                    <td key={to} className={`lc-cell empty ${from === to ? 'diag' : ''}`} title={from === to ? undefined : `${stateTitle(from)} → ${stateTitle(to)}: not possible`}>
-                      {from === to ? '' : '—'}
+                    <td key={to} className={`lc-cell empty ${from === to ? 'diag' : ''}`}>
+                      {from === to ? '' : <><span aria-hidden>—</span><span className="sr-only">not possible</span></>}
                     </td>
                   );
                 return (
@@ -131,7 +131,7 @@ export function LifecycleView(props: Props) {
                       const r = x.ghost ? null : props.resultOf(x.transition.id);
                       return (
                         <div key={i} className={`lc-chip ${kind(x)} ${isSelected(x) ? 'selected' : ''}`}>
-                          {r && <span className={`dot ${r}`} aria-label={r} />}
+                          {r && <span className={`dot ${r}`}><span className="sr-only">{r}: </span></span>}
                           <span className="a">{actionTitle(x.transition.action)}</span>
                           <span className="role">{roles(x.transition.by)}</span>
                         </div>

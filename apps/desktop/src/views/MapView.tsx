@@ -9,6 +9,7 @@ import type { Entity, State, Transition } from '@tc/model';
 import { api, type EntityState, type ProjectState, type ProposalState } from '../api.ts';
 import { LifecycleView } from './LifecycleView.tsx';
 import { applies, autoLayout, groupTransitions, nextId, NODE_H, type Selection } from '../graph.ts';
+import { Tip } from '../ui.tsx';
 
 type Props = {
   entity: Entity;
@@ -61,21 +62,21 @@ function Fans({ fans }: { fans: FanView[] }) {
   return (
     <div className="fans">
       {fans.map((f, i) => (
-        <button
-          key={i}
-          className={`fan nodrag ${f.cls} ${f.selected ? 'selected' : ''}`}
-          style={{ opacity: f.dim ? 0.35 : 1 }}
-          title={`${f.action} — ${f.dir === 'in' ? 'from' : 'to'}: ${f.others.join(', ')}`}
-          onClick={(e) => {
-            e.stopPropagation();
-            f.onPick();
-          }}
-        >
-          {f.result && <span className={`dot ${f.result}`} aria-label={f.result} />}
-          <span aria-hidden="true">{f.dir === 'in' ? '←' : '→'}</span>
-          <span className="fan-action">{f.action}</span>
-          <span className="role">{f.dir === 'in' ? 'from' : 'to'} {f.others.length}</span>
-        </button>
+        <Tip key={i} tip={`${f.dir === 'in' ? 'From' : 'To'}: ${f.others.join(', ')}`}>
+          <button
+            type="button"
+            className={`fan nodrag ${f.cls} ${f.selected ? 'selected' : ''} ${f.dim ? 'dim' : ''}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              f.onPick();
+            }}
+          >
+            {f.result && <span className={`dot ${f.result}`}><span className="sr-only">{f.result}: </span></span>}
+            <span aria-hidden="true">{f.dir === 'in' ? '←' : '→'}</span>
+            <span className="fan-action">{f.action}</span>
+            <span className="role">{f.dir === 'in' ? 'from' : 'to'} {f.others.length}</span>
+          </button>
+        </Tip>
       ))}
     </div>
   );
@@ -86,8 +87,8 @@ function StateNode({ data }: NodeProps<Node<StateData>>) {
   // The pseudo-state before an instance exists: creating transitions start here.
   if (s.id === NEW)
     return (
-      <div className="start-node" title="Before the instance exists">
-        New
+      <div className="start-node">
+        New<span className="sr-only">: before the instance exists</span>
         <Fans fans={data.fans} />
         <Handle type="source" position={Position.Bottom} />
       </div>
@@ -133,17 +134,20 @@ function TransitionEdge(props: EdgeProps<Edge<EdgeData>>) {
     <>
       <BaseEdge path={path} markerStart={props.markerStart} markerEnd={props.markerEnd} style={style} />
       <EdgeLabelRenderer>
-        <div
-          className={`edge-label nodrag nopan ${d.ghost ? 'ghost' : ''} ${d.selected ? 'selected' : ''} ${d.systemOnly ? 'system' : ''}`}
-          style={{ transform: `translate(-50%, -50%) translate(${lx}px, ${ly + d.offset * 26}px)`, opacity: d.dim ? 0.35 : 1 }}
-          onClick={d.onPick}
-          title={d.tooltip}
-        >
-          {!d.ghost && <span className={`dot ${d.result ?? ''}`} aria-label={d.result ?? 'not run'} />}
-          {d.systemOnly && <span className="system-marker" title="Performed by the system, not a person">⚙</span>}
-          <span>{d.actionTitle}</span>
-          <span className="role">{d.roleTitle}</span>
-        </div>
+        <Tip tip={d.tooltip}>
+          <button
+            type="button"
+            className={`edge-label nodrag nopan ${d.ghost ? 'ghost' : ''} ${d.selected ? 'selected' : ''} ${d.systemOnly ? 'system' : ''} ${d.dim ? 'dim' : ''}`}
+            // Computed per edge: where React Flow puts the label.
+            style={{ transform: `translate(-50%, -50%) translate(${lx}px, ${ly + d.offset * 26}px)` }}
+            onClick={d.onPick}
+          >
+            {!d.ghost && <span className={`dot ${d.result ?? ''}`}><span className="sr-only">{d.result ?? 'not run'}: </span></span>}
+            {d.systemOnly && <span className="system-marker"><span aria-hidden>⚙</span><span className="sr-only">system: </span></span>}
+            <span>{d.actionTitle}</span>
+            <span className="role">{d.roleTitle}</span>
+          </button>
+        </Tip>
       </EdgeLabelRenderer>
     </>
   );
@@ -449,7 +453,7 @@ function Map(props: Props) {
       </ReactFlow>
       )}
       {mode === 'graph' && (
-      <div className="legend" aria-label="Legend">
+      <div className="legend" role="group" aria-label="Legend">
         <svg width="34" height="6"><line x1="0" y1="3" x2="34" y2="3" stroke="var(--fg)" strokeWidth="2" /></svg>
         <span>Requirement — confirmed by a person</span>
         <svg width="34" height="6"><line x1="0" y1="3" x2="34" y2="3" stroke="var(--warn)" strokeWidth="2" strokeDasharray="7 5" /></svg>

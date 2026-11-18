@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api, type Projects, type RecentProject } from '../api.ts';
 import { AddProject } from './AddProject.tsx';
+import { Tip } from '../ui.tsx';
 
 type Props = {
   // Switching is off while there are unsaved edits or a running job.
@@ -47,28 +48,30 @@ export function ProjectsView({ disabled, onNotify, onError }: Props) {
         <div className="project-head">
           <button className="entity-open" disabled={busy || disabled || current || p.missing} onClick={() => act(() => api.openProject(p.root))}>
             <h2>{p.name}</h2>
-            <span className="id" title={p.root}>{p.root}</span>
+            <span className="id">{p.root}</span>
             <div className="entity-flags">
               {current && <span className="flag proposed">Open now</span>}
               {p.missing && <span className="flag error">Folder not found</span>}
               {!current && !p.missing && <span className="muted">Opened {new Date(p.openedAt).toLocaleString()}</span>}
             </div>
           </button>
-          <button className={`star ${p.pinned ? 'on' : ''}`} onClick={() => act(() => api.pinProject(p.root, !p.pinned))} aria-pressed={!!p.pinned} title={p.pinned ? 'Remove from favorites' : 'Add to favorites'}>
-            {p.pinned ? '★' : '☆'}
-          </button>
+          <Tip tip={p.pinned ? 'Remove from favorites' : 'Add to favorites'}>
+            <button type="button" className={`star ${p.pinned ? 'on' : ''}`} onClick={() => act(() => api.pinProject(p.root, !p.pinned))} aria-pressed={!!p.pinned} aria-label={`Favorite: ${p.name}`}>
+              <span aria-hidden>{p.pinned ? '★' : '☆'}</span>
+            </button>
+          </Tip>
         </div>
         {!current && (
           <div className="entity-actions">
             {confirm === p.root ? (
               <>
-                <span className="muted" title="~/.test-cartographer/trash">Move folder to trash?</span>
+                <span className="muted">Move the folder to ~/.test-cartographer/trash?</span>
                 <button className="btn small danger" disabled={busy} onClick={() => act(() => api.trashProject(p.root), `“${p.name}” moved to the trash`)}>Delete</button>
                 <button className="btn small" onClick={() => setConfirm(null)}>Keep</button>
               </>
             ) : (
               <>
-                <button className="btn small" disabled={busy} onClick={() => act(() => api.forgetProject(p.root))} title="The folder stays on disk">Remove from list</button>
+                <Tip tip="The folder stays on disk"><button type="button" className="btn small" disabled={busy} onClick={() => act(() => api.forgetProject(p.root))}>Remove from list</button></Tip>
                 {!p.missing && <button className="btn small danger" onClick={() => setConfirm(p.root)}>Delete…</button>}
               </>
             )}

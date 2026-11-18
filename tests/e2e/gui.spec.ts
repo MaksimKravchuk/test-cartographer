@@ -93,7 +93,7 @@ test('a review shows by source which one contradicts the model', async ({ page }
   await place(page, 'Model').click();
   const next = page.getByRole('region', { name: 'What to do next' });
   await expect(next).toContainText(/contradictions between sources/);
-  await next.getByRole('link', { name: /Requirements \(priority 1\)/ }).click();
+  await next.getByRole('button', { name: /Requirements \(priority 1\)/ }).click();
   await expect(page.getByRole('heading', { name: /→ Cancel/ })).toBeVisible();
   // The agent's rule sits on the action itself, with its quote and the verdicts in words.
   const rules = page.getByRole('region', { name: 'Rules' });
