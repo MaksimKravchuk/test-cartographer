@@ -127,7 +127,7 @@ const edgeTypes = { reference: ReferenceEdge };
 // Sits in the header, not the canvas, so it can never end up on top of a card.
 function Legend() {
   return (
-    <div className="objects-legend" aria-label="Legend">
+    <div className="objects-legend" role="group" aria-label="Legend">
       <span className="legend-item">
         <svg width="26" height="16" viewBox="0 0 26 16">
           <rect x="1" y="1" width="24" height="14" rx="3" fill="none" stroke="var(--fg-3)" />
@@ -146,7 +146,7 @@ function Legend() {
         </svg>
         Arrow — refers to
       </span>
-      <span className="legend-item"><span style={{ fontSize: 14 }}>⚙</span> System subject</span>
+      <span className="legend-item"><span style={{ fontSize: '0.875rem' }}>⚙</span> System subject</span>
     </div>
   );
 }
@@ -629,7 +629,7 @@ function SubjectPanel({
         <h3>Data</h3>
         <FieldsEditor owner="roles" ownerId={role.id} fields={role.fields} file="cartographer.yaml" onSave={onSaveData} />
         {role.login && role.fields.length > 0 && !usesFields && (
-          <p className="muted" style={{ fontSize: 12, margin: '10px 0 0' }}>
+          <p className="muted" style={{ fontSize: '0.75rem', margin: '10px 0 0' }}>
             To sign in with this data, use <span className="id">{`{{roles.${role.id}.<key>}}`}</span> in the credentials in Settings.
           </p>
         )}

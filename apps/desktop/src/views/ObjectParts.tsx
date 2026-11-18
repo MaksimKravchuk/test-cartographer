@@ -5,6 +5,7 @@
 import { useRef, useState } from 'react';
 import type { Attribute, AttributeType, Entity, Role, Transition } from '@tc/model';
 import { lifecycleOrder } from './LifecycleView.tsx';
+import { Tip } from '../ui.tsx';
 
 const NEW = '@new';
 const TYPES: AttributeType[] = ['text', 'number', 'money', 'date', 'bool', 'enum', 'link', 'file', 'other'];
@@ -42,7 +43,7 @@ export function Incoming({ count, busy, blocked, onAll }: { count: number; busy:
     <span className="incoming">
       <span className="tag proposed">{count} new incoming</span>
       <button className="btn small" disabled={busy || blocked} onClick={() => onAll('accept')}>Accept all</button>
-      <button className="btn small ghost" disabled={busy || blocked} title="Strike out: agents won't propose them again" onClick={() => onAll('reject')}>Strike out all</button>
+      <Tip tip="Agents won't propose them again"><button type="button" className="btn small ghost" disabled={busy || blocked} onClick={() => onAll('reject')}>Strike out all</button></Tip>
     </span>
   );
 }
@@ -108,6 +109,7 @@ export function AttributesTable(props: {
 
   return (
     <div className="act-table-wrap">
+      <p className="muted hint-line">A tick: that subject may change the parameter. No tick: the app must refuse it.</p>
       <table className="act-table attr-table">
         <thead>
           <tr>
@@ -115,7 +117,7 @@ export function AttributesTable(props: {
             <th scope="col">Type</th>
             <th scope="col">Values</th>
             {roles.map((r) => (
-              <th key={r.id} scope="col" className="who" title={`Ticked: ${r.title} may change it. Unticked: must be refused.`}>{r.title}</th>
+              <th key={r.id} scope="col" className="who">{r.title}</th>
             ))}
             <th aria-label="Row actions" />
           </tr>
@@ -138,7 +140,6 @@ export function AttributesTable(props: {
                   <input
                     type="checkbox"
                     aria-label={`${r.title} can change ${a.title}`}
-                    title={(a.by ?? []).includes(r.id) ? `${r.title} may change it: untick and it must be refused` : `Tick: ${r.title} may change it`}
                     checked={(a.by ?? []).includes(r.id)}
                     disabled={busy}
                     onChange={() => toggle(a, r.id)}
@@ -146,26 +147,27 @@ export function AttributesTable(props: {
                 </td>
               ))}
               <td className="row-x">
-                <button className="mini" disabled={busy} aria-label={`Delete parameter ${a.title}`} title="Delete the parameter" onClick={() => props.onEdit((e) => { e.attributes = e.attributes.filter((x) => x.id !== a.id); })}>✕</button>
+                <Tip tip="Delete the parameter"><button type="button" className="mini" disabled={busy} aria-label={`Delete parameter ${a.title}`} onClick={() => props.onEdit((e) => { e.attributes = e.attributes.filter((x) => x.id !== a.id); })}><span aria-hidden>✕</span></button></Tip>
               </td>
             </tr>
             );
             if (x) return (
-            <tr key={row.key} className="proposed" title={x.rationale}>
+            <tr key={row.key} className="proposed">
               <th scope="row">
                 <span className="chip proposed">{str(x.value.title) || str(x.value.id)}</span> <span className="id">{str(x.value.id)}</span>
-                <span className="muted nobody"> proposed by {x.agent}</span>
+                <span className="muted nobody"> proposed by {x.agent} </span>
+                {x.rationale && <Tip toggle tip={x.rationale}><button type="button" className="btn link small">Why?</button></Tip>}
                 {str(x.value.note) && <div className="muted attr-note">{str(x.value.note)}</div>}
               </th>
               <td>{str(x.value.type) || 'text'}</td>
               <td className="attr-values">{valuesText(x.value)}</td>
               {roles.map((r) => (
-                <td key={r.id} className="who">{list(x.value.by).includes(r.id) ? <span title={`The agent says ${r.title} may change it`}>✓</span> : null}</td>
+                <td key={r.id} className="who">{list(x.value.by).includes(r.id) ? <><span aria-hidden>✓</span><span className="sr-only">The agent says {r.title} may change it</span></> : null}</td>
               ))}
               <td className="row-x">
                 <span className="decide">
-                  <button className="btn small" disabled={busy || x.blocked} onClick={() => x.onDecide('accept')}>Accept</button>
-                  <button className="btn small ghost" disabled={busy || x.blocked} title="Strike out: agents won't propose it again" onClick={() => x.onDecide('reject')}>Strike out</button>
+                  <button type="button" className="btn small" disabled={busy || x.blocked} onClick={() => x.onDecide('accept')}>Accept</button>
+                  <Tip tip="Agents won't propose it again"><button type="button" className="btn small ghost" disabled={busy || x.blocked} onClick={() => x.onDecide('reject')}>Strike out</button></Tip>
                 </span>
               </td>
             </tr>
@@ -175,14 +177,14 @@ export function AttributesTable(props: {
         </tbody>
       </table>
       {!live.length && !props.proposed.length && <p className="muted attr-empty">No parameters yet. Add the ones people change (status, price, title) or ask an agent to read them from the code.</p>}
-      <div className="tree-add act-add">
-        <input className="text" aria-label="New parameter" value={title} placeholder="New parameter, e.g. Price" onChange={(e) => setTitle(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && add()} />
+      <form className="tree-add act-add" onSubmit={(e) => { e.preventDefault(); add(); }}>
+        <input className="text" aria-label="New parameter" value={title} placeholder="New parameter, e.g. Price" onChange={(e) => setTitle(e.target.value)} />
         <select className="text" aria-label="Type" value={type} onChange={(e) => setType(e.target.value as AttributeType)}>
           {TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
         </select>
         {type === 'enum' && <input className="text" aria-label="Values" value={values} placeholder="Values, comma-separated" onChange={(e) => setValues(e.target.value)} />}
-        <button className="btn small" disabled={busy || !title.trim()} onClick={add}>Add parameter</button>
-      </div>
+        <button className="btn small" disabled={busy || !title.trim()}>Add parameter</button>
+      </form>
     </div>
   );
 }
@@ -238,16 +240,18 @@ export function LifecycleTables(props: { entity: Entity; roles: Role[]; onPick(a
                         const xs = at(from, to);
                         if (!xs.length)
                           return (
-                            <td key={to} className={from === to ? 'lc-diag' : 'lc-none'} title={from === to ? undefined : `${stateTitle(from)} → ${stateTitle(to)} must be impossible`}>
-                              {from === to ? '' : '—'}
+                            <td key={to} className={from === to ? 'lc-diag' : 'lc-none'}>
+                              {from === to ? '' : <><span aria-hidden>—</span><span className="sr-only">must be impossible</span></>}
                             </td>
                           );
                         return (
                           <td key={to}>
                             {xs.map((t) => (
-                              <button key={t.id} className={`lc-pill ${t.status}`} title={`${t.title}\nby ${t.by.map(roleTitle).join(', ')}`} onClick={() => props.onPick(t.action)}>
-                                {actionTitle(t.action)} <span className="muted">{who(t)}</span>
-                              </button>
+                              <Tip key={t.id} tip={`${t.title}, by ${t.by.map(roleTitle).join(', ')}`}>
+                                <button type="button" className={`lc-pill ${t.status}`} onClick={() => props.onPick(t.action)}>
+                                  {actionTitle(t.action)} <span className="muted">{who(t)}</span>
+                                </button>
+                              </Tip>
                             ))}
                           </td>
                         );

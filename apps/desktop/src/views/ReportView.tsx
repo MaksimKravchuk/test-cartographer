@@ -4,12 +4,23 @@ import { api, type ProposalState } from '../api.ts';
 
 type Props = { proposals: ProposalState[]; reloadToken: number; onError(m: string): void };
 
-const cellMark: Record<ReviewCell, { mark: string; title: string; color: string }> = {
-  confirms: { mark: '✓', title: 'confirms', color: 'var(--ok)' },
-  contradicts: { mark: '✕', title: 'contradicts', color: 'var(--bad)' },
-  gap: { mark: '…', title: 'gap', color: 'var(--warn)' },
-  question: { mark: '?', title: 'question', color: 'var(--warn)' },
+const cellMark: Record<ReviewCell, { mark: string; title: string; tone: string }> = {
+  confirms: { mark: '✓', title: 'confirms', tone: 't-ok' },
+  contradicts: { mark: '✕', title: 'contradicts', tone: 't-bad' },
+  gap: { mark: '…', title: 'gap', tone: 't-warn' },
+  question: { mark: '?', title: 'question', tone: 't-warn' },
 };
+
+// A mark is a glyph on screen and a word for screen readers; the column header says whose.
+function Mark({ c, strong }: { c?: ReviewCell; strong?: boolean }) {
+  if (!c) return <td />;
+  return (
+    <td className={`mark ${strong ? 'strong' : ''} ${cellMark[c].tone}`}>
+      <span aria-hidden>{cellMark[c].mark}</span>
+      <span className="sr-only">{cellMark[c].title}</span>
+    </td>
+  );
+}
 
 // The review matrix: what each source says about each element of the model,
 // plus the model checks found without an agent. Findings are settled in the Inbox queue.
@@ -32,7 +43,7 @@ export function ReportView({ proposals, reloadToken, onError }: Props) {
         Settle disagreements in the queue.
       </p>
       {data.lint.length > 0 && (
-        <details style={{ marginTop: 12 }}>
+        <details className="lint">
           <summary><b>Model checks</b> <span className="muted">— {data.lint.length} places the model is hard to test, found without an agent</span></summary>
           <ul>
             {data.lint.map((l, i) => <li key={i}>{l.message} <span className="id">{l.ref}</span></li>)}
@@ -40,24 +51,18 @@ export function ReportView({ proposals, reloadToken, onError }: Props) {
         </details>
       )}
       {spoken.length > 0 && (
-        <section style={{ marginTop: 16 }}>
+        <section className="review">
           {silent > 0 && <p className="muted">{silent} more elements no source mentions yet.</p>}
-          <div style={{ overflowX: 'auto' }}>
+          <div className="table-scroll" role="region" aria-label="Review by source, scrolls sideways" tabIndex={0}>
             <table className="matrix access" aria-label="Review by source">
-              <thead><tr><th>Element</th><th>Requirements</th><th>Code</th><th>App</th>{cols.map((s) => <th key={s.id}>{s.title}</th>)}</tr></thead>
+              <thead><tr><th scope="col">Element</th><th scope="col">Requirements</th><th scope="col">Code</th><th scope="col">App</th>{cols.map((s) => <th key={s.id} scope="col">{s.title}</th>)}</tr></thead>
               <tbody>
                 {spoken.map((r) => (
                   <tr key={r.ref}>
-                    <td className="name" title={r.ref}>{r.title.length > 70 ? `${r.title.slice(0, 69)}…` : r.title}</td>
-                    {(['requirements', 'code'] as const).map((k) => {
-                      const c = r.marks[k];
-                      return <td key={k} title={c ? `${k} ${cellMark[c].title}` : `${k}: nothing`} style={{ color: c ? cellMark[c].color : undefined, fontWeight: 600 }}>{c ? cellMark[c].mark : ''}</td>;
-                    })}
-                    <td title={r.marks.app ? 'seen in the running app' : 'not checked in the app'} style={{ color: 'var(--ok)', fontWeight: 600 }}>{r.marks.app ? '✓' : ''}</td>
-                    {cols.map((s) => {
-                      const c = r.cells[s.id];
-                      return <td key={s.id} title={c ? `${s.title} ${cellMark[c].title}` : `${s.title} says nothing`} style={{ color: c ? cellMark[c].color : undefined }}>{c ? cellMark[c].mark : ''}</td>;
-                    })}
+                    <th scope="row" className="name">{r.title}</th>
+                    {(['requirements', 'code'] as const).map((k) => <Mark key={k} c={r.marks[k]} strong />)}
+                    <td className="mark strong t-ok">{r.marks.app && <><span aria-hidden>✓</span><span className="sr-only">seen in the running app</span></>}</td>
+                    {cols.map((s) => <Mark key={s.id} c={r.cells[s.id]} />)}
                   </tr>
                 ))}
               </tbody>

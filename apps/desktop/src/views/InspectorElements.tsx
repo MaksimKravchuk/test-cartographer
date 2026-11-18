@@ -76,7 +76,7 @@ export function OptionalMultiField({ label, options, value, onChange }: { label:
   const all = !value;
   return (
     <div className="field" style={{ display: 'grid', gap: 4, marginBottom: 12 }}>
-      <span style={{ fontSize: 12, color: 'var(--fg-3)' }}>{label}</span>
+      <span style={{ fontSize: '0.75rem', color: 'var(--fg-3)' }}>{label}</span>
       <div className="checks">
         <label>
           <input type="checkbox" checked={all} onChange={() => onChange(all ? options.map(([v]) => v) : undefined)} />
@@ -107,7 +107,7 @@ export function VariantsField({ entity, value, onChange }: { entity: Entity; val
 export function RoleMultiSelect({ label, roles, value, onChange }: { label: string; roles: [string, string][]; value: string[]; onChange(v: string[]): void }) {
   return (
     <div className="field" style={{ display: 'grid', gap: 4, marginBottom: 12 }}>
-      <span style={{ fontSize: 12, color: 'var(--fg-3)' }}>{label}</span>
+      <span style={{ fontSize: '0.75rem', color: 'var(--fg-3)' }}>{label}</span>
       <div className="checks">
         {roles.map(([id, title]) => (
           <label key={id}>
@@ -159,7 +159,7 @@ export function Lines({ label, value, onChange }: { label: string; value: string
   return (
     <label className="field">
       <span>{label}</span>
-      <textarea className="text" style={{ fontFamily: 'var(--sans)', fontSize: 13 }} value={text} onChange={(e) => setText(e.target.value)} onBlur={() => onChange(text.split('\n').map((l) => l.trim()).filter(Boolean))} />
+      <textarea className="text" style={{ fontFamily: 'var(--sans)', fontSize: '0.8125rem' }} value={text} onChange={(e) => setText(e.target.value)} onBlur={() => onChange(text.split('\n').map((l) => l.trim()).filter(Boolean))} />
     </label>
   );
 }
@@ -176,7 +176,7 @@ export function Scenarios({ state, target }: { state: EntityState; target: strin
         const r = state.results[s.id];
         const status = s.blocked ? 'blocked' : (r?.status ?? 'not-run');
         return (
-          <div className="scen" key={s.id} title={r?.error ?? s.blocked ?? undefined}>
+          <div className="scen" key={s.id}>
             <span className={`dot ${status}`} />
             <span>{s.variant}</span>
             {s.role && <span className="muted">{s.role}</span>}
@@ -184,6 +184,7 @@ export function Scenarios({ state, target }: { state: EntityState; target: strin
               {text[status]}
               {s.preparation && `, setup: ${s.preparation === 'tool' ? 'tool' : s.preparation === 'path' ? 'explicit path' : 'graph path'}`}
             </span>
+            {(r?.error ?? s.blocked) && <span className="muted scen-why">{r?.error ?? s.blocked}</span>}
           </div>
         );
       })}

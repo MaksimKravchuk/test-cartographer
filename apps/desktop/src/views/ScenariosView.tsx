@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import type { Condition, Entity, Journey, Rule, Scenario, Status, Step } from '@tc/model';
 import type { EntityState, ProjectState } from '../api.ts';
 import { nextId } from '../graph.ts';
+import { Tip } from '../ui.tsx';
 
 type Props = {
   entity: Entity; // the draft being edited
@@ -86,9 +87,10 @@ export function ScenariosView({ entity, state, project, running, onChange, onRun
           const st = worst(list.map((sc) => runStatus(state, sc)));
           const key = chipKey(role, target, v);
           return (
-            <button key={v} className={`chip ${st}`} aria-expanded={open === key} onClick={() => setOpen(open === key ? null : key)} title={statusText[st]}>
+            <button type="button" key={v} className={`chip ${st}`} aria-expanded={open === key} onClick={() => setOpen(open === key ? null : key)}>
               <span className={`dot ${st}`} />
               {variantTitle(v)}
+              <span className="sr-only">, {statusText[st]}</span>
             </button>
           );
         })}
@@ -353,7 +355,8 @@ function RuleChips({ ids, entity }: { ids: string[]; entity: Entity }) {
     <span className="rule-chips">
       {ids.map((id) => {
         const r = entity.rules.find((x) => x.id === id);
-        return <span key={id} className="chip rule" title={r?.text}>{r?.title ?? id}</span>;
+        if (!r?.text || r.text === r.title) return <span key={id} className="chip rule">{r?.title ?? id}</span>;
+        return <Tip key={id} toggle tip={r.text}><button type="button" className="chip rule">{r.title}</button></Tip>;
       })}
     </span>
   );
@@ -422,7 +425,7 @@ function JourneyEditor(props: {
         <input className="text" value={j.description ?? ''} onChange={(e) => set({ description: e.target.value || undefined })} />
       </label>
       <div className="field" style={{ display: 'grid', gap: 6, marginBottom: 12 }}>
-        <span style={{ fontSize: 12, color: 'var(--fg-3)' }}>Path</span>
+        <span style={{ fontSize: '0.75rem', color: 'var(--fg-3)' }}>Path</span>
         <ol className="steps editable">
           {j.path.map((id, i) => {
             const t = entity.transitions.find((x) => x.id === id);
@@ -505,7 +508,7 @@ function RuleEditor(props: { rule: Rule; entity: Entity; project: ProjectState; 
         <textarea className="text prose" value={r.text} onChange={(e) => set({ text: e.target.value })} placeholder="A user must be signed in to create an order." />
       </label>
       <div className="field" style={{ display: 'grid', gap: 8, marginBottom: 12 }}>
-        <span style={{ fontSize: 12, color: 'var(--fg-3)' }}>Conditions — each one becomes negative scenarios</span>
+        <span style={{ fontSize: '0.75rem', color: 'var(--fg-3)' }}>Conditions — each one becomes negative scenarios</span>
         <label className="row">
           <input type="checkbox" checked={!!has('authenticated')} onChange={(e) => toggle('authenticated', e.target.checked)} />
           Only signed-in users

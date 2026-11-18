@@ -122,10 +122,11 @@ export function Inspector(props: Props) {
               <span className="muted">{entity.actions.find((a) => a.id === p.action)?.title ?? p.action}</span>
             </div>
           ))}
+          {!entity.actions.length && <span className="muted">Add an action first.</span>}
           <button
+            type="button"
             className="btn small"
             disabled={!entity.actions.length}
-            title={!entity.actions.length ? 'Add an action first' : undefined}
             onClick={() => {
               const id = nextId('permit', entity.permits.map((p) => p.id));
               const p: Permit = {
@@ -152,7 +153,7 @@ export function Inspector(props: Props) {
         <h2>Agent proposal</h2>
         <div className="sub"><span className="id">{p.agent}</span></div>
         <p>{p.rationale}</p>
-        <pre className="md" style={{ fontSize: 12 }}>{JSON.stringify(op, null, 2)}</pre>
+        <pre className="md" style={{ fontSize: '0.75rem' }}>{JSON.stringify(op, null, 2)}</pre>
         <button className="btn primary" onClick={props.onOpenProposal}>Review proposal</button>
       </div>
     );
@@ -343,11 +344,11 @@ function Relations({ entity, state, onChange }: { entity: Entity; state: EntityS
         return (
           <div key={i} className="relation-card">
             <div className="row" style={{ justifyContent: 'space-between' }}>
-              <b>{target?.title ?? r.entity}</b>
+              <span><b>{target?.title ?? r.entity}</b>{used(r.id) && <span className="muted"> · used by a rule or an effect</span>}</span>
               <button
+                type="button"
                 className="btn small"
                 disabled={used(r.id)}
-                title={used(r.id) ? 'Used by a rule or an effect' : undefined}
                 onClick={() => onChange({ ...entity, relations: entity.relations.filter((_, n) => n !== i) })}
               >
                 Remove
@@ -369,7 +370,7 @@ function Relations({ entity, state, onChange }: { entity: Entity; state: EntityS
             />
             {target && entity.variants.length > 0 && (
               <div className="field" style={{ display: 'grid', gap: 4, marginBottom: 12 }}>
-                <span style={{ fontSize: 12, color: 'var(--fg-3)' }}>Variant pairs</span>
+                <span style={{ fontSize: '0.75rem', color: 'var(--fg-3)' }}>Variant pairs</span>
                 {entity.variants.map((v) => (
                   <div key={v.id} className="row">
                     <span style={{ width: 90 }}>{v.title}</span>

@@ -62,7 +62,7 @@ export function AccessMatrix({ coverage, entity, project, variant }: { coverage:
           })}
         </tbody>
       </table>
-      <div className="legend access-legend" aria-label="Legend">
+      <div className="legend access-legend" role="group" aria-label="Legend">
         <span className="access-cell allowed">✓</span><span>allowed</span>
         <span className="access-cell undecided">?</span><span>undecided — an observed or proposed element, not yet a requirement</span>
         <span className="access-cell denied">×</span><span>denied — nothing allows it (closed world)</span>
@@ -90,9 +90,10 @@ function AccessCellView({ cell }: { cell: { decision: AccessDecision; result: Ce
   const symbol = { allowed: '✓', undecided: '?', denied: '×' }[cell.decision];
   const title = cell.result ? `${cell.decision} — ${cell.result.status}${cell.result.error ? `: ${cell.result.error}` : ''}` : cell.decision;
   return (
-    <span className={`access-cell ${cell.decision}`} title={title}>
-      {symbol}
-      {cell.result && <i className={`dot ${cell.result.status}`} />}
+    <span className={`access-cell ${cell.decision}`}>
+      <span aria-hidden>{symbol}</span>
+      {cell.result && <i className={`dot ${cell.result.status}`} aria-hidden />}
+      <span className="sr-only">{title}</span>
     </span>
   );
 }

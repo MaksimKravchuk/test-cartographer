@@ -37,7 +37,7 @@ export function FieldsEditor({ owner, ownerId, fields, file, onSave }: Props) {
         )}
         {fields.map((f) => (
           <div key={f.id} className="data-row">
-            <span className="id" title={`Agents and tests refer to it as ${ref(f.id)}`}>{f.id}</span>
+            <code className="id">{ref(f.id)}</code>
             <span className="data-value">
               {f.secret && !shown.has(f.id) ? '••••••' : f.value || <span className="muted">empty</span>}
             </span>
@@ -100,11 +100,11 @@ export function FieldsEditor({ owner, ownerId, fields, file, onSave }: Props) {
         Add field
       </button>
       {invalid && (
-        <p style={{ color: 'var(--bad)', fontSize: 12.5, margin: '8px 0 0' }}>
+        <p style={{ color: 'var(--bad)', fontSize: '0.7812rem', margin: '8px 0 0' }}>
           A key is lowercase Latin letters, digits, “-” and “_”, starts with a letter, and is used once.
         </p>
       )}
-      <p className="muted" style={{ fontSize: 12, margin: '8px 0' }}>
+      <p className="muted" style={{ fontSize: '0.75rem', margin: '8px 0' }}>
         Saved as plain text in <span className="id">{file}</span>. For a real account put <span className="id">{'{{env.NAME}}'}</span> as the value
         and set the variable where the engine runs.
       </p>

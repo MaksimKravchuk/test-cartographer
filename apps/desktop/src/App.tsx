@@ -23,6 +23,7 @@ import { GlossaryView } from './views/GlossaryView.tsx';
 import { ProjectSwitcher } from './views/ProjectSwitcher.tsx';
 import { ProjectsView } from './views/ProjectsView.tsx';
 import { AgentStatus, AskAgent } from './views/Shell.tsx';
+import { arrowKeys, nativeFocusgroup, Toasts, Tip, type ToastMsg } from './ui.tsx';
 
 // Electron draws the macOS traffic lights over the top-left corner of the window.
 const isElectron = typeof navigator !== 'undefined' && navigator.userAgent.includes('Electron');
@@ -92,7 +93,7 @@ export function App() {
   // Bumped on every disk change and job completion so views that fetch their
   // own data (Onboarding, Backlog) know to refetch without polling.
   const [reloadToken, setReloadToken] = useState(0);
-  const [toast, setToast] = useState<{ text: string; error?: boolean } | null>(null);
+  const [toasts, setToasts] = useState<ToastMsg[]>([]);
   const [fatal, setFatal] = useState<string | null>(null);
 
   const entityId = route.page === 'entity' ? route.id : null;
@@ -102,10 +103,11 @@ export function App() {
   const entityRef = useRef(entityId);
   entityRef.current = entityId;
 
+  // A message replaces an identical one rather than stacking up.
   const notify = useCallback((text: string, error = false) => {
-    setToast({ text, error });
-    setTimeout(() => setToast(null), error ? 6000 : 3000);
+    setToasts((list) => [...list.filter((t) => t.text !== text).slice(-3), { id: Date.now() + Math.random(), text, error }]);
   }, []);
+  const dismiss = useCallback((id: number) => setToasts((list) => list.filter((t) => t.id !== id)), []);
 
   // Accept or strike out agent proposals right on the lifecycle, grouped by proposal.
   const decideOnMap = async (ops: { proposal: string; op: number }[], verdict: 'accept' | 'reject') => {
@@ -292,7 +294,7 @@ export function App() {
         )}
         <AgentStatus project={project} job={job} startedAt={startedAt} log={log} onStop={() => job && void api.cancel(job.id)} />
         {!dirty && <AskAgent project={project} running={running} onResearch={research} onSettings={() => go({ page: 'run' })} onError={(m) => notify(m, true)} />}
-        <button className="btn ghost icon" aria-label="Settings" aria-current={place === 'settings' ? 'page' : undefined} title="Settings" onClick={() => go({ page: 'settings' })}>⚙</button>
+        <button type="button" className="btn ghost icon" aria-label="Settings" aria-current={place === 'settings' ? 'page' : undefined} onClick={() => go({ page: 'settings' })}><span aria-hidden>⚙</span></button>
       </header>
 
       {views[place].length > 1 && (
@@ -389,21 +391,42 @@ export function App() {
         {route.page === 'entity' && !entityReady && <div className="page muted">Loading entity…</div>}
         {route.page === 'entity' && entityReady && (
           <div className="entity-page">
-            <div className="tabs" role="tablist">
-              {(Object.keys(tabTitles) as EntityTab[]).map((tab) => (
-                <button key={tab} role="tab" aria-selected={route.tab === tab} onClick={() => setRoute({ ...route, tab })}>
-                  {tabTitles[tab]}
-                  {tab === 'scenarios' && <span className="muted"> {state!.plan.scenarios.length}</span>}
-                  {tab === 'coverage' && <span className="muted"> {state!.coverage.totals.passed}/{state!.coverage.totals.scenarios}</span>}
-                </button>
-              ))}
+            <div className="tabs">
+              {/* Selection follows focus; the arrow keys come from focusgroup, or from arrowKeys where it's missing. */}
+              <div
+                className="tablist"
+                focusgroup="tablist nomemory"
+                role="tablist"
+                aria-label={`${summary(route.id)?.title ?? route.id} views`}
+                onKeyDown={(e) => arrowKeys(e, 'inline')}
+              >
+                {(Object.keys(tabTitles) as EntityTab[]).map((tab) => (
+                  <button
+                    key={tab}
+                    type="button"
+                    id={`tab-${tab}`}
+                    role="tab"
+                    aria-selected={route.tab === tab}
+                    tabIndex={nativeFocusgroup() || route.tab === tab ? undefined : -1}
+                    focusgroupstart={route.tab === tab ? '' : undefined}
+                    onClick={() => setRoute({ ...route, tab })}
+                    onFocus={() => route.tab !== tab && setRoute({ ...route, tab })}
+                  >
+                    {tabTitles[tab]}
+                    {tab === 'scenarios' && <span className="muted"> {state!.plan.scenarios.length}</span>}
+                    {tab === 'coverage' && <span className="muted"> {state!.coverage.totals.passed}/{state!.coverage.totals.scenarios}</span>}
+                  </button>
+                ))}
+              </div>
               {state!.issues.length > 0 && (
-                <span className="tab-note" title={state!.issues.map((i) => `${i.path}: ${i.message}`).join('\n')}>
-                  {state!.issues.length} model {state!.issues.length === 1 ? 'issue' : 'issues'}
-                </span>
+                <Tip toggle tip={state!.issues.map((i) => `${i.path}: ${i.message}`).join('\n')}>
+                  <button type="button" className="tab-note">
+                    {state!.issues.length} model {state!.issues.length === 1 ? 'issue' : 'issues'}
+                  </button>
+                </Tip>
               )}
             </div>
-            <div className="tab-body">
+            <div className="tab-body" role="tabpanel" aria-labelledby={`tab-${route.tab}`}>
               {route.tab === 'map' && (
                 <MapView
                   entity={draft!}
@@ -509,7 +532,7 @@ export function App() {
         </aside>
       )}
 
-      {toast && <div className={`toast ${toast.error ? 'error' : ''}`} role="status">{toast.text}</div>}
+      <Toasts list={toasts} onClose={dismiss} />
     </div>
   );
 }

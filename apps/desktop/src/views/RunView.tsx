@@ -32,7 +32,7 @@ function UsageLine({ log, elapsed }: { log: string[]; elapsed?: number }) {
   const ctx = u?.context;
   const seconds = elapsed ?? u?.seconds;
   return (
-    <dl className="run-usage" aria-label="Usage">
+    <dl className="run-usage">
       {seconds !== undefined && <div><dt>Time</dt><dd>{clock(seconds)}</dd></div>}
       {u && (
         <div>
@@ -49,9 +49,9 @@ function UsageLine({ log, elapsed }: { log: string[]; elapsed?: number }) {
         </div>
       )}
       {u?.costUsd !== undefined && (
-        <div title="What these tokens would cost at API prices. Subscriptions don’t bill per token.">
+        <div>
           <dt>Cost{u.estimated ? ' (estimate)' : ''}</dt>
-          <dd>≈ ${u.costUsd < 0.01 ? u.costUsd.toFixed(4) : u.costUsd.toFixed(2)}</dd>
+          <dd>≈ ${u.costUsd < 0.01 ? u.costUsd.toFixed(4) : u.costUsd.toFixed(2)} <span className="muted">at API prices; subscriptions don’t bill per token</span></dd>
         </div>
       )}
       {!!u?.premiumRequests && <div><dt>Premium requests</dt><dd>{+u.premiumRequests.toFixed(2)}</dd></div>}
@@ -129,8 +129,8 @@ export function RunView({ project, proposals, job, startedAt, log, onOpenInbox, 
         <button className="btn link" onClick={onOpenSettings}>Settings › Agents</button>.
       </p>
 
-      <h2>Task</h2>
-      <div className="run-tasks" role="radiogroup" aria-label="Task">
+      <fieldset className="run-tasks">
+        <legend><h2>Task</h2></legend>
         {tasks.map((t) => (
           <label key={t.id} className="run-task">
             <input type="radio" name="task" checked={t.id === task.id} disabled={running} onChange={() => setTaskId(t.id)} />
@@ -140,7 +140,7 @@ export function RunView({ project, proposals, job, startedAt, log, onOpenInbox, 
             </span>
           </label>
         ))}
-      </div>
+      </fieldset>
 
       <h2>This run</h2>
       <div className="agent-fields">

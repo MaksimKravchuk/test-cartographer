@@ -126,9 +126,13 @@ function EpicCard({
 }) {
   return (
     <section className="backlog-epic">
-      <header className="backlog-epic-head" onClick={onToggle} role="button" tabIndex={0}>
-        <span className="chip-toggle">{open ? '▾' : '▸'}</span>
-        <h2>{epic.key && <span className="id">{epic.key}</span>} {epic.title}</h2>
+      <header className="backlog-epic-head">
+        <h2>
+          <button type="button" className="epic-toggle" aria-expanded={open} onClick={onToggle}>
+            <span className="chip-toggle" aria-hidden>{open ? '▾' : '▸'}</span>
+            {epic.key && <span className="id">{epic.key}</span>} {epic.title}
+          </button>
+        </h2>
         {epic.status !== 'confirmed' && <span className={`status-pill ${epic.status}`}><i /></span>}
         <span className="spacer" />
         <SegBar totals={epic.totals} />

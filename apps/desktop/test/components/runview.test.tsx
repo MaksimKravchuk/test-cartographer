@@ -55,7 +55,7 @@ describe('RunView', () => {
   it('shows the run’s tokens, context and cost from the latest usage report', () => {
     const usage = { model: 'claude-opus-5-5', input: 120_000, cacheRead: 80_000, output: 3_200, costUsd: 0.42, context: { used: 45_000, window: 1_000_000 }, seconds: 151 };
     render(<RunView {...props} job={{ id: 'j', kind: 'onboard:review', state: 'done' }} log={['📊 {"input":1,"output":1}', `📊 ${JSON.stringify(usage)}`]} />);
-    const line = screen.getByLabelText('Usage');
+    const line = document.querySelector('.run-usage')!;
     expect(line).toHaveTextContent('2:31');
     expect(line).toHaveTextContent('120.0k in (80.0k cached) · 3.2k out');
     expect(line).toHaveTextContent('45.0k of 1.0M (5%)');

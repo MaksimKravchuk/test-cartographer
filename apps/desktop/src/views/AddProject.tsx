@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import type { AgentProvider } from '@tc/model';
 import { api, runtimeTitle, type FolderInfo, type RuntimeStatus } from '../api.ts';
+import { Modal } from '../ui.tsx';
 
 // Add a project: start a new one or open one that exists. Every field says what
 // will happen as you type (the engine checks the path), so the button is only
@@ -44,7 +45,7 @@ function FolderField({ label, value, onChange, hint, id }: { label: string; valu
       <label htmlFor={id}>{label}</label>
       <div className="folder-row">
         <input id={id} className="text mono" value={value} spellCheck={false} onChange={(e) => onChange(e.target.value)} aria-describedby={`${id}-hint`} />
-        <button type="button" className="btn" onClick={choose} aria-expanded={native ? undefined : browsing !== null}>Choose…</button>
+        <button type="button" className="btn" onClick={choose} aria-haspopup={native ? undefined : 'dialog'}>Choose…</button>
       </div>
       {browsing !== null && <FolderBrowser start={browsing} onPick={(p) => { onChange(p); setBrowsing(null); }} onClose={() => setBrowsing(null)} />}
       <span id={`${id}-hint`} className={`field-hint ${hint.tone ?? ''}`}>{hint.text}</span>
@@ -65,20 +66,21 @@ function FolderBrowser({ start, onPick, onClose }: { start: string; onPick(p: st
   }, [at]);
   const join = (name: string) => (info!.path.endsWith('/') || info!.path.endsWith('\\') ? info!.path + name : `${info!.path}${info!.path.includes('\\') ? '\\' : '/'}${name}`);
   return (
-    <div className="folder-browser" role="dialog" aria-label="Choose a folder">
-      <div className="folder-browser-head">
-        <span className="id" title={info?.path}>{info?.path ?? '…'}</span>
-      </div>
-      <ul>
-        {info && info.parent !== info.path && <li><button type="button" onClick={() => setAt(info.parent)}>↑ Up</button></li>}
-        {info?.children.map((c) => <li key={c}><button type="button" onClick={() => setAt(join(c))}>{c}</button></li>)}
-        {info && info.children.length === 0 && <li className="muted">No folders inside</li>}
-      </ul>
-      <div className="folder-browser-foot">
-        <button type="button" className="btn primary small" disabled={!info} onClick={() => info && onPick(info.path)}>Use this folder</button>
-        <button type="button" className="btn ghost small" onClick={onClose}>Cancel</button>
-      </div>
-    </div>
+    <Modal title="Choose a folder" onClose={onClose}>
+      {(close) => (
+        <div className="folder-browser">
+          <p className="folder-browser-head id">{info?.path ?? '…'}</p>
+          <ul>
+            {info && info.parent !== info.path && <li><button type="button" onClick={() => setAt(info.parent)}>↑ Up</button></li>}
+            {info?.children.map((c) => <li key={c}><button type="button" onClick={() => setAt(join(c))}>{c}</button></li>)}
+            {info && info.children.length === 0 && <li className="muted">No folders inside</li>}
+          </ul>
+          <div className="folder-browser-foot">
+            <button type="button" className="btn primary small" disabled={!info} onClick={() => { close(); if (info) onPick(info.path); }}>Use this folder</button>
+          </div>
+        </div>
+      )}
+    </Modal>
   );
 }
 
@@ -204,7 +206,7 @@ export function AddProject({ disabled, busy, onSubmit }: Props) {
           <FolderField id="np-folder" label="Folder" value={folder} onChange={(v) => { setFolder(v); setFolderEdited(true); }} hint={folderHint} />
           <div className="field">
             <label htmlFor="np-url">App address</label>
-            <input id="np-url" className="text mono" value={url} spellCheck={false} onChange={(e) => setUrl(e.target.value)} aria-describedby="np-url-hint" aria-invalid={!urlOk} />
+            <input id="np-url" type="url" inputMode="url" className="text mono" value={url} spellCheck={false} onChange={(e) => setUrl(e.target.value)} aria-describedby="np-url-hint" aria-invalid={!urlOk} />
             <span id="np-url-hint" className={`field-hint ${urlOk ? '' : 'bad'}`}>{urlOk ? 'Where the app under test runs. Roles open its pages from here.' : 'Starts with http:// or https://.'}</span>
           </div>
           <FolderField id="np-code" label="Code folder" value={code} onChange={setCode} hint={codeHint} />

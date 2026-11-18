@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import type { Action, Decision, Disagreement, Entity, HistoryEntry, Lint, Op, ReviewCell, ReviewMarks, Role, Rule } from '@tc/model';
 import { api, type EntityState, type ProjectState, type ProposalState } from '../api.ts';
 import { DeleteButton, Editable, HistoryList, originText } from './ModelHistory.tsx';
+import { Tip } from '../ui.tsx';
 import { AttributesTable, GoneRow, Incoming, LifecycleTables, rowKeys, useStableRows, type ProposedAttribute } from './ObjectParts.tsx';
 
 // The model as a person thinks about it: who acts (subjects), on what
@@ -54,23 +55,24 @@ export function rulesOf(entity: Entity, action: string): Rule[] {
 export function Decide({ busy, noObserve, onDecide }: { busy: boolean; noObserve?: boolean; onDecide(v: Verdict): void }) {
   return (
     <span className="decide">
-      <button className="btn small primary" title="The product must do this: tests check it" disabled={busy} onClick={() => onDecide('accept')}>Accept as requirement</button>
-      {!noObserve && <button className="btn small ghost" title="The product does this, but no source requires it: recorded, not enforced" disabled={busy} onClick={() => onDecide('observe')}>Observed only</button>}
-      {!noObserve && <button className="btn small ghost" title="Required, but not built yet: no tests until it is" disabled={busy} onClick={() => onDecide('plan')}>Not built yet</button>}
-      <button className="btn small ghost" title="Strike out: agents won't propose it again" disabled={busy} onClick={() => onDecide('reject')}>Strike out</button>
+      <Tip tip="The product must do this: tests check it"><button type="button" className="btn small primary" disabled={busy} onClick={() => onDecide('accept')}>Accept as requirement</button></Tip>
+      {!noObserve && <Tip tip="The product does this, but no source requires it: recorded, not enforced"><button type="button" className="btn small ghost" disabled={busy} onClick={() => onDecide('observe')}>Observed only</button></Tip>}
+      {!noObserve && <Tip tip="Required, but not built yet: no tests until it is"><button type="button" className="btn small ghost" disabled={busy} onClick={() => onDecide('plan')}>Not built yet</button></Tip>}
+      <Tip tip="Agents won't propose it again"><button type="button" className="btn small ghost" disabled={busy} onClick={() => onDecide('reject')}>Strike out</button></Tip>
     </span>
   );
 }
 
 // R / C / A: what the requirements, the code and the running app say about an element.
+// The letters and their look carry it on screen; the words are there for screen readers.
 const markClass = (c?: ReviewCell) => (c === 'confirms' ? 'y' : c === 'contradicts' ? 'x' : c ? 'q' : 'n');
 const markWord = (c?: ReviewCell) => (c === 'confirms' ? 'confirm' : c === 'contradicts' ? 'contradict' : c === 'gap' ? 'say nothing (gap)' : c === 'question' ? 'leave a question' : 'not checked');
 export function Marks({ marks }: { marks?: ReviewMarks }) {
   return (
     <span className="marks">
-      <span className={`mk ${markClass(marks?.requirements)}`} title={`Requirements: ${markWord(marks?.requirements)}`}>R</span>
-      <span className={`mk ${markClass(marks?.code)}`} title={`Code: ${markWord(marks?.code)}`}>C</span>
-      <span className={`mk ${marks?.app ? 'y' : 'n'}`} title={marks?.app ? 'App: seen working' : 'App: not seen yet'}>A</span>
+      <span className={`mk ${markClass(marks?.requirements)}`}><span aria-hidden>R</span><span className="sr-only">Requirements {markWord(marks?.requirements)}.</span></span>
+      <span className={`mk ${markClass(marks?.code)}`}><span aria-hidden>C</span><span className="sr-only">Code: {markWord(marks?.code)}.</span></span>
+      <span className={`mk ${marks?.app ? 'y' : 'n'}`}><span aria-hidden>A</span><span className="sr-only">{marks?.app ? 'App: seen working.' : 'App: not seen yet.'}</span></span>
     </span>
   );
 }
@@ -83,7 +85,7 @@ function NextQueue({ queue, busy, onOpen, onSettle }: { queue: Queue; busy: bool
   const total = queue.gaps.length + queue.questions.length + queue.contradictions.length;
   if (!total) return null;
   const link = (ref: string, text: string) => (
-    <a href="#" onClick={(e) => { e.preventDefault(); onOpen(ref); }}>{text}</a>
+    <button type="button" className="link-btn" onClick={() => onOpen(ref)}>{text}</button>
   );
   const group = (title: string, kind: 'gap' | 'question' | 'contradiction', items: ReactNode[]) =>
     items.length > 0 && (
@@ -95,7 +97,7 @@ function NextQueue({ queue, busy, onOpen, onSettle }: { queue: Queue; busy: bool
   const finding = (d: Disagreement, settle: boolean) => (
     <li key={`${d.proposal}-${d.index}`}>
       {d.finding.refs[0] ? link(d.finding.refs[0], d.finding.note) : d.finding.note}
-      {settle && <> <button className="btn small" disabled={busy} title="Answered: take it off the list" onClick={() => onSettle(d)}>Done</button></>}
+      {settle && <> <Tip tip="Answered: take it off the list"><button type="button" className="btn small" disabled={busy} onClick={() => onSettle(d)}>Done</button></Tip></>}
     </li>
   );
   return (
@@ -104,7 +106,7 @@ function NextQueue({ queue, busy, onOpen, onSettle }: { queue: Queue; busy: bool
       {group('gaps in the model', 'gap', queue.gaps.map((l, i) => <li key={i}>{link(l.ref, l.message)}</li>))}
       {group('open questions', 'question', queue.questions.map((d) => finding(d, true)))}
       {group('contradictions between sources (settle them in Inbox)', 'contradiction', queue.contradictions.map((d) => finding(d, false)))}
-      <p className="muted" style={{ margin: 0 }}>Answer a question here, or use Ask agent › Review the model to have an agent look into all of them.</p>
+      <p className="muted">Answer a question here, or use Ask agent › Review the model to have an agent look into all of them.</p>
     </section>
   );
 }
@@ -371,7 +373,7 @@ export function ModelView({ project, proposals, reloadToken, running, onOpenEnti
               <th scope="col">Action</th>
               {roles.map((r) => (
                 <th key={r.id} scope="col" className="who">
-                  <button className="link-btn" title={`${r.title}: everything this subject does`} onClick={() => setSubject(r.id)}>{r.title}</button>
+                  <Tip tip="Everything this subject does"><button type="button" className="link-btn" onClick={() => setSubject(r.id)}>{r.title}</button></Tip>
                 </th>
               ))}
               <th aria-label="Row actions" />
@@ -382,18 +384,19 @@ export function ModelView({ project, proposals, reloadToken, running, onOpenEnti
               const a = cur.entity.actions.find((y) => y.id === row.key);
               const x = proposed.find((y) => keyOf(y) === row.key);
               if (x) return (
-              <tr key={row.key} className="proposed" title={x.proposal.rationale}>
+              <tr key={row.key} className="proposed">
                 <th scope="row">
                   <span className="chip proposed">{str(x.op.value.title) || str(x.op.value.id)}</span>
-                  <span className="muted nobody"> proposed by {x.proposal.agent}</span>
+                  <span className="muted nobody"> proposed by {x.proposal.agent} </span>
+                  <Tip toggle tip={x.proposal.rationale}><button type="button" className="btn link small">Why?</button></Tip>
                 </th>
                 {roles.map((r) => (
-                  <td key={r.id} className="who">{x.by.includes(r.id) ? <span title={`The agent says ${r.title} performs it`}>✓</span> : null}</td>
+                  <td key={r.id} className="who">{x.by.includes(r.id) ? <><span aria-hidden>✓</span><span className="sr-only">The agent says {r.title} performs it</span></> : null}</td>
                 ))}
                 <td className="row-x">
                   <span className="decide">
-                    <button className="btn small" disabled={busy || x.blocked} title="Add it to the model as a requirement" onClick={() => decide(x, 'accept')}>Accept</button>
-                    <button className="btn small ghost" disabled={busy || x.blocked} title="Strike out: agents won't propose it again" onClick={() => decide(x, 'reject')}>Strike out</button>
+                    <Tip tip="Add it to the model as a requirement"><button type="button" className="btn small" disabled={busy || x.blocked} onClick={() => decide(x, 'accept')}>Accept</button></Tip>
+                    <Tip tip="Agents won't propose it again"><button type="button" className="btn small ghost" disabled={busy || x.blocked} onClick={() => decide(x, 'reject')}>Strike out</button></Tip>
                   </span>
                 </td>
               </tr>
@@ -407,11 +410,13 @@ export function ModelView({ project, proposals, reloadToken, running, onOpenEnti
               return (
                 <tr key={a.id} className={`${a.status} ${on ? 'on' : ''}`}>
                   <th scope="row">
-                    <button className={`chip ${on ? 'on' : ''} ${a.status}`} aria-pressed={on} title={`${a.status}: open its rules`} onClick={() => pick(current, a.id)}>
-                      {a.title}
-                      {n > 0 && <span className="muted">{n}</span>}
-                      {conflicts && <span className="sev bad" title="Sources disagree" />}
-                    </button>
+                    <Tip tip={`${a.status}: open its rules`}>
+                      <button type="button" className={`chip ${on ? 'on' : ''} ${a.status}`} aria-pressed={on} onClick={() => pick(current, a.id)}>
+                        {a.title}
+                        {n > 0 && <span className="muted"><span className="sr-only">, rules: </span>{n}</span>}
+                        {conflicts && <span className="sev bad"><span className="sr-only">, sources disagree</span></span>}
+                      </button>
+                    </Tip>
                     {nobody && <span className="muted nobody"> nobody yet</span>}
                   </th>
                   {roles.map((r) => {
@@ -422,7 +427,8 @@ export function ModelView({ project, proposals, reloadToken, running, onOpenEnti
                         <input
                           type="checkbox"
                           aria-label={`${r.title} can ${a.title}`}
-                          title={via ? `Through “${via}”: change it in States and scenarios` : declared ? `${r.title} performs it: untick to take it away` : `Tick: ${r.title} performs it too`}
+                          // Why it can't be unticked here; a disabled box takes no hint.
+                          aria-describedby={via && !declared ? `via-${a.id}` : undefined}
                           checked={declared || !!via}
                           disabled={busy || (!!via && !declared)}
                           onChange={() => toggleActor(current, a.id, r.id)}
@@ -431,17 +437,18 @@ export function ModelView({ project, proposals, reloadToken, running, onOpenEnti
                     );
                   })}
                   <td className="row-x">
-                    <button className="mini" disabled={busy} aria-label={`Delete action ${a.title}`} title="Delete the action and its rules" onClick={() => removeAction(current, a.id)}>✕</button>
+                    {implied.size > 0 && <span id={`via-${a.id}`} hidden>Set through a transition or permit: change it in States and scenarios.</span>}
+                    <Tip tip="Delete the action and its rules"><button type="button" className="mini" disabled={busy} aria-label={`Delete action ${a.title}`} onClick={() => removeAction(current, a.id)}><span aria-hidden>✕</span></button></Tip>
                   </td>
                 </tr>
               );
             })}
           </tbody>
         </table>
-        <div className="tree-add act-add">
-          <input className="text" aria-label="New action" value={newAction} placeholder="New action, e.g. Archive" onChange={(e) => setNewAction(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && newAction.trim() && addAction(current)} />
-          <button className="btn small" disabled={busy || !newAction.trim()} onClick={() => addAction(current)}>Add action</button>
-        </div>
+        <form className="tree-add act-add" onSubmit={(e) => { e.preventDefault(); if (newAction.trim()) void addAction(current); }}>
+          <input className="text" aria-label="New action" value={newAction} placeholder="New action, e.g. Archive" onChange={(e) => setNewAction(e.target.value)} />
+          <button className="btn small" disabled={busy || !newAction.trim()}>Add action</button>
+        </form>
       </div>
     );
   };
@@ -487,8 +494,8 @@ export function ModelView({ project, proposals, reloadToken, running, onOpenEnti
       <aside className="model-tree" aria-label="Model outline">
         <div className="tree-h">Subjects</div>
         {roles.map((r) => (
-          <button key={r.id} className="tree-item" aria-current={subject === r.id ? 'true' : undefined} title={originText(`role:${r.id}`, history, undefined, r.title)} onClick={() => setSubject(r.id)}>
-            <span>{r.title}</span> {r.kind === 'system' && <span className="sys" title="Background jobs and integrations">SYS</span>}
+          <button key={r.id} type="button" className="tree-item" aria-current={subject === r.id ? 'true' : undefined} onClick={() => setSubject(r.id)}>
+            <span>{r.title}</span> {r.kind === 'system' && <span className="sys"><span aria-hidden>SYS</span><span className="sr-only">system: background jobs and integrations</span></span>}
           </button>
         ))}
         {pendingRoles.map((x) => (
@@ -497,22 +504,22 @@ export function ModelView({ project, proposals, reloadToken, running, onOpenEnti
             <Decide busy={busy} noObserve onDecide={(v) => decide(x, v)} />
           </div>
         ))}
-        <div className="tree-add">
-          <input className="text" aria-label="New subject" value={newRole.title} placeholder="New subject" onChange={(e) => setNewRole({ ...newRole, title: e.target.value })} onKeyDown={(e) => e.key === 'Enter' && newRole.title.trim() && addRole()} />
+        <form className="tree-add" onSubmit={(e) => { e.preventDefault(); if (newRole.title.trim()) void addRole(); }}>
+          <input className="text" aria-label="New subject" value={newRole.title} placeholder="New subject" onChange={(e) => setNewRole({ ...newRole, title: e.target.value })} />
           <select className="text" aria-label="Subject kind" value={newRole.kind} onChange={(e) => setNewRole({ ...newRole, kind: e.target.value as Role['kind'] })}>
             <option value="human">person</option>
             <option value="system">system</option>
           </select>
-          <button className="btn small" disabled={busy || !newRole.title.trim()} onClick={addRole}>Add</button>
-        </div>
+          <button className="btn small" disabled={busy || !newRole.title.trim()}>Add</button>
+        </form>
 
         <div className="tree-h">Objects</div>
         {ids.map((id) => {
           const n = pendingActions(id).length + pending.filter((p) => p.entity === id).reduce((k, p) => k + p.ops.filter((op, i) => open(p, i) && op.op === 'add' && op.kind === 'rule').length, 0);
           return (
-            <button key={id} className="tree-item" aria-current={!subject && current === id ? 'true' : undefined} onClick={() => { setSubject(null); setFocus(id); setSelected(null); }}>
+            <button key={id} type="button" className="tree-item" aria-current={!subject && current === id ? 'true' : undefined} onClick={() => { setSubject(null); setFocus(id); setSelected(null); }}>
               <span>{states[id]?.entity.title ?? id}</span>
-              {n > 0 && <span className="pdot" title={`${n} proposed by agents`} />}
+              {n > 0 && <span className="pdot"><span className="sr-only">, {n} proposed by agents</span></span>}
               <span className="n">{states[id]?.entity.actions.length ?? ''}</span>
             </button>
           );
@@ -523,10 +530,10 @@ export function ModelView({ project, proposals, reloadToken, running, onOpenEnti
             <Decide busy={busy} noObserve onDecide={(v) => decide(x, v)} />
           </div>
         ))}
-        <div className="tree-add">
-          <input className="text" aria-label="New object" value={newEntity} placeholder="New object" onChange={(e) => setNewEntity(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && newEntity.trim() && addEntity()} />
-          <button className="btn small" disabled={busy || !newEntity.trim()} onClick={addEntity}>Add</button>
-        </div>
+        <form className="tree-add" onSubmit={(e) => { e.preventDefault(); if (newEntity.trim()) void addEntity(); }}>
+          <input className="text" aria-label="New object" value={newEntity} placeholder="New object" onChange={(e) => setNewEntity(e.target.value)} />
+          <button className="btn small" disabled={busy || !newEntity.trim()}>Add</button>
+        </form>
       </aside>
 
       <div className="model-main">
@@ -603,7 +610,7 @@ export function ModelView({ project, proposals, reloadToken, running, onOpenEnti
                       {r.requires.length === 0 && <span>text only</span>}
                       <span>{originText(`rule:${sel.entity.id}.${r.id}`, history, r.provenance)}</span>
                       <span className="spacer" />
-                      {r.status !== 'rejected' && <button className="btn small ghost" disabled={busy} title="Strike out" onClick={() => setRuleStatus(r, 'rejected')}>Strike out</button>}
+                      {r.status !== 'rejected' && <button type="button" className="btn small ghost" disabled={busy} onClick={() => setRuleStatus(r, 'rejected')}>Strike out</button>}
                     </div>
                   </div>
                 ))}
@@ -628,10 +635,10 @@ export function ModelView({ project, proposals, reloadToken, running, onOpenEnti
                     names={roleTitle}
                   />
                 </details>
-                <div className="rule-add">
-                  <input className="text" aria-label="New rule" value={ruleText} placeholder="A buyer can cancel an order only until it has been paid." onChange={(e) => setRuleText(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && ruleText.trim() && addRule()} />
-                  <button className="btn" disabled={busy || !ruleText.trim()} onClick={addRule}>Add rule</button>
-                </div>
+                <form className="rule-add" onSubmit={(e) => { e.preventDefault(); if (ruleText.trim()) void addRule(); }}>
+                  <input className="text" aria-label="New rule" value={ruleText} placeholder="A buyer can cancel an order only until it has been paid." onChange={(e) => setRuleText(e.target.value)} />
+                  <button className="btn" disabled={busy || !ruleText.trim()}>Add rule</button>
+                </form>
               </section>
             ) : (
               <p className="muted pick-hint">Pick an action to see and write its rules.</p>

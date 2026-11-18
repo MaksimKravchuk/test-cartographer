@@ -49,3 +49,7 @@ Integration and e2e tests start the demo shop on port 4400 unless one is already
 ## Layout
 
 `packages/model` is the model, with no browser or network I/O. `packages/engine` is the local API, the agents, the test compiler and the runner; how the agents work is written as skills in `packages/engine/skills` (its README has the rules for changing them). `apps/desktop` is the GUI. `demo/shop` is the app the example explores. `workspace` is the example project. The README describes each in detail.
+
+## GUI and browsers
+
+The GUI runs in Electron (current Chromium) and, with `tc serve --open`, in any current browser. Use platform features that are Baseline newly available or in current Chromium, feature-detected and degrading gracefully: popovers and invoker commands for menus and panels, `<dialog>` for modals, `focusgroup` for arrow-key groups, interest invokers for hints. Their small fallbacks live in `apps/desktop/src/ui.tsx`, so views use `Popup`, `Modal`, `Tip` and `Toasts` instead of building overlays of their own. Hints go through `Tip`, never `title`; font sizes are in `rem`; motion is only added inside `prefers-reduced-motion: no-preference`.

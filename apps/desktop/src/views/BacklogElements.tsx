@@ -10,10 +10,7 @@ export function SegBar({ totals }: { totals: Totals }) {
   const total = totals.scenarios || 1;
   const seg = (n: number, cls: string) => (n > 0 ? <i key={cls} className={cls} style={{ width: `${(100 * n) / total}%` }} /> : null);
   return (
-    <div
-      className="seg-bar"
-      title={`${totals.passed} passed, ${totals.failed} failed, ${totals.blocked} blocked, ${totals['not-run']} not run`}
-    >
+    <div className="seg-bar" role="img" aria-label={`${totals.passed} passed, ${totals.failed} failed, ${totals.blocked} blocked, ${totals['not-run']} not run`}>
       {seg(totals.passed, 'passed')}
       {seg(totals.failed, 'failed')}
       {seg(totals.blocked, 'blocked')}
@@ -111,17 +108,13 @@ export function StoryCard({ story, onOpenEntity, index }: { story: StoryInfo; on
           <ul className="proposal-list">{story.acceptance.map((a, i) => <li key={i}>{a}</li>)}</ul>
         )}
         <div className="chips" style={{ justifyContent: 'start', marginTop: 6 }}>
-          {story.covers.map((c) => (
-            <span
-              key={c.ref}
-              className={`chip ref ${c.resolved ? '' : 'warn'}`}
-              style={{ cursor: c.resolved ? 'pointer' : 'default' }}
-              title={c.resolved ? undefined : 'Not in the model yet'}
-              onClick={() => c.resolved && onOpenEntity(refEntity(c.ref))}
-            >
-              {c.ref}
-            </span>
-          ))}
+          {story.covers.map((c) =>
+            c.resolved ? (
+              <button type="button" key={c.ref} className="chip ref" onClick={() => onOpenEntity(refEntity(c.ref))}>{c.ref}</button>
+            ) : (
+              <span key={c.ref} className="chip ref warn">{c.ref}<span className="muted"> · not in the model yet</span></span>
+            ),
+          )}
           {story.covers.length === 0 && <span className="muted">Covers nothing yet</span>}
         </div>
         <ScenariosDisclosure ids={story.scenarios} index={index} />

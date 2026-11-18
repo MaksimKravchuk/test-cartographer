@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { Cell } from '@tc/model';
 import type { EntityState, ProjectState } from '../api.ts';
 import { AccessMatrix, VariantTabs } from './AccessMatrix.tsx';
+import { Tip } from '../ui.tsx';
 
 const cellText = { passed: 'passed', failed: 'failed', blocked: 'blocked', skipped: 'skipped', 'not-run': 'not run' };
 const stateText = { verified: 'verified', reachable: 'reachable', unreachable: 'unreachable', 'n/a': 'n/a' };
@@ -20,15 +21,11 @@ export function CoverageView({ state, project, running, onRun }: { state: Entity
 
   const cell = (x: Cell | null, key: string) =>
     x ? (
-      <button
-        key={key}
-        className={`cell ${x.status}`}
-        style={{ font: 'inherit', fontSize: 12 }}
-        onClick={() => setDetail(x.error ? x : null)}
-        title={x.error ?? x.scenario}
-      >
-        {cellText[x.status]}
-      </button>
+      <Tip key={key} tip={x.error ?? x.scenario}>
+        <button type="button" className={`cell cell-btn ${x.status}`} onClick={() => setDetail(x.error ? x : null)}>
+          {cellText[x.status]}
+        </button>
+      </Tip>
     ) : (
       <span className="cell na">—</span>
     );
@@ -128,14 +125,14 @@ export function CoverageView({ state, project, running, onRun }: { state: Entity
           <table className="matrix">
             <thead>
               <tr>
-                <th>Rule</th>
-                {c.variants.map((v) => <th key={v}>{variantTitle(v)}</th>)}
+                <th scope="col">Rule</th>
+                {c.variants.map((v) => <th key={v} scope="col">{variantTitle(v)}</th>)}
               </tr>
             </thead>
             <tbody>
               {c.rules.map((r) => (
                 <tr key={r.id}>
-                  <td className="name" title={r.text}>{r.title}</td>
+                  <th scope="row" className="name">{r.title}{r.text !== r.title && <small className="muted cell-note">{r.text}</small>}</th>
                   {c.variants.map((v) => <td key={v}>{cell(r.cells[v], v)}</td>)}
                 </tr>
               ))}
