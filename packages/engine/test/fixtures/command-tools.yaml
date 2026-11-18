@@ -1,0 +1,10 @@
+tools:
+  create_order:
+    description: Echo a created order back (stands in for a pytest fixture wrapper).
+    command: node
+    args: [-e, "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const a=JSON.parse(s);console.log(JSON.stringify({id:'o-1',status:a.status,tag:a.tag}))})"]
+    input: { properties: { status: { type: string } }, required: [status] }
+  broken:
+    description: Always fails.
+    command: node
+    args: [-e, "console.error('no db'); process.exit(3)"]

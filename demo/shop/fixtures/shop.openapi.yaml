@@ -1,0 +1,19 @@
+openapi: 3.1.0
+info: { title: Demo Shop, version: 1.0.0 }
+servers: [{ url: http://localhost:4400 }]
+paths:
+  /test/listings:
+    post:
+      operationId: createListing
+      requestBody: { content: { application/json: { schema: { type: object } } } }
+      responses: { '201': { description: Listing }, '200': { description: Listing } }
+  /test/orders:
+    post:
+      operationId: createOrder
+      requestBody: { content: { application/json: { schema: { type: object } } } }
+      responses: { '201': { description: Order }, '200': { description: Order } }
+  /api/orders/{id}:
+    get:
+      operationId: getOrder
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      responses: { '200': { description: Order } }
