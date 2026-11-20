@@ -21,15 +21,16 @@ As a native window: `pnpm app` (builds the GUI and launches Electron; the engine
 
 ### Platforms
 
+Test Cartographer has no installer: you clone it, build it and run it from source, on Linux, Windows or macOS.
+
 | | Linux | Windows | macOS |
 |---|---|---|---|
-| From source: CLI, engine, web GUI (`pnpm start`) | ✓ | ✓ | ✓ |
-| Electron window (`pnpm app`) | ✓ | not tested in CI | ✓ (as the packaged app) |
-| Ready-made app, nothing else to install | — | — | Apple Silicon `.dmg`, not notarized |
+| CLI, engine, web GUI (`pnpm start`) | ✓ | ✓ | ✓ |
+| Native window (`pnpm app`) | ✓ | not tested in CI | ✓ |
 
-Every row marked ✓ runs in CI on that OS: types, unit, component and integration tests, and the GUI in a browser with a full test run against the demo shop. The one exception is `arazzo-tool` (Arazzo chains as command tools), which runs on macOS and Linux only.
+Every ✓ runs in CI on that OS. The one exception is `arazzo-tool` (Arazzo chains as command tools), which runs on macOS and Linux only.
 
-The macOS app: `pnpm --filter @tc/desktop package:mac` builds `apps/desktop/release/Test Cartographer-<version>-arm64.dmg` (CI also attaches it to every run as `test-cartographer-mac`). The app carries its own engine and the demo shop. On first launch it copies the demo project to `~/Documents/Test Cartographer/Demo shop` and starts the shop on :4400, so you can run its tests straight away; set `TC_WORKSPACE` to open another project. It downloads Playwright's browser on first launch. The build isn't notarized yet: the first time, open it from Finder with right-click → Open. There is no installer for Windows or Linux yet; use the web GUI there.
+On a Mac you can also build a standalone `.app` for yourself: `pnpm --filter @tc/desktop package:mac` writes `apps/desktop/release/Test Cartographer-<version>-arm64.dmg`, which carries its own engine and the demo shop (copied to `~/Documents/Test Cartographer/Demo shop` on first launch; set `TC_WORKSPACE` to open another project). It is ad-hoc signed, so open it the first time with right-click → Open.
 
 Engine CLI — `pnpm tc <command>`:
 
