@@ -17,9 +17,19 @@ pnpm start                              # builds the GUI, starts the engine on :
 
 For GUI development: `pnpm tc serve` (engine on :4317) and `pnpm ui` (GUI with hot reload on :5173).
 
-As a native window: `pnpm app` (builds the GUI and launches Electron; the engine starts automatically). The web GUI is the same app and works on every OS.
+As a native window: `pnpm app` (builds the GUI and launches Electron; the engine starts automatically).
 
-As a macOS app with nothing else to install: `pnpm --filter @tc/desktop package:mac` builds `apps/desktop/release/Test Cartographer-<version>-arm64.dmg` (CI also attaches it to every run as `test-cartographer-mac`). The app carries its own engine and the demo shop. On first launch it copies the demo project to `~/Documents/Test Cartographer/Demo shop` and starts the shop on :4400, so you can run its tests straight away; set `TC_WORKSPACE` to open another project. It downloads Playwright's browser on first launch. The build isn't notarized yet: the first time, open it from Finder with right-click → Open.
+### Platforms
+
+| | Linux | Windows | macOS |
+|---|---|---|---|
+| From source: CLI, engine, web GUI (`pnpm start`) | ✓ | ✓ | ✓ |
+| Electron window (`pnpm app`) | ✓ | not tested in CI | ✓ (as the packaged app) |
+| Ready-made app, nothing else to install | — | — | Apple Silicon `.dmg`, not notarized |
+
+Every row marked ✓ runs in CI on that OS: types, unit, component and integration tests, and the GUI in a browser with a full test run against the demo shop. The one exception is `arazzo-tool` (Arazzo chains as command tools), which runs on macOS and Linux only.
+
+The macOS app: `pnpm --filter @tc/desktop package:mac` builds `apps/desktop/release/Test Cartographer-<version>-arm64.dmg` (CI also attaches it to every run as `test-cartographer-mac`). The app carries its own engine and the demo shop. On first launch it copies the demo project to `~/Documents/Test Cartographer/Demo shop` and starts the shop on :4400, so you can run its tests straight away; set `TC_WORKSPACE` to open another project. It downloads Playwright's browser on first launch. The build isn't notarized yet: the first time, open it from Finder with right-click → Open. There is no installer for Windows or Linux yet; use the web GUI there.
 
 Engine CLI — `pnpm tc <command>`:
 
