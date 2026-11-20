@@ -314,3 +314,14 @@ function announce(text: string) {
   }
   region.textContent = text;
 }
+
+// The mark for settings and for system subjects (jobs, reactions): a drawn gear,
+// not the ⚙ character, which some platforms render as a color emoji.
+export function Gear() {
+  return (
+    <svg className="gear" viewBox="0 0 16 16" width="1em" height="1em" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.2">
+      <path strokeLinejoin="round" d="M14.83 6.47L14.83 9.53L12.97 10.1L13.91 11.75L11.75 13.91L10.1 12.97L9.53 14.83L6.47 14.83L5.9 12.97L4.25 13.91L2.09 11.75L3.03 10.1L1.17 9.53L1.17 6.47L3.03 5.9L2.09 4.25L4.25 2.09L5.9 3.03L6.47 1.17L9.53 1.17L10.1 3.03L11.75 2.09L13.91 4.25L12.97 5.9Z" />
+      <circle cx="8" cy="8" r="2.2" />
+    </svg>
+  );
+}

@@ -1,3 +1,4 @@
+import { Gear } from '../ui.tsx';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   BaseEdge, EdgeLabelRenderer, Handle, MarkerType, Position, ReactFlow, ReactFlowProvider, Controls,
@@ -85,7 +86,7 @@ function ObjectCard({ data }: NodeProps<Node<CardData>>) {
         {data.roles.length > 0 && (
           <div className="object-chips">
             {data.roles.map((r) => (
-              <span key={r.id} className={`chip role-chip ${r.system ? 'system' : ''}`}>{r.system && '⚙ '}{r.title}</span>
+              <span key={r.id} className={`chip role-chip ${r.system ? 'system' : ''}`}>{r.system && <><Gear />{' '}</>}{r.title}</span>
             ))}
           </div>
         )}
@@ -146,7 +147,7 @@ function Legend() {
         </svg>
         Arrow — refers to
       </span>
-      <span className="legend-item"><span style={{ fontSize: '0.875rem' }}>⚙</span> System subject</span>
+      <span className="legend-item"><Gear /> System subject</span>
     </div>
   );
 }
@@ -343,7 +344,7 @@ function Objects({ project, entities, onOpen, onCreated, onDeleted, onChanged, o
           aria-pressed={subjectId === r.id}
           onClick={() => (subjectId === r.id ? setSubject(null) : openSubject(r.id))}
         >
-          {r.kind === 'system' && '⚙ '}{r.title}{r.fields.length > 0 && <span className="muted"> · {r.fields.length}</span>}
+          {r.kind === 'system' && <><Gear />{' '}</>}{r.title}{r.fields.length > 0 && <span className="muted"> · {r.fields.length}</span>}
         </button>
       ))}
     </div>
@@ -516,7 +517,7 @@ function DetailPanel({
           <div className="object-chips">
             {roles.map((r) => (
               <button key={r.id} className={`chip role-chip ${r.system ? 'system' : ''}`} onClick={() => onSelectSubject(r.id)}>
-                {r.system && '⚙ '}{r.title}
+                {r.system && <><Gear />{' '}</>}{r.title}
               </button>
             ))}
           </div>
@@ -603,7 +604,7 @@ function SubjectPanel({
 
   return (
     <div className="objects-detail inspector">
-      <h2>{role.kind === 'system' && '⚙ '}{role.title}</h2>
+      <h2>{role.kind === 'system' && <><Gear />{' '}</>}{role.title}</h2>
       <div className="sub"><span className="id">{role.id}</span> · {role.kind === 'system' ? 'system subject' : 'person'}</div>
 
       <section>

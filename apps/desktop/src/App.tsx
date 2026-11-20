@@ -23,7 +23,7 @@ import { GlossaryView } from './views/GlossaryView.tsx';
 import { ProjectSwitcher } from './views/ProjectSwitcher.tsx';
 import { ProjectsView } from './views/ProjectsView.tsx';
 import { AgentStatus, AskAgent } from './views/Shell.tsx';
-import { arrowKeys, nativeFocusgroup, Toasts, Tip, type ToastMsg } from './ui.tsx';
+import { arrowKeys, Gear, nativeFocusgroup, Toasts, Tip, type ToastMsg } from './ui.tsx';
 
 // Electron draws the macOS traffic lights over the top-left corner of the window.
 const isElectron = typeof navigator !== 'undefined' && navigator.userAgent.includes('Electron');
@@ -294,7 +294,7 @@ export function App() {
         )}
         <AgentStatus project={project} job={job} startedAt={startedAt} log={log} onStop={() => job && void api.cancel(job.id)} />
         {!dirty && <AskAgent project={project} running={running} onResearch={research} onSettings={() => go({ page: 'run' })} onError={(m) => notify(m, true)} />}
-        <button type="button" className="btn ghost icon" aria-label="Settings" aria-current={place === 'settings' ? 'page' : undefined} onClick={() => go({ page: 'settings' })}><span aria-hidden>⚙</span></button>
+        <button type="button" className="btn ghost icon" aria-label="Settings" aria-current={place === 'settings' ? 'page' : undefined} onClick={() => go({ page: 'settings' })}><Gear /></button>
       </header>
 
       {views[place].length > 1 && (

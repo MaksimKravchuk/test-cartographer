@@ -38,6 +38,8 @@
   --s7: 48px;
   --s8: 64px;
   --gutter: var(--s5);
+  /* One right edge for page content: headers, tables and panels stop here. */
+  --page-max: 1180px;
   /* Controls (buttons, inputs, selects) share one minimum height so rows line up;
      they still grow with larger text. */
   --control: 32px;
