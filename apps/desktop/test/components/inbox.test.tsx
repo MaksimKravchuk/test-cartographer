@@ -6,7 +6,7 @@ import type { Disagreement } from '@tc/model';
 
 vi.mock('../../src/api.ts', async (actual) => ({
   ...(await actual<typeof import('../../src/api.ts')>()),
-  api: { report: vi.fn(), resolve: vi.fn() },
+  api: { report: vi.fn(), resolve: vi.fn(), supplyData: vi.fn() },
 }));
 const { api } = await import('../../src/api.ts');
 const { InboxView } = await import('../../src/views/InboxView.tsx');
@@ -25,12 +25,13 @@ describe('InboxView', () => {
       finding(2, { kind: 'question', note: 'Who can delete a tag?' }),
       finding(3, { kind: 'contradiction', note: 'Docs and code disagree' }),
       finding(4, { kind: 'question', note: 'Who may archive a project?', options: ['Only the owner', 'Any member'] }),
+      finding(5, { kind: 'gap', note: 'Checkout needs a test card', need: { owner: 'roles', id: 'buyer', field: 'card', secret: true } }),
     ],
     lint: [], sources: [], usePriority: false,
   } as never);
   const props = {
     project: { project: { agents: [] } } as never, proposals: [], entities: [], dirty: false, running: false, clarifying: false, reloadToken: 0,
-    onDecided: vi.fn(), onChanged: vi.fn(), onError: vi.fn(), onClarify: vi.fn(),
+    onDecided: vi.fn(), onChanged: vi.fn(), onError: vi.fn(), onClarify: vi.fn(), onRerun: vi.fn(),
   };
 
   it('a source problem is fixed or left out, not a product bug', async () => {
@@ -70,5 +71,16 @@ describe('InboxView', () => {
     rerender(<InboxView {...props} running clarifying />);
     expect(screen.getByRole('status')).toHaveTextContent(/looking into this/);
     expect(screen.getByRole('button', { name: /Need more context/ })).toBeDisabled();
+  });
+
+  it('a gap that lacks data asks for the value, masked for a secret', async () => {
+    vi.mocked(api.supplyData).mockResolvedValue({ ok: true } as never);
+    render(<InboxView {...props} />);
+    await userEvent.click(await screen.findByRole('button', { name: /Checkout needs a test card/ }));
+    expect(screen.queryByRole('button', { name: /Bug in the product/ })).toBeNull();
+    const input = screen.getByLabelText('{{roles.buyer.card}}');
+    expect(input).toHaveAttribute('type', 'password');
+    await userEvent.type(input, '4242{Enter}');
+    expect(api.supplyData).toHaveBeenCalledWith('p1', 5, '4242');
   });
 });

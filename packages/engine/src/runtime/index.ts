@@ -23,7 +23,7 @@ export type Suite = {
   scenarios: (Scenario & { trace: { epics: string[]; features: string[]; stories: string[] } })[];
 };
 
-export type Worker = { root: string; project: Project; mcp: McpPool; data: DataValues };
+export type Worker = { root: string; project: Project; mcp: McpPool; data: DataValues; env: Record<string, string | undefined> };
 
 export const test = base.extend<object, { tcWorkspace: string; tc: Worker }>({
   tcWorkspace: [process.env.TC_WORKSPACE ?? '.', { option: true, scope: 'worker' }],
@@ -32,8 +32,9 @@ export const test = base.extend<object, { tcWorkspace: string; tc: Worker }>({
       const ws = new Workspace(tcWorkspace);
       const project = await ws.project();
       const mcp = new McpPool(project, ws.root);
-      const data = dataValues(project.roles, Object.values(await ws.catalog()), process.env);
-      await use({ root: ws.root, project, mcp, data });
+      const env = ws.env();
+      const data = dataValues(project.roles, Object.values(await ws.catalog()), env);
+      await use({ root: ws.root, project, mcp, data, env });
       await mcp.close();
     },
     { scope: 'worker' },
@@ -152,7 +153,7 @@ export async function execute(
     };
     // A role with a login signs in once per browser context, before it acts.
     if (fresh && role.login) {
-      const args = template(role.login.args, { env: process.env, variant: inst.variant, runTag, ...tc.data });
+      const args = template(role.login.args, { env: tc.env, variant: inst.variant, runTag, ...tc.data });
       await hooks.step(`Sign in: ${role.title}`, () => action(role.login!.action).run({ ...ctx, args }).then(() => undefined));
     }
     return ctx;

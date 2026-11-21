@@ -72,8 +72,9 @@ export async function explore(ws: Workspace, agentId: string, opts: ExploreOptio
   const catalog = await ws.catalog();
   // Fields of every role and entity: real values for the engine (sign-in,
   // fill), references in place of secrets for anything the model reads.
-  const data = dataValues(project.roles, Object.values(catalog), process.env);
-  const secrets = secretValues(project.roles, Object.values(catalog), process.env);
+  const env = ws.env();
+  const data = dataValues(project.roles, Object.values(catalog), env);
+  const secrets = secretValues(project.roles, Object.values(catalog), env);
   // Evidence files land in the workspace and may be committed: they get the same
   // redaction as what the model reads. (A screenshot can't be scrubbed.)
   const scrub = (text: string) => scrubSecrets(text, secrets);
@@ -108,7 +109,7 @@ export async function explore(ws: Workspace, agentId: string, opts: ExploreOptio
     log(`🔑 signing in as ${role.title}`);
     await login.run({
       page, role, iface, variant: '', key: '', entity: {}, related: {}, data,
-      args: template(role.login.args, { env: process.env, ...data }),
+      args: template(role.login.args, { env: env, ...data }),
       open: async (path = '') => {
         await page.goto(base + path);
       },
@@ -185,7 +186,7 @@ export async function explore(ws: Workspace, agentId: string, opts: ExploreOptio
         const done: string[] = [];
         const readers = Object.fromEntries(Object.values(catalog).map((e) => [e.id, e.reader]));
         const relations = Object.fromEntries(entity.relations.map((r) => [r.id, { entity: r.entity, field: r.field }]));
-        const inst = await execute({ entity: { id: entity.id, key: entity.key, reader }, readers, relations }, plan.steps, variant, actions, { root: ws.root, project, mcp, data }, chrome, {
+        const inst = await execute({ entity: { id: entity.id, key: entity.key, reader }, readers, relations }, plan.steps, variant, actions, { root: ws.root, project, mcp, data, env }, chrome, {
           step: async (title, fn) => {
             log(`⚙️ ${title}`);
             done.push(title);
@@ -218,10 +219,10 @@ export async function explore(ws: Workspace, agentId: string, opts: ExploreOptio
       input: z.object({}),
       run: async () =>
         toYaml({
-          roles: redactFields('roles', project.roles, process.env),
+          roles: redactFields('roles', project.roles, env),
           glossary: project.glossary,
-          entity: redactFields('entities', [entity], process.env)[0],
-          related: redactFields('entities', [...related].flatMap((id) => (catalog[id] ? [catalog[id]] : [])), process.env).map((e) => ({
+          entity: redactFields('entities', [entity], env)[0],
+          related: redactFields('entities', [...related].flatMap((id) => (catalog[id] ? [catalog[id]] : [])), env).map((e) => ({
             id: e.id, title: e.title, description: e.description, key: e.key, relations: e.relations, fields: e.fields,
             states: e.states.map((s) => ({ id: s.id, title: s.title, match: s.match })),
             actions: e.actions.map((a) => ({ id: a.id, title: a.title })),
@@ -398,7 +399,7 @@ export async function explore(ws: Workspace, agentId: string, opts: ExploreOptio
       system: system({
         roleTitle: role.title, roleId: role.id, iface: iface.title, baseUrl: iface.baseUrl, entity: entity.title, goal: agent.goal,
         prepare: prepareTools, contracts: project.contracts.map((c) => `${c.id} (${c.title})`),
-        data: dataContext(project.roles, Object.values(catalog), process.env, role.id),
+        data: dataContext(project.roles, Object.values(catalog), env, role.id),
         skills: skillsPrompt(SKILLS, tools.map((t) => t.name)),
       }),
       prompt: `Start exploring. Goal: ${agent.goal}`,

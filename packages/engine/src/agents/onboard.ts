@@ -352,7 +352,7 @@ export async function onboard(ws: Workspace, agentId: string | undefined, opts: 
           : v && typeof v === 'object'
             ? Object.fromEntries(Object.entries(v).map(([k, x]) => [k, k === 'provenance' ? { source: (x as Provenance).source, sources: (x as Provenance).sources, seen: (x as Provenance).seen } : compact(x)]))
             : v;
-        const entities = Object.fromEntries(redactFields('entities', Object.values(await ws.catalog()), process.env).map((e) => [e.id, compact(e)]));
+        const entities = Object.fromEntries(redactFields('entities', Object.values(await ws.catalog()), ws.env()).map((e) => [e.id, compact(e)]));
         if (entity) {
           // An entity this research proposed: what the runs proposed for it so far.
           const added = saved.flatMap((p) => p.ops).find((op) => op.op === 'add' && op.kind === 'entity' && op.value.id === entity);
@@ -366,7 +366,7 @@ export async function onboard(ws: Workspace, agentId: string | undefined, opts: 
         // One call per entity keeps every result readable: the whole Vikunja model was 68 KB and the runtime cut it to a preview.
         const proposals = await ws.proposals();
         return JSON.stringify({
-          project: { roles: redactFields('roles', project.roles, process.env), interfaces: project.interfaces, glossary: project.glossary },
+          project: { roles: redactFields('roles', project.roles, ws.env()), interfaces: project.interfaces, glossary: project.glossary },
           entities: Object.values(entities).map((e: any) => ({ id: e.id, title: e.title, description: e.description, states: e.states.map((x: any) => x.id), actions: e.actions.map((x: any) => x.id), rules: e.rules.length })),
           // Other runs of this research (areas) proposed these; extend them in their entity group instead of adding them again.
           proposedNow: saved.flatMap((p) => p.ops).flatMap((op) => (op.kind === 'entity' && op.op === 'add' ? [{ id: op.value.id, title: op.value.title }] : [])),

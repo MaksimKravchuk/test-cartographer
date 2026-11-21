@@ -1,10 +1,11 @@
 import { createHash } from 'node:crypto';
 import { appendFile, mkdir, readdir, readFile, rename, writeFile } from 'node:fs/promises';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
+import { parseEnv } from 'node:util';
 import { basename, extname, join } from 'node:path';
 import YAML from 'yaml';
 import { diffEntity, diffProject, HistoryEntry, stamp, type Author } from './history.ts';
-import { Backlog, Entity, Project, Proposal, RunReport, Source, SourceRegistry, isFileSource, type ScenarioResult, type FileSourceKind, type ToolCall } from './schema.ts';
+import { Backlog, Entity, Project, type Field, Proposal, RunReport, Source, SourceRegistry, isFileSource, type ScenarioResult, type FileSourceKind, type ToolCall } from './schema.ts';
 
 // A workspace is a plain folder that is easy to keep in git:
 //   cartographer.yaml     project: interfaces, roles, MCP, agent runtime, agents
@@ -19,6 +20,7 @@ import { Backlog, Entity, Project, Proposal, RunReport, Source, SourceRegistry, 
 //   evidence/             screenshots and snapshots collected by agents
 //   generated/            compiled tests
 //   runs/                 run reports
+//   .env.local            secret field values typed in the GUI (git-ignored); the YAML keeps {{env.NAME}}
 export class Workspace {
   readonly root: string;
   constructor(root: string) {
@@ -27,6 +29,39 @@ export class Workspace {
 
   path(...parts: string[]) {
     return join(this.root, ...parts);
+  }
+
+  // The environment field values resolve against: the process's own plus .env.local.
+  env(): Record<string, string | undefined> {
+    const file = this.path('.env.local');
+    return { ...process.env, ...(existsSync(file) ? parseEnv(readFileSync(file, 'utf8')) : {}) };
+  }
+
+  // A secret newly typed in as a literal moves to .env.local and the YAML keeps
+  // a reference to it, so it never lands in git or in history.jsonl. One already
+  // in the YAML (a demo account written there on purpose) stays as it is.
+  private async stashSecrets<T extends { id: string; fields: Field[] }>(kind: 'role' | 'entity', list: T[], before: T[] = []): Promise<T[]> {
+    const moved: [string, string][] = [];
+    const out = list.map((o) => ({
+      ...o,
+      fields: o.fields.map((f) => {
+        if (!f.secret || !f.value || f.value.includes('{{')) return f;
+        if (before.find((b) => b.id === o.id)?.fields.some((b) => b.id === f.id && b.value === f.value)) return f;
+        const name = `TC_${kind}_${o.id}_${f.id}`.toUpperCase().replace(/[^A-Z0-9]/g, '_');
+        moved.push([name, f.value]);
+        return { ...f, value: `{{env.${name}}}` };
+      }),
+    }));
+    if (!moved.length) return out;
+    const file = this.path('.env.local');
+    const names = new Set(moved.map(([n]) => n));
+    const kept = (existsSync(file) ? await readFile(file, 'utf8') : '').split('\n').filter((l) => l && !names.has(l.split('=')[0].trim()));
+    const quote = (v: string) => (!v.includes('"') ? `"${v.replaceAll('\n', '\\n')}"` : !v.includes("'") && !v.includes('\n') ? `'${v}'` : `\`${v}\``);
+    await writeFile(file, [...kept, ...moved.map(([n, v]) => `${n}=${quote(v)}`)].join('\n') + '\n', { mode: 0o600 });
+    const ignore = this.path('.gitignore');
+    const rules = existsSync(ignore) ? await readFile(ignore, 'utf8') : '';
+    if (!rules.split('\n').includes('.env.local')) await writeFile(ignore, `${rules}${rules && !rules.endsWith('\n') ? '\n' : ''}.env.local\n`);
+    return out;
   }
 
   async project(): Promise<Project> {
@@ -63,7 +98,7 @@ export class Workspace {
         throw new RevisionConflict(`Model “${entity.id}” has changed (revision ${current}, expected ${expectedRevision})`);
     }
     await mkdir(this.path('entities'), { recursive: true });
-    const next = Entity.parse(entity);
+    const [next] = await this.stashSecrets('entity', [Entity.parse(entity)], text === null ? [] : [Entity.parse(YAML.parse(text))]);
     const saved = revision(await writeChangedKeys(file, next, (v) => Entity.parse(v)));
     await this.log(diffEntity(text === null ? null : Entity.parse(YAML.parse(text)), next), by);
     return saved;
@@ -83,7 +118,8 @@ export class Workspace {
   // Comments and formatting on every key the save doesn't change survive (see writeChangedKeys).
   async saveProject(project: Project, by: Author = HUMAN): Promise<void> {
     const before = await this.project().catch(() => null);
-    const next = Project.parse(project);
+    const parsed = Project.parse(project);
+    const next = { ...parsed, roles: await this.stashSecrets('role', parsed.roles, before?.roles) };
     await writeChangedKeys(this.path('cartographer.yaml'), next, (v) => Project.parse(v));
     await this.log(diffProject(before, next), by);
   }

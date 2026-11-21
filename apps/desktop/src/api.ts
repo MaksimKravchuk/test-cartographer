@@ -151,6 +151,9 @@ export const api = {
   report: () => call<{ disagreements: Disagreement[]; lint: Lint[]; matrix: ReviewRow[]; sources: Source[]; usePriority: boolean }>('/api/report'),
   resolve: (proposal: string, index: number, verdict: Resolution['verdict'] | null, note?: string) =>
     call(`/api/proposals/${proposal}/findings/${index}`, { method: 'POST', body: JSON.stringify({ verdict, note }) }),
+  // Fills in the data a gap says an agent lacked; the field lands on its role or entity.
+  supplyData: (proposal: string, index: number, value: string) =>
+    call(`/api/proposals/${proposal}/findings/${index}/data`, { method: 'POST', body: JSON.stringify({ value }) }),
   spec: () => call<{ markdown: string }>('/api/spec'),
   exportSpec: () => call<{ file: string }>('/api/spec/export', { method: 'POST' }),
   backlog: () => call<BacklogState>('/api/backlog'),

@@ -12,7 +12,7 @@ import { dirname, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   AgentProvider, RuntimeOverride, applyDecisions, applyProjectDecisions, removeRole, Backlog, backlogCoverage, buildPlan, conflicts, coverage, Decision, Entity, objectParents, Project, type Proposal,
-  RevisionConflict, Resolution, addSynonym, allFindings, findingSynonym, lintModel, reviewMatrix, FILE_SOURCE_KINDS, ToolCall, isFileSource, validateBacklog, validateEntity, validateProject, type ProjectState, type Workspace,
+  RevisionConflict, Resolution, addSynonym, allFindings, findingSynonym, lintModel, reviewMatrix, FILE_SOURCE_KINDS, ToolCall, isFileSource, validateBacklog, validateEntity, validateProject, type Field, type ProjectState, type Workspace,
 } from '@tc/model';
 import { z } from 'zod';
 import { loadActions } from './actions-loader.ts';
@@ -480,6 +480,34 @@ export function createApp(initial: Workspace) {
     const entities = Object.values(await ws.catalog());
     const found = allFindings(await ws.proposals(), sources, usePriority);
     return c.json({ disagreements: found.filter((d) => d.finding.kind !== 'confirmation'), lint: lintModel(entities), matrix: reviewMatrix(entities, found, sources), sources, usePriority });
+  });
+
+  // A person fills in the data an agent lacked (a test card, an account): the
+  // field goes on the role or entity, and the gap is settled.
+  app.post('/api/proposals/:id/findings/:index/data', async (c) => {
+    const { value } = z.object({ value: z.string().min(1) }).parse(await c.req.json());
+    const proposal = await ws.proposal(c.req.param('id'));
+    const index = Number(c.req.param('index'));
+    const need = proposal.findings[index]?.need;
+    if (!need) throw new HttpError(404, `Finding #${index} asks for no data`);
+    const put = <T extends { id: string; fields: Field[] }>(o: T): T => ({
+      ...o,
+      fields: [...o.fields.filter((f) => f.id !== need.field), { ...o.fields.find((f) => f.id === need.field), id: need.field, value, secret: need.secret }],
+    });
+    if (need.owner === 'roles') {
+      const project = await ws.project();
+      if (!project.roles.some((r) => r.id === need.id)) throw new HttpError(404, `No role “${need.id}”`);
+      await ws.saveProject({ ...project, roles: project.roles.map((r) => (r.id === need.id ? put(r) : r)) });
+    } else {
+      const { entity, revision } = await ws.entity(need.id).catch(() => {
+        throw new HttpError(404, `No entity “${need.id}”`);
+      });
+      await ws.saveEntity(put(entity), revision);
+    }
+    const rest = proposal.resolutions.filter((r) => r.finding !== index);
+    const note = `added {{${need.owner}.${need.id}.${need.field}}}`;
+    await ws.saveProposal({ ...proposal, resolutions: [...rest, { finding: index, verdict: 'answered', note, at: new Date().toISOString() }] });
+    return c.json({ ok: true });
   });
 
   app.post('/api/proposals/:id/findings/:index', async (c) => {

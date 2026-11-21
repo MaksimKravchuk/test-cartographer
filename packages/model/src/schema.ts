@@ -616,6 +616,8 @@ export const Finding = z.object({
   synonym: z.object({ term: z.string().min(1), synonym: z.string().min(1) }).optional(),
   // A question's own answers, when yes/no doesn't fit; a person may still answer in words.
   options: z.array(z.string().min(1)).max(6).optional(),
+  // A gap the agent hit for lack of data: the field a person can fill in for the next run.
+  need: z.object({ owner: z.enum(['roles', 'entities']), id: Id, field: Id, secret: z.boolean().default(false) }).optional(),
 });
 export type Finding = z.infer<typeof Finding>;
 

@@ -105,8 +105,8 @@ export function FieldsEditor({ owner, ownerId, fields, file, onSave }: Props) {
         </p>
       )}
       <p className="muted" style={{ fontSize: '0.75rem', margin: '8px 0' }}>
-        Saved as plain text in <span className="id">{file}</span>. For a real account put <span className="id">{'{{env.NAME}}'}</span> as the value
-        and set the variable where the engine runs.
+        Saved in <span className="id">{file}</span>. A secret goes to <span className="id">.env.local</span> next to it instead, which git
+        ignores; <span className="id">{file}</span> keeps only a reference.
       </p>
       <div className="row">
         <button className="btn small primary" disabled={busy || invalid} onClick={save}>Save data</button>
