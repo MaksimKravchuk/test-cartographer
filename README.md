@@ -225,7 +225,7 @@ Done:
 - relations between entities: setup dependencies, effects on related instances, rules on a related state;
 - the Order and Listing entities with variants;
 - two interfaces and two agents;
-- an editable map with agent proposals overlaid on it;
+- an editable model where each object reads as one page, with agent proposals decided in the Inbox;
 - a setup tool verified by reading;
 - test generation and runs for transitions, permits, and the access matrix;
 - coverage and Markdown export;
