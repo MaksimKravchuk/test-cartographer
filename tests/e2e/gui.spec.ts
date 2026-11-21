@@ -16,25 +16,80 @@ test('the overview shows the demo project and its entities', async ({ page }) =>
   await openOverview(page);
   await expect(page.getByRole('heading', { level: 1 })).toContainText(/shop/i);
   await place(page, 'Model').click();
-  await expect(view(page, 'Map')).toContainText('3');
+  await expect(page.getByRole('complementary', { name: 'Model outline' }).getByRole('button', { name: /^Order/ })).toBeVisible();
 });
 
 test('the glossary is under Model and lists the project words', async ({ page }) => {
   await page.goto('/');
   await place(page, 'Model').click();
-  await view(page, 'Glossary').click();
+  await page.getByRole('complementary', { name: 'Model outline' }).getByRole('button', { name: /^Glossary/ }).click();
   await expect(page.getByRole('heading', { name: 'Glossary', level: 1 })).toBeVisible();
   await expect(page.getByLabel('Term').first()).toHaveValue('Order');
   await expect(page.getByLabel('Also called').first()).toHaveValue('purchase');
   if (process.env.TC_SHOT3) await page.screenshot({ path: process.env.TC_SHOT3, fullPage: true });
 });
 
-test('an entity opens with its map, scenarios and coverage', async ({ page }) => {
+test('an object lists its actions with who does them and what they change', async ({ page }) => {
+  await page.goto('/');
+  await place(page, 'Model').click();
+  await page.getByRole('complementary', { name: 'Model outline' }).getByRole('button', { name: /^Order/ }).click();
+  const actions = page.getByRole('region', { name: 'Actions' });
+  await expect(actions.getByRole('row', { name: /^Pay Buyer Created → Paid/ })).toBeVisible();
+  await actions.getByRole('button', { name: /^Cancel/ }).click();
+  const action = page.getByRole('region', { name: 'Rules' });
+  await expect(action.getByRole('checkbox', { name: 'Buyer' })).toBeChecked();
+  await expect(action.getByRole('group', { name: 'What it changes' })).toContainText('Created → Cancelled');
+  if (process.env.TC_SHOT4) await page.screenshot({ path: process.env.TC_SHOT4, fullPage: true });
+});
+
+test('who performs an action and what it changes are edited on the action', async ({ page }) => {
+  await page.goto('/');
+  await place(page, 'Model').click();
+  await page.getByRole('complementary', { name: 'Model outline' }).getByRole('button', { name: /^Order/ }).click();
+  const actions = page.getByRole('region', { name: 'Actions' });
+  await actions.getByRole('button', { name: /^Pay/ }).click();
+  const action = page.getByRole('region', { name: 'Rules' });
+  // A subject ticked on the action performs every change it makes; unticked, none of them.
+  await action.getByRole('checkbox', { name: 'Seller' }).click();
+  await expect(actions.getByRole('row', { name: /^Pay Buyer, Seller/ })).toBeVisible();
+  await action.getByRole('checkbox', { name: 'Seller' }).click();
+  await expect(actions.getByRole('row', { name: /^Pay Buyer Created → Paid/ })).toBeVisible();
+  // A change is added from one state to another and removed again.
+  const changes = action.getByRole('group', { name: 'What it changes' });
+  await changes.getByLabel('From state').selectOption({ label: 'Created' });
+  await changes.getByLabel('To state').selectOption({ label: 'Shipped' });
+  await changes.getByRole('button', { name: 'Add change' }).click();
+  await expect(actions.getByRole('row', { name: /^Pay/ })).toContainText('Created → Shipped');
+  await changes.getByRole('button', { name: /Remove Pay: Created → Shipped/ }).click();
+  await expect(actions.getByRole('row', { name: /^Pay/ })).not.toContainText('Shipped');
+});
+
+test('an unsaved technical edit does not undo a change made on the page meanwhile', async ({ page }) => {
+  await page.goto('/');
+  await place(page, 'Model').click();
+  await page.getByRole('complementary', { name: 'Model outline' }).getByRole('button', { name: /^Order/ }).click();
+  await page.getByText('How tests connect to the app').click();
+  const states = page.getByRole('region', { name: 'States' });
+  // A change saved on the page above is not an unsaved technical edit.
+  await page.getByLabel('New state').fill('On hold');
+  await page.getByRole('button', { name: 'Add state' }).click();
+  await expect(states).toContainText('On hold');
+  await expect(page.getByText('Unsaved changes')).toBeHidden();
+  // A technical draft older than a page change gets a conflict instead of undoing it.
+  await page.getByLabel(/^Correlation key/).fill('orderId');
+  await states.getByRole('button', { name: 'Delete state On hold' }).click();
+  await expect(states).not.toContainText('On hold');
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect(page.getByRole('region', { name: 'Notifications' })).toContainText('has changed');
+  await page.getByRole('button', { name: 'Discard', exact: true }).click();
+  await expect(states).not.toContainText('On hold');
+});
+
+test('an object opens under Tests with its scenarios and coverage', async ({ page }) => {
   await openOverview(page);
   await page.getByRole('button', { name: /^Order/ }).first().click();
   await expect(page.locator('.crumbs')).toContainText('Order');
-  await expect(page.getByRole('tab', { name: /Map/ })).toHaveAttribute('aria-selected', 'true');
-  await page.getByRole('tab', { name: /Scenarios/ }).click();
+  await expect(page.getByRole('tab', { name: /Scenarios/ })).toHaveAttribute('aria-selected', 'true');
   await expect(page.getByRole('tab', { name: /Scenarios/ })).toHaveAttribute('aria-selected', 'true');
   await page.getByRole('tab', { name: /Coverage/ }).click();
   await expect(page.getByRole('tab', { name: /Coverage/ })).toHaveAttribute('aria-selected', 'true');
@@ -44,7 +99,7 @@ test('every section opens without an error', async ({ page }) => {
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(e.message));
   await page.goto('/');
-  const places: [string, string[]][] = [['Sources', []], ['Model', ['Map', 'Model']], ['Inbox', ['By source', 'Queue']], ['Spec', []], ['Tests', ['Backlog', 'Export', 'Overview']], ['Agent', []]];
+  const places: [string, string[]][] = [['Sources', []], ['Model', []], ['Inbox', []], ['Spec', []], ['Tests', ['All objects']]];
   for (const [name, views] of places) {
     await place(page, name).click();
     await expect(place(page, name)).toHaveAttribute('aria-current', 'page');
@@ -54,7 +109,7 @@ test('every section opens without an error', async ({ page }) => {
     }
   }
   await page.getByRole('button', { name: 'Settings', exact: true }).click();
-  for (const v of ['Agents', 'Projects', 'Project']) {
+  for (const v of ['Agents', 'Project']) {
     await view(page, `${v}$`).click();
     await expect(view(page, `${v}$`)).toHaveAttribute('aria-current', 'page');
   }
@@ -64,52 +119,49 @@ test('every section opens without an error', async ({ page }) => {
 test('export writes Markdown through the GUI', async ({ page }) => {
   await page.goto('/');
   await place(page, 'Tests').click();
-  await view(page, 'Export').click();
   await page.getByRole('button', { name: 'Export to Markdown' }).click();
-  await expect(page.locator('pre.md').first()).toContainText('#');
+  await page.getByRole('dialog').getByRole('button', { name: 'Export to Markdown' }).click();
+  await expect(page.getByRole('dialog').locator('pre.md').first()).toContainText('#');
 });
 
-test('a review shows by source which one contradicts the model', async ({ page }) => {
+test('a review lands in the Inbox and on the action it is about', async ({ page }) => {
   // The button picks a live agent when one is installed; the test needs the scripted review.
   expect((await page.request.post('/api/onboarding/run', { data: { provider: 'scripted', mode: 'review' } })).ok()).toBe(true);
   // The scripted review runs as a job; reopen the page until its findings land.
+  const finding = page.getByRole('article', { name: 'Finding' });
   await expect(async () => {
     await page.goto('/');
     await place(page, 'Inbox').click();
-    await view(page, 'By source').click();
-    await expect(page.getByRole('table', { name: 'Review by source' }).getByText('✕').first()).toBeVisible({ timeout: 2_000 });
+    await expect(finding).toContainText('contradiction', { timeout: 2_000 });
   }).toPass({ timeout: 30_000 });
-  // A confirmation fills its row too: the overview and the code agree on the expiry.
-  await expect(page.getByRole('table', { name: 'Review by source' }).getByRole('row', { name: /Action: Expire/ })).toContainText('✓');
+  // The Inbox queue opens on the contradiction, with each source's quote and the verdicts.
+  await expect(finding.getByRole('button', { name: /Bug in the product/ })).toBeEnabled();
+  // The source menu narrows the queue to what one source says.
+  await page.getByLabel('Source').selectOption({ label: 'Shop code' });
+  await expect(finding).toBeVisible();
   if (process.env.TC_SHOT) await page.screenshot({ path: process.env.TC_SHOT, fullPage: true });
 
-  // The Inbox queue opens on the contradiction, with each source's quote and the verdicts.
-  await view(page, 'Queue').click();
-  const finding = page.getByRole('article', { name: 'Finding' });
-  await expect(finding).toContainText('contradiction');
-  await expect(finding.getByRole('button', { name: /Bug in the product/ })).toBeEnabled();
-
-  // The model screen lists the same contradiction in its "what to do next" queue, and its link opens the action.
+  // On the model, the agent's rule sits on the action itself, dashed, and links back to the Inbox.
   await place(page, 'Model').click();
-  const next = page.getByRole('region', { name: 'What to do next' });
-  await expect(next).toContainText(/contradictions between sources/);
-  await next.getByRole('button', { name: /Requirements \(priority 1\)/ }).click();
-  await expect(page.getByRole('heading', { name: /→ Cancel/ })).toBeVisible();
-  // The agent's rule sits on the action itself, with its quote and the verdicts in words.
+  await page.getByRole('region', { name: 'Actions' }).getByRole('button', { name: /^Cancel/ }).click();
   const rules = page.getByRole('region', { name: 'Rules' });
+  await expect(rules.getByText('sources disagree').first()).toBeVisible();
   await expect(rules.getByText('proposed').first()).toBeVisible();
-  await expect(rules.getByRole('button', { name: 'Accept as requirement' }).first()).toBeEnabled();
+  await rules.getByRole('button', { name: 'Review in Inbox' }).first().click();
+  await expect(place(page, 'Inbox')).toHaveAttribute('aria-current', 'page');
   if (process.env.TC_SHOT2) await page.screenshot({ path: process.env.TC_SHOT2, fullPage: true });
 });
 
-test('the Agent tab runs a task and lists what it hands in as it goes', async ({ page }) => {
+test('Ask agent runs a task in a dialog and lists what it hands in as it goes', async ({ page }) => {
   await page.goto('/');
-  await place(page, 'Agent').click();
-  await page.getByRole('radio', { name: /Research from scratch/ }).check();
+  await page.getByRole('button', { name: 'Ask agent' }).click();
+  await page.getByRole('menuitem', { name: /Choose how it runs/ }).click();
+  const dialog = page.getByRole('dialog', { name: 'Ask agent' });
+  await dialog.getByRole('radio', { name: /Research from scratch/ }).check();
   // No provider: the scripted onboarding, which records the backlog before it finishes.
-  await page.getByLabel('Provider').selectOption('');
-  await page.getByRole('button', { name: 'Start research from scratch' }).click();
-  await expect(page.getByRole('heading', { name: /Last run — done/ })).toBeVisible({ timeout: 60_000 });
-  await expect(page.getByRole('button', { name: 'Review in Inbox' })).toHaveCount(3);
+  await dialog.getByLabel('Provider').selectOption('');
+  await dialog.getByRole('button', { name: 'Start research from scratch' }).click();
+  await expect(dialog.getByRole('heading', { name: /Last run — done/ })).toBeVisible({ timeout: 60_000 });
+  await expect(dialog.getByRole('button', { name: 'Review in Inbox' })).toHaveCount(3);
   if (process.env.TC_SHOT3) await page.screenshot({ path: process.env.TC_SHOT3, fullPage: true });
 });

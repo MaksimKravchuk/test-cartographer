@@ -23,7 +23,7 @@ export function OverviewView({ project, entities, onOpen, onOpenOnboarding, onOp
       <p className="lede">
         {entities.length} {entities.length === 1 ? 'entity' : 'entities'}, {all.scenarios} scenarios: {all.passed} passed
         {all.failed > 0 && <>, <span style={{ color: 'var(--bad)' }}>{all.failed} failed</span></>}.{' '}
-        <button className="btn link" onClick={onOpenObjects}>Open the objects map</button>
+        <button className="btn link" onClick={onOpenObjects}>Open the model</button>
       </p>
 
       {entities.length === 0 && (

@@ -95,7 +95,7 @@ Run them from the GUI (all, one object, one scenario) or with `pnpm tc run`. A f
 
 ## Starting on your own product
 
-1. Create a project in **Settings › Projects › New project** (**Manage projects…** in the project menu): an empty folder with `cartographer.yaml`, anywhere on disk, with a guest and a signed-in role to start from.
+1. Create a project from **Manage projects… › New project** in the project menu: an empty folder with `cartographer.yaml`, anywhere on disk, with a guest and a signed-in role to start from.
 2. Add your sources and press **Check access**.
 3. Write what you know by hand, or run **Research from scratch**; then **Review the model**.
 4. Work through the Inbox.

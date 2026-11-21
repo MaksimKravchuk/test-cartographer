@@ -39,7 +39,7 @@ Press **Check access**. Each source shows *readable* with what an agent can read
 
 ## 3. Model and review
 
-Open **Model**. The demo already has one: subjects and objects on the left (guest, buyer, seller, the shop's background jobs; order, listing, line item), the selected object's actions by subject in the middle, and **What to do next** on the right: what the model checks find without an agent, such as actions nobody described and rules no source backs.
+Open **Model**. The demo already has one: subjects, objects and the glossary on the left (guest, buyer, seller, the shop's background jobs; order, listing, line item), and the selected object as a page you read top to bottom: what the model checks find without an agent (actions nobody described, rules no source backs), its states, its actions with who performs each and what it changes, and its parameters. Everything not listed is forbidden, and the tests check that too. How the tests reach the app (how a state is read and set up, which tool performs an action) stays folded at the bottom; agents usually fill it.
 
 Open **Ask agent › Review the model**. The agent reads each source against each element of the model, quotes what it finds and proposes (the status chip next to **Ask agent** shows it working; click it for progress and the raw log):
 
@@ -47,13 +47,13 @@ Open **Ask agent › Review the model**. The agent reads each source against eac
 - what's missing: a rule or an action the sources describe and the model doesn't;
 - contradictions: the product overview says *"A buyer can cancel an order only until it has been paid"*, while `demo/shop/domain.ts` lets the buyer cancel a paid order.
 
-Findings appear in place with a dashed border. Click **Cancel** in the buyer's row to see that action's rules with their quotes and their R / C / A marks (what the requirements, the code and the app say), then decide each finding: **Accept as requirement**, tests check it; **Observed only**, that's how it works but no source requires it; **Not built yet**, required but not built; **Strike out**, agents won't propose it again.
+Findings appear in place with a dashed border and wait in the Inbox. Click **Cancel** to see who performs it, what it changes and its rules with their quotes and their R / C / A marks (what the requirements, the code and the app say).
 
 ## 4. Inbox
 
-Open **Inbox**. Everything waiting for a decision is one queue: contradictions, questions, gaps and the agents' proposed changes. A contradiction shows each source's quote side by side, with the one that stands by priority framed. Settle the cancel one as **Bug in the product** (or press **B**): the requirement wins and the tests will check it. **Requirements are outdated** (**U**) would make the code the truth instead; **Not a problem** (**N**) closes it. A question is answered **Yes**, **No** or in your own words (a yes to “is X the same as Y?” adds the synonym to **Model → Glossary**), and a source problem, where an agent couldn't read part of a source, is marked fixed or left out on purpose. When you can't answer an item as written, **Need more context** (**M**) sends the agent back to the sources: it finds where the thing shows in the app or API, quotes it, and replaces the item with questions that ask one thing each. **J** and **K** move through the queue.
+Open **Inbox**. Everything waiting for a decision is one queue: contradictions, questions, gaps and the agents' proposed changes. A contradiction shows each source's quote side by side, with the one that stands by priority framed. Settle the cancel one as **Bug in the product** (or press **B**): the requirement wins and the tests will check it. **Requirements are outdated** (**U**) would make the code the truth instead; **Not a problem** (**N**) closes it. A question is answered **Yes**, **No** or in your own words (a yes to “is X the same as Y?” adds the synonym to the **Glossary** in Model), and a source problem, where an agent couldn't read part of a source, is marked fixed or left out on purpose. When you can't answer an item as written, **Need more context** (**M**) sends the agent back to the sources: it finds where the thing shows in the app or API, quotes it, and replaces the item with questions that ask one thing each. **J** and **K** move through the queue.
 
-**Inbox › By source** shows the same review as a table: every element against every source, ✓ confirms, ✕ contradicts.
+Proposed changes are decided here too, op by op: **Accept as requirement**, tests check it; **Observed only**, that's how it works but no source requires it; **Not built yet**, required but not built; **Strike out**, agents won't propose it again. The **Any source** menu above the queue narrows it to what one source says.
 
 ## 5. Specification
 
@@ -61,7 +61,7 @@ Open **Spec**: the confirmed model as one document with contents, who performs e
 
 ## 6. Tests
 
-Open **Tests** and press **Run all tests**. The engine generates Playwright tests from the model, about 300 for the demo, including the negative ones (everything a role must *not* be able to do), runs them against the shop and shows the results on **Tests › Overview** and per object. It takes a couple of minutes.
+Open **Tests** and press **Run all tests**. The engine generates Playwright tests from the model, about 300 for the demo, including the negative ones (everything a role must *not* be able to do), runs them against the shop and shows the results on **Tests**, for all objects and per object. It takes a couple of minutes.
 
 Three tests fail, on purpose: the demo shop has planted bugs. The buyer can still cancel a paid order and an accepted one (the disagreement from step 4), and the seller can archive an out-of-stock listing. Each failure is either a bug to report or a rule to revisit, which takes you back to step 3. That's the loop.
 
@@ -78,7 +78,7 @@ The generated tests are a plain Playwright project (`workspace/generated/`), so 
 
 ## Next: your own product
 
-- **Settings › Projects › New project** creates an empty workspace anywhere on disk.
+- **Manage projects… › New project** in the project menu creates an empty workspace anywhere on disk.
 - On **Sources**, use **Add source** for your docs, tracker exports, a code folder, or Confluence/Jira through MCP, and press **Check access**.
 - On **Model**, write what you know by hand, or use **Ask agent › Research from scratch** to have your agent propose subjects, objects, actions and rules from the sources, then **Review the model** as above.
 - An explorer agent can also click through each role's interface: **Ask agent › Explore the app**, or `pnpm tc explore <agent>`.

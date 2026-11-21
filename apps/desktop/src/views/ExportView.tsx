@@ -17,8 +17,7 @@ export function ExportView({ onError }: { onError(m: string): void }) {
   };
 
   return (
-    <div className="page">
-      <h1>Export scenarios</h1>
+    <div>
       <p className="lede">
         The Markdown covers every scenario in the plan: provenance, data setup, steps, assertions, and the last run result. Files are written to the workspace export/ folder.
       </p>

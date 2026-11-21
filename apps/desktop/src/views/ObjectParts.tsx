@@ -1,13 +1,10 @@
 // Parts of an object's page on the Model screen: its parameters (attributes)
-// with who may change each, and the lifecycle of every status-like parameter
-// as a from × to table. Each tick and each empty cell is a test: a subject
-// that may change something, or one that must be refused.
+// with who may change each. Each tick and each missing tick is a test: a
+// subject that may change something, or one that must be refused.
 import { useRef, useState } from 'react';
-import type { Attribute, AttributeType, Entity, Role, Transition } from '@tc/model';
-import { lifecycleOrder } from './LifecycleView.tsx';
+import type { Attribute, AttributeType, Entity, Role } from '@tc/model';
 import { roleHue, Tip } from '../ui.tsx';
 
-const NEW = '@new';
 const TYPES: AttributeType[] = ['text', 'number', 'money', 'date', 'bool', 'enum', 'link', 'file', 'other'];
 
 // Rows keep the place they had when the object opened, so deciding one never moves the rest under the cursor:
@@ -36,18 +33,6 @@ export function rowKeys<T>(items: T[], id: (x: T) => string, own: (x: T) => stri
   }));
 }
 
-// The "N new incoming · Accept all · Strike out all" line beside a section heading.
-export function Incoming({ count, busy, blocked, onAll }: { count: number; busy: boolean; blocked: boolean; onAll(v: 'accept' | 'reject'): void }) {
-  if (!count) return null;
-  return (
-    <span className="incoming">
-      <span className="tag proposed">{count} new incoming</span>
-      <button className="btn small" disabled={busy || blocked} onClick={() => onAll('accept')}>Accept all</button>
-      <Tip tip="Agents won't propose them again"><button type="button" className="btn small ghost" disabled={busy || blocked} onClick={() => onAll('reject')}>Strike out all</button></Tip>
-    </span>
-  );
-}
-
 // A row that was here when the object opened and has since been decided away.
 export const GoneRow = ({ title, cols }: { title: string; cols: number }) => (
   <tr className="gone">
@@ -56,7 +41,7 @@ export const GoneRow = ({ title, cols }: { title: string; cols: number }) => (
   </tr>
 );
 
-export type ProposedAttribute = { key: string; value: Record<string, unknown>; agent: string; rationale: string; blocked: boolean; onDecide(v: 'accept' | 'reject'): void };
+export type ProposedAttribute = { key: string; value: Record<string, unknown>; agent: string; rationale: string };
 
 const str = (v: unknown) => (typeof v === 'string' ? v : '');
 const list = (v: unknown) => (Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : []);
@@ -76,6 +61,8 @@ export function AttributesTable(props: {
   roles: Role[];
   proposed: ProposedAttribute[];
   busy: boolean;
+  // Agents' proposals are decided in the Inbox.
+  onReview(): void;
   onEdit(change: (e: Entity) => void): void;
 }) {
   const { entity, roles, busy } = props;
@@ -165,10 +152,7 @@ export function AttributesTable(props: {
                 <td key={r.id} className="who">{list(x.value.by).includes(r.id) ? <><span aria-hidden>✓</span><span className="sr-only">The agent says {r.title} may change it</span></> : null}</td>
               ))}
               <td className="row-x">
-                <span className="decide">
-                  <button type="button" className="btn small" disabled={busy || x.blocked} onClick={() => x.onDecide('accept')}>Accept</button>
-                  <Tip tip="Agents won't propose it again"><button type="button" className="btn small ghost" disabled={busy || x.blocked} onClick={() => x.onDecide('reject')}>Strike out</button></Tip>
-                </span>
+                <button type="button" className="btn small" onClick={props.onReview}>Review in Inbox</button>
               </td>
             </tr>
             );
@@ -186,84 +170,5 @@ export function AttributesTable(props: {
         <button className="btn small" disabled={busy || !title.trim()}>Add parameter</button>
       </form>
     </div>
-  );
-}
-
-// The lifecycles of an object: one per enum parameter that states match on;
-// an object whose states name no parameter gets one table of all its states.
-export function lifecycles(entity: Entity): { title: string; states: string[] }[] {
-  const live = entity.states.filter((s) => s.status !== 'rejected');
-  const out = entity.attributes
-    .filter((a) => a.type === 'enum' && a.status !== 'rejected')
-    .map((a) => ({ title: a.title, states: live.filter((s) => a.id in s.match).map((s) => s.id) }))
-    .filter((l) => l.states.length > 0);
-  if (!out.length && live.length) out.push({ title: 'States', states: live.map((s) => s.id) });
-  return out;
-}
-
-export function LifecycleTables(props: { entity: Entity; roles: Role[]; onPick(action: string): void }) {
-  const { entity } = props;
-  const all = lifecycles(entity);
-  if (!all.length) return null;
-  const roleTitle = (id: string) => props.roles.find((r) => r.id === id)?.title ?? id;
-  const actionTitle = (id: string) => entity.actions.find((a) => a.id === id)?.title || id;
-  const stateTitle = (id: string) => (id === NEW ? 'New' : entity.states.find((s) => s.id === id)?.title || id);
-  const live = entity.transitions.filter((t) => t.status !== 'rejected');
-  return (
-    <>
-      {all.map((l) => {
-        const inside = new Set(l.states);
-        const ts = live.filter((t) => inside.has(t.to) && (inside.has(t.from) || t.from === NEW));
-        const order = lifecycleOrder(
-          [...(ts.some((t) => t.from === NEW) ? [{ id: NEW }] : []), ...entity.states.filter((s) => inside.has(s.id))],
-          ts,
-        );
-        const cols = order.filter((id) => id !== NEW);
-        const at = (from: string, to: string) => ts.filter((t) => t.from === from && t.to === to);
-        const who = (t: Transition) => (t.by.length === 1 ? roleTitle(t.by[0]) : t.by.length ? `${t.by.length} subjects` : 'nobody');
-        return (
-          <div key={l.title} className="lc-block">
-            <h3>{l.title}: where it can go</h3>
-            <div className="act-table-wrap">
-              <table className="act-table lc-mini" aria-label={`${l.title} transitions`}>
-                <thead>
-                  <tr>
-                    <th scope="col" className="muted">from ↓ to →</th>
-                    {cols.map((id) => <th key={id} scope="col">{stateTitle(id)}</th>)}
-                  </tr>
-                </thead>
-                <tbody>
-                  {order.map((from) => (
-                    <tr key={from}>
-                      <th scope="row">{stateTitle(from)}</th>
-                      {cols.map((to) => {
-                        const xs = at(from, to);
-                        if (!xs.length)
-                          return (
-                            <td key={to} className={from === to ? 'lc-diag' : 'lc-none'}>
-                              {from === to ? '' : <><span aria-hidden>—</span><span className="sr-only">must be impossible</span></>}
-                            </td>
-                          );
-                        return (
-                          <td key={to}>
-                            {xs.map((t) => (
-                              <Tip key={t.id} tip={`${t.title}, by ${t.by.map(roleTitle).join(', ')}`}>
-                                <button type="button" className={`lc-pill ${t.status}`} onClick={() => props.onPick(t.action)}>
-                                  {actionTitle(t.action)} <span className="who-tag" style={t.by.length === 1 ? roleHue(props.roles, t.by[0]) : undefined}>{who(t)}</span>
-                                </button>
-                              </Tip>
-                            ))}
-                          </td>
-                        );
-                      })}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        );
-      })}
-    </>
   );
 }

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import type { Action, Entity, Permit, Relation, State, Transition } from '@tc/model';
-import type { EntityState, ProjectState, ProposalState } from '../api.ts';
+import type { Entity, Relation, State, Transition } from '@tc/model';
+import type { EntityState, ProjectState } from '../api.ts';
 import { nextId, stateTitle, type Selection } from '../graph.ts';
 import {
   EffectsEditor, Issues, KeyValues, Lines, Panel, ProvenanceNote, Scenarios, Select, StatusField, Text, VariantsField,
@@ -11,11 +11,9 @@ type Props = {
   entity: Entity;
   state: EntityState;
   project: ProjectState;
-  proposals: ProposalState[];
   selection: Selection;
   onSelect(s: Selection): void;
   onChange(e: Entity): void;
-  onOpenProposal(): void;
 };
 
 export function Inspector(props: Props) {
@@ -39,9 +37,26 @@ export function Inspector(props: Props) {
   if (!selection) {
     return (
       <div className="inspector">
-        <h2>{entity.title}</h2>
-        <div className="sub"><span className="id">{entity.id}</span></div>
-        <p className="muted">Select a state or transition on the map. To add a transition, drag from the bottom edge of one state to the top edge of another.</p>
+        <section>
+          <h3>States: how each is read and set up</h3>
+          {entity.states.map((s) => (
+            <button key={s.id} type="button" className="scen" onClick={() => props.onSelect({ kind: 'state', id: s.id })}>
+              <span className={`status-pill ${s.status}`}><i /></span>
+              <span>{s.title}</span>
+              <span className="id">{Object.entries(s.match).map(([k, v]) => `${k}: ${String(v)}`).join(', ')}</span>
+            </button>
+          ))}
+        </section>
+        <section>
+          <h3>Changes: guards and effects</h3>
+          {entity.transitions.map((t) => (
+            <button key={t.id} type="button" className="scen" onClick={() => props.onSelect({ kind: 'transition', id: t.id })}>
+              <span className={`status-pill ${t.status}`}><i /></span>
+              <span>{t.title}</span>
+              <span className="id">{stateTitle(entity, t.from)} → {stateTitle(entity, t.to)}</span>
+            </button>
+          ))}
+        </section>
         <section>
           <h3>Variants</h3>
           {entity.variants.map((v) => (
@@ -88,8 +103,7 @@ export function Inspector(props: Props) {
           <Text label="Correlation key: the field that identifies an instance in every interface" value={entity.key} onChange={(key) => onChange({ ...entity, key })} />
         </section>
         <section>
-          <h3>Actions</h3>
-          <p className="muted" style={{ marginTop: 0 }}>A verb subjects apply to the entity — it knows nothing about states or permissions; transitions and permits say who may use it.</p>
+          <h3>Actions: how tests perform them</h3>
           {entity.actions.length === 0 && <p className="muted" style={{ margin: 0 }}>No actions yet.</p>}
           {entity.actions.map((a) => (
             <div key={a.id} className="scen" style={{ cursor: 'pointer' }} onClick={() => props.onSelect({ kind: 'action', id: a.id })}>
@@ -99,21 +113,11 @@ export function Inspector(props: Props) {
               {!a.run && !a.invoke && <span className="flag warn">no run/invoke</span>}
             </div>
           ))}
-          <button
-            className="btn small"
-            onClick={() => {
-              const id = nextId('action', entity.actions.map((a) => a.id));
-              const a: Action = { id, title: 'New action', kind: 'command', status: 'confirmed', provenance: { source: 'human', evidence: [], sources: [] } };
-              onChange({ ...entity, actions: [...entity.actions, a] });
-              props.onSelect({ kind: 'action', id });
-            }}
-          >
-            Add action
-          </button>
         </section>
         <section>
-          <h3>Permits</h3>
-          <p className="muted" style={{ marginTop: 0 }}>Permission for an action that leaves the state as it is: read, update, some commands.</p>
+          <h3>Permits</h3>        </section>
+        <section>
+          <h3>Actions that leave the state as it is: effects</h3>
           {entity.permits.length === 0 && <p className="muted" style={{ margin: 0 }}>No permits yet.</p>}
           {entity.permits.map((p) => (
             <div key={p.id} className="scen" style={{ cursor: 'pointer' }} onClick={() => props.onSelect({ kind: 'permit', id: p.id })}>
@@ -122,39 +126,7 @@ export function Inspector(props: Props) {
               <span className="muted">{entity.actions.find((a) => a.id === p.action)?.title ?? p.action}</span>
             </div>
           ))}
-          {!entity.actions.length && <span className="muted">Add an action first.</span>}
-          <button
-            type="button"
-            className="btn small"
-            disabled={!entity.actions.length}
-            onClick={() => {
-              const id = nextId('permit', entity.permits.map((p) => p.id));
-              const p: Permit = {
-                id, title: 'New permit', action: entity.actions[0].id, by: [project.project.roles[0].id],
-                effects: [], status: 'confirmed', provenance: { source: 'human', evidence: [], sources: [] },
-              };
-              onChange({ ...entity, permits: [...entity.permits, p] });
-              props.onSelect({ kind: 'permit', id });
-            }}
-          >
-            Add permit
-          </button>
         </section>
-      </div>
-    );
-  }
-
-  if (selection.kind === 'ghost') {
-    const p = props.proposals.find((x) => x.id === selection.proposal);
-    const op = p?.ops[selection.op];
-    if (!p || !op) return null;
-    return (
-      <div className="inspector">
-        <h2>Agent proposal</h2>
-        <div className="sub"><span className="id">{p.agent}</span></div>
-        <p>{p.rationale}</p>
-        <pre className="md" style={{ fontSize: '0.75rem' }}>{JSON.stringify(op, null, 2)}</pre>
-        <button className="btn primary" onClick={props.onOpenProposal}>Review proposal</button>
       </div>
     );
   }

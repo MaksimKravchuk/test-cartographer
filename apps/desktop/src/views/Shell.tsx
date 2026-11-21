@@ -17,7 +17,7 @@ type AskProps = {
   project: ProjectState;
   running: boolean;
   onResearch(mode: 'onboard' | 'review'): void;
-  // Opens the Agent place, where a run can be tuned before it starts.
+  // Opens the dialog where a run can be tuned before it starts.
   onSettings(): void;
   onError(m: string): void;
 };
@@ -34,7 +34,7 @@ export function AskAgent({ project, running, onResearch, onSettings, onError }: 
         <MenuItem key={a.id} title={a.title} detail="Click through the app and propose what it saw" onSelect={pick(() => api.explore(a.id, resolveRuntime(project.project, a) ? 'live' : 'scripted'))} />
       ))}
       <MenuSection>Model, effort, subagents</MenuSection>
-      <MenuItem title="Choose how it runs…" detail="Pick the task and this run’s settings in the Agent tab" onSelect={pick(onSettings)} />
+      <MenuItem title="Choose how it runs…" detail="Pick the task and this run’s model, effort and steps" onSelect={pick(onSettings)} />
     </Popup>
   );
 }
