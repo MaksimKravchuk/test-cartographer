@@ -1,18 +1,20 @@
-/* Design tokens. Semantic layer only: components use these, never raw colors.
+/* Design tokens. Contrast floor: fg-3 (the faintest text) is ≥4.5:1 on both bg and
+   surface, and surfaces stand off the page by a visible step plus a hairline.
+   Semantic layer only: components use these, never raw colors.
    The accent means one thing: an agent proposed it and it waits for a person's
    decision (and keyboard focus). ok / bad / warn are statuses, not decoration.
    Each color is light-dark(light, dark): it follows the OS through color-scheme,
    and `data-theme` on <html> overrides the OS. */
 :root {
   color-scheme: light dark;
-  --bg: light-dark(#f7f7f5, #131312);
-  --surface: light-dark(#ffffff, #1a1a19);
-  --sunken: light-dark(#efefec, #0f0f0e);
-  --line: light-dark(#e3e2dd, #2a2a28);
-  --line-strong: light-dark(#cfcec7, #3a3a37);
+  --bg: light-dark(#ecebe6, #111110);
+  --surface: light-dark(#ffffff, #1d1d1b);
+  --sunken: light-dark(#e2e1dc, #0c0c0b);
+  --line: light-dark(#d6d5cf, #363633);
+  --line-strong: light-dark(#b9b8b0, #4d4d48);
   --fg: light-dark(#1b1b19, #ecebe6);
-  --fg-2: light-dark(#5b5a55, #a6a59e);
-  --fg-3: light-dark(#8b8a83, #76756f);
+  --fg-2: light-dark(#46453f, #b8b7b0);
+  --fg-3: light-dark(#66655f, #93928b);
   --accent: light-dark(#2950b8, #7d9ef2);
   --accent-fg: light-dark(#ffffff, #0f1530);
   --accent-weak: light-dark(#e7ecf8, #1c2645);
