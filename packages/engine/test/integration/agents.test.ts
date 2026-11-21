@@ -3,7 +3,7 @@
 // to the bridge the way Claude Code / Codex do.
 import { after, before, describe, test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp } from 'node:fs/promises';
+import { mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
@@ -12,6 +12,7 @@ import { Workspace } from '@tc/model';
 import { copyWorkspace, startShop } from '../../../../tests/fixtures.ts';
 import { createApp } from '../../src/server.ts';
 import { onboard } from '../../src/agents/onboard.ts';
+import { explore } from '../../src/agents/explore.ts';
 import { openBridge } from '../../src/agents/bridge.ts';
 import { McpPool } from '../../src/mcp.ts';
 
@@ -106,6 +107,36 @@ describe('scripted explorer against the demo shop', () => {
     const { job } = await first.json();
     await post(`/api/jobs/${job}/cancel`, {});
     assert.ok(['done', 'failed'].includes(await finished(job, 110_000)));
+  });
+});
+
+describe('the engine sets up state for the explorer', () => {
+  test('reach() runs the known path with no clicking by the agent; act() runs a library action', { timeout: 120_000 }, async () => {
+    const own = await copyWorkspace();
+    try {
+      // paid comes from a setup tool, then the seller's own actions accept and ship it.
+      await writeFile(join(own.root, 'agents/seller-explorer.yaml'), `steps:
+  - call: reach
+    input: { state: shipped, variant: standard }
+  - call: read
+    input: {}
+  - call: reach
+    input: { state: paid, variant: standard }
+  - call: act
+    input: { action: order.accept }
+  - call: read
+    input: {}
+  - call: propose
+    input: { rationale: setup check, findings: [{ kind: gap, note: nothing new, evidence: [e1, e2] }] }
+`);
+      const log: string[] = [];
+      const p = await explore(new Workspace(own.root), 'seller-explorer', { provider: 'scripted', onLog: (l) => log.push(l) });
+      assert.ok(log.some((l) => l.includes('⚙️') && l.includes('Ship')), log.join('\n'));
+      assert.match(p.evidence[0].summary, /"status":"shipped"/);
+      assert.match(p.evidence[1].summary, /"status":"accepted"/);
+    } finally {
+      await own.remove();
+    }
   });
 });
 

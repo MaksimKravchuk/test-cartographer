@@ -184,7 +184,7 @@ roles:
 
 - Agents get every subject's and object's fields in their instructions. An explorer can type a field reference such as `{{roles.seller.password}}` into the app; the engine substitutes the value.
 - **A secret never reaches the model**: it sees only the reference, and a secret value that comes back in a page snapshot, a read result or an error is replaced with the reference before the agent gets it.
-- Tests template `{{roles.<id>.<field>}}` / `{{entities.<id>.<field>}}` in login args; actions in the library get every value as `ctx.data`.
+- Setup, trigger and `invoke` tool args and login args can use `{{roles.<id>.<field>}}` / `{{entities.<id>.<field>}}`, both in tests and in an explorer's calls: a fixture that pays for an order gets the test card this way. Actions in the library get every value as `ctx.data`.
 - Values are stored as plain text; for a real account use `{{env.NAME}}`.
 
 ### Objects (entities)
@@ -232,6 +232,8 @@ Every scenario has a stable ID, `entity/transition/variant`, which flows through
 ### Agents and proposals
 
 How agents work (planning a run, reading requirements and code, exploring an app, citing evidence, asking questions) is written as [Agent Skills](../packages/engine/skills/README.md): plain `SKILL.md` folders the engine hands to whichever runtime runs the agent. An agent can override the project's runtime with its own `runtime:`.
+
+**Known paths run without the model.** An explorer doesn't click through what the model already covers: `reach(state)` has the engine run the setup (setup tools, then confirmed transitions through the action library, each role in its own browser) and hands the agent the new instance's key, and `act(action)` runs one library action as the agent's role. Its model only pays for the steps nobody has written down yet. An action can call the app's API instead of clicking: `ctx.page.request` shares the role's signed-in cookies.
 
 An agent's result is `proposals/*.yaml`: a patch to the model (`add` / `update` / `remove`) plus findings (gap, contradiction, question) and evidence.
 

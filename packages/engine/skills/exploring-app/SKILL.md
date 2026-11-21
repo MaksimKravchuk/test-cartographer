@@ -2,7 +2,7 @@
 name: exploring-app
 description: Explores a running web application as one role through a browser to learn how one entity behaves - its states, actions, transitions and what the role is refused - and confirms each change by reading the entity back. Use in an exploration run against a live app.
 metadata:
-  tools: "model prepare read browser_navigate browser_snapshot browser_click browser_type browser_select_option browser_fill_form browser_press_key browser_network_requests login contract"
+  tools: "model prepare reach act read browser_navigate browser_snapshot browser_click browser_type browser_select_option browser_fill_form browser_press_key browser_network_requests login contract"
 ---
 
 # Exploring a live app
@@ -17,6 +17,9 @@ as what it is required to do: you report behavior with evidence, and a person de
    role (buttons, menu items, links, editable fields) before trying any of them.
 3. **Check one verb at a time, each on a fresh instance.** Create the instance with `prepare()` and `read()`
    it to confirm the state it starts in. An instance already changed by an earlier check gives misleading results.
+   When the model already knows how to get to a state, use `reach()`: the engine runs that path itself
+   (setup tools and library actions), so you don't spend steps clicking through what is known. For a verb the
+   action library already has, `act()` runs it; click by hand only what the library doesn't cover yet.
 4. Do the action through the interface, then `read()` the instance again and compare the two reads.
 5. Note the app's answer when it refuses: the message is part of the behavior.
 6. Hand in what you have worked out before moving to the next verb.
