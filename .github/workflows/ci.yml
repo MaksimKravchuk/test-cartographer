@@ -70,7 +70,7 @@ jobs:
       - run: pnpm --filter @tc/desktop build
       - run: pnpm exec playwright test -c tests/e2e/playwright.config.ts gui.spec.ts pipeline.spec.ts
 
-  # The macOS app: packaged, launched like a first start, and run against its bundled demo shop.
+  # The self-built macOS app (package:mac) still packages, launches like a first start and runs its bundled demo shop.
   app-mac:
     runs-on: macos-latest
     timeout-minutes: 30
