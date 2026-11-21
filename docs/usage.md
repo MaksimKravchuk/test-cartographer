@@ -138,6 +138,7 @@ entities/<id>.yaml    one object each: variants, states, actions, transitions, p
 backlog.yaml          epics, features, stories
 agents/*.yaml         agent definitions and scripted runs
 actions/index.ts      the action library: what each role does in the UI
+actions/generated/    actions agents wrote as steps and a person accepted, one file each
 proposals/*.yaml      agents' proposals and the decisions on them
 evidence/             what agents saw: snapshots, screenshots, read results
 generated/            generated Playwright tests
@@ -234,6 +235,8 @@ Every scenario has a stable ID, `entity/transition/variant`, which flows through
 How agents work (planning a run, reading requirements and code, exploring an app, citing evidence, asking questions) is written as [Agent Skills](../packages/engine/skills/README.md): plain `SKILL.md` folders the engine hands to whichever runtime runs the agent. An agent can override the project's runtime with its own `runtime:`.
 
 **Known paths run without the model.** An explorer doesn't click through what the model already covers: `reach(state)` has the engine run the setup (setup tools, then confirmed transitions through the action library, each role in its own browser) and hands the agent the new instance's key, and `act(action)` runs one library action as the agent's role. Its model only pays for the steps nobody has written down yet. An action can call the app's API instead of clicking: `ctx.page.request` shares the role's signed-in cookies.
+
+**Agents write actions.** Once an explorer has done a verb through the UI and read back its effect, it writes the verb down as steps (`write_action`): open, click, fill, select, press, wait, an API `request`, with targets by test id, role and name, label or text. Steps, not code, so nothing an agent writes runs as code on your machine. The engine checks them live first: it reaches the start state, replays the steps as the agent's role and reads the instance back. They come to the Inbox as evidence on the op that sets the action's `run`; accepting that op puts them into `actions/generated/<name>.yaml`, which the library loads next to `actions/index.ts` (a hand-written entry of the same name wins).
 
 An agent's result is `proposals/*.yaml`: a patch to the model (`add` / `update` / `remove`) plus findings (gap, contradiction, question) and evidence.
 

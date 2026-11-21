@@ -13,6 +13,7 @@ optional `references/`.
 | `reviewing-model` | element × source: confirmed, contradicted, not found | | ✓ | |
 | `exploring-app` | live app as one role, confirmed by reading back | | | ✓ |
 | `citing-evidence` | exact quotes, what they prove, bounded "not found" | ✓ | ✓ | |
+| `writing-actions` | a verb done in the UI → library code, checked live | | | ✓ |
 | `asking-questions` | one decision per question, readable out of context | ✓ | ✓ | ✓ |
 | `proposing-model-changes` | element shapes, handing in | ✓ | ✓ | ✓ |
 

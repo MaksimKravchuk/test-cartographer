@@ -579,7 +579,7 @@ export type EntityCreate = z.infer<typeof EntityCreate>;
 // ── Agent proposals ─────────────────────────────────────────────────────
 export const Evidence = z.object({
   id: z.string(),
-  kind: z.enum(['screenshot', 'snapshot', 'network', 'contract', 'probe', 'note', 'source']),
+  kind: z.enum(['screenshot', 'snapshot', 'network', 'contract', 'probe', 'note', 'source', 'action']),
   summary: z.string(), // for a `source` evidence: the exact quote
   path: z.string().optional(), // for a `source` evidence, may hold "<file>#L<from>-L<to>"
   url: z.string().optional(),
