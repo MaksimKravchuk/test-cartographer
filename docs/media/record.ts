@@ -30,6 +30,8 @@ await page.goto(url);
 await page.evaluate(() => {
   const el = (css: string) => Object.assign(document.body.appendChild(document.createElement('div')), { style: css });
   el('position:fixed;z-index:99999;left:640px;top:400px;width:18px;height:18px;border-radius:50%;background:rgba(220,40,40,.75);border:2px solid #fff;pointer-events:none;transition:left .5s,top .5s').id = 'rec-cursor';
+  // Toasts sit where the caption is; the caption already says what happened.
+  document.head.appendChild(document.createElement('style')).textContent = '.toasts{display:none!important}';
   el('position:fixed;z-index:99999;left:50%;bottom:24px;transform:translateX(-50%);padding:10px 18px;border-radius:8px;background:rgba(20,24,28,.88);color:#fff;font:600 20px system-ui;pointer-events:none').id = 'rec-caption';
 });
 
@@ -69,19 +71,18 @@ await page.getByText('review — done').waitFor({ timeout: 60_000 });
 await caption('Findings land on the model, with a dashed border');
 await hold(2);
 await click(page.getByRole('region', { name: 'Actions' }).getByRole('button', { name: /^Cancel/ }).first());
-await caption('Each rule comes with quotes: Requirement · Observed · Planned · Strike out');
-// The agent's rule on Cancel, quoted from the product overview.
-const accept = page.getByRole('region', { name: 'Rules' }).getByRole('button', { name: 'Accept as requirement' }).first();
-await accept.scrollIntoViewIfNeeded();
-await hold(3);
-await click(accept);
-await hold(2);
+await hold(2.5);
+await click(page.getByRole('region', { name: 'Rules' }).getByRole('button', { name: 'Review in Inbox' }).first());
 
-await caption('3 · Inbox: requirements say one thing, the code another');
-await click(nav('Inbox'));
+await caption('3 · Inbox: each finding quotes its sources — you accept or strike it out');
 await hold(3.5);
 await click(page.getByRole('button', { name: 'Bug in the product' }).first());
 await hold(1.5);
+await caption('…and proposed changes: accept ✓ or strike out ✕');
+await click(page.getByRole('group', { name: 'Show' }).getByRole('button', { name: /^Proposed changes/ }));
+await hold(2);
+await click(page.getByRole('button', { name: 'Accept as requirement' }).first());
+await hold(2);
 
 await caption('4 · Spec: the confirmed model, with the tests behind every rule');
 await click(nav('Spec'));
