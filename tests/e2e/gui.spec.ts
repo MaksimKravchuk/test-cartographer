@@ -69,17 +69,19 @@ test('an unsaved technical edit does not undo a change made on the page meanwhil
   await place(page, 'Model').click();
   await page.getByRole('complementary', { name: 'Model outline' }).getByRole('button', { name: /^Order/ }).click();
   await page.getByText('How tests connect to the app').click();
-  await page.getByLabel(/^Correlation key/).fill('orderId');
-  // A state added above saves at once; saving the older technical draft must not drop it.
+  const states = page.getByRole('region', { name: 'States' });
+  // A change saved on the page above is not an unsaved technical edit.
   await page.getByLabel('New state').fill('On hold');
   await page.getByRole('button', { name: 'Add state' }).click();
-  const states = page.getByRole('region', { name: 'States' });
   await expect(states).toContainText('On hold');
+  await expect(page.getByText('Unsaved changes')).toBeHidden();
+  // A technical draft older than a page change gets a conflict instead of undoing it.
+  await page.getByLabel(/^Correlation key/).fill('orderId');
+  await states.getByRole('button', { name: 'Delete state On hold' }).click();
+  await expect(states).not.toContainText('On hold');
   await page.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(page.getByRole('region', { name: 'Notifications' })).toContainText('has changed');
-  await expect(states).toContainText('On hold');
   await page.getByRole('button', { name: 'Discard', exact: true }).click();
-  await states.getByRole('button', { name: 'Delete state On hold' }).click();
   await expect(states).not.toContainText('On hold');
 });
 

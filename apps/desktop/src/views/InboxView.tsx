@@ -107,8 +107,10 @@ export function InboxView(props: Props) {
       .map((p): Item => ({ key: `p:${p.id}`, kind: 'proposal', title: agentTitle(p.agent), where: `${entityTitle(p.entity)} · ${p.ops.length} changes`, sources: p.evidence.flatMap((e) => (e.source ? [e.source] : [])), p })),
   ];
   const ordered = groups.flatMap((g) => items.filter((i) => i.kind === g.kind));
-  const visible = ordered.filter((i) => (filter === 'all' || i.kind === filter) && (!source || i.sources.includes(source)));
   const quoted = (report?.sources ?? []).filter((x) => items.some((i) => i.sources.includes(x.id)));
+  // A source whose last item was settled stops filtering, so the select can't hide a filter still in force.
+  const from = quoted.some((x) => x.id === source) ? source : '';
+  const visible = ordered.filter((i) => (filter === 'all' || i.kind === filter) && (!from || i.sources.includes(from)));
   const item = visible.find((i) => i.key === current) ?? visible[0];
   const count = (k: Item['kind']) => items.filter((i) => i.kind === k).length;
   useEffect(() => setAnswer(''), [item?.key]);
@@ -171,7 +173,7 @@ export function InboxView(props: Props) {
             <button key={g.kind} aria-pressed={filter === g.kind} onClick={() => setFilter(g.kind)}>{g.title} {count(g.kind)}</button>
           ))}
           {quoted.length > 0 && (
-            <select className="text source-filter" aria-label="Source" value={source} onChange={(e) => setSource(e.target.value)}>
+            <select className="text source-filter" aria-label="Source" value={from} onChange={(e) => setSource(e.target.value)}>
               <option value="">Any source</option>
               {quoted.map((x) => <option key={x.id} value={x.id}>{x.title}</option>)}
             </select>
