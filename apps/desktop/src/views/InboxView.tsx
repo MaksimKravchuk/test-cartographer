@@ -21,6 +21,8 @@ type Props = {
   // An agent is digging into a finding right now.
   clarifying: boolean;
   onClarify(target: { proposal: string; index: number }): void;
+  // Runs an explorer again, once a person filled in the data it lacked.
+  onRerun(agent: string): void;
   reloadToken: number;
   onDecided(s: EntityState | ProjectDecideResult): void;
   onChanged(): void;
@@ -55,6 +57,8 @@ const answersFor = (d: Disagreement): Answer[] => {
     return d.finding.synonym
       ? [{ v: 'yes', title: 'Yes, the same thing', key: 'y' }, { v: 'no', title: 'No, different things', key: 'n' }]
       : [{ v: 'yes', title: 'Yes', key: 'y' }, { v: 'no', title: 'No', key: 'n' }];
+  // Data the agent lacked is filled in (the form), or not needed after all.
+  if (d.finding.need) return [{ v: 'fine', title: 'Not needed', key: 'n' }];
   if (kind === 'source') return [{ v: 'fixed', title: 'Fixed, read it again next run', key: 'f' }, { v: 'excluded', title: 'Left out on purpose', key: 'x' }];
   return triad;
 };
@@ -131,6 +135,20 @@ export function InboxView(props: Props) {
     if (!it.d || props.running) return;
     setAsked(it.key);
     props.onClarify({ proposal: it.d.proposal, index: it.d.index });
+  };
+
+  const supply = async (d: Disagreement, value: string) => {
+    setBusy(true);
+    try {
+      await api.supplyData(d.proposal, d.index, value);
+      setAnswer('');
+      await load();
+      props.onChanged();
+    } catch (e) {
+      props.onError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
   };
 
   const resolve = async (d: Disagreement, verdict: Resolution['verdict'] | null, note?: string) => {
@@ -233,6 +251,29 @@ export function InboxView(props: Props) {
             {item.d.finding.synonym && !item.d.resolution && (
               <p className="muted">Yes adds “{item.d.finding.synonym.synonym}” to the glossary as another name for “{item.d.finding.synonym.term}”.</p>
             )}
+            {item.d.finding.need && (() => {
+              const need = item.d.finding.need;
+              const ref = `{{${need.owner}.${need.id}.${need.field}}}`;
+              const agent = proposals.find((p) => p.id === item.d!.proposal)?.agent;
+              const explorer = project.project.agents.find((a) => a.id === agent && a.kind === 'explore');
+              return item.d.resolution ? (
+                explorer && (
+                  <p className="row">
+                    <span className="muted">Agents now get it as <span className="id">{ref}</span>.</span>
+                    <button className="btn small" disabled={props.running} onClick={() => props.onRerun(explorer.id)}>Run {explorer.title} again</button>
+                  </p>
+                )
+              ) : (
+                <form className="answer" onSubmit={(e) => { e.preventDefault(); if (answer.trim()) void supply(item.d!, answer.trim()); }}>
+                  <input
+                    className="text" aria-label={ref} placeholder={`Value for ${ref}`} value={answer} onChange={(e) => setAnswer(e.target.value)}
+                    type={need.secret ? 'password' : 'text'} autoComplete={need.secret ? 'new-password' : 'off'}
+                  />
+                  <button className="btn primary" disabled={busy || !answer.trim()}>Save data</button>
+                  {need.secret && <span className="muted">Kept in .env.local, out of git; agents see only the reference.</span>}
+                </form>
+              );
+            })()}
             {props.clarifying && asked === item.key && !item.d.resolution && (
               <p className="muted" role="status">An agent is looking into this. Its questions show up in the queue, and this one closes when they do.</p>
             )}

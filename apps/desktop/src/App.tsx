@@ -372,6 +372,15 @@ export function App() {
             running={running}
             clarifying={running && job?.kind === 'onboard:clarify'}
             onClarify={(target) => void research('clarify', target)}
+            onRerun={async (id) => {
+              const a = project.project.agents.find((x) => x.id === id);
+              if (!a) return;
+              try {
+                await api.explore(id, resolveRuntime(project.project, a) ? 'live' : 'scripted');
+              } catch (e) {
+                notify((e as Error).message, true);
+              }
+            }}
             onDecided={async (s: EntityState | ProjectDecideResult) => {
               if ('entity' in s) {
                 // Entity-level proposal: the engine returns the updated entity state directly.

@@ -35,6 +35,15 @@ with the reason:
 - the read contradicts what the interface showed;
 - the action changed something else instead.
 
+## When you lack data
+
+If a flow needs data you don't have (a test card at checkout, a second account, a promo code, an OTP), don't
+invent it and don't stop the whole run. Add a gap that names the field a person can fill in:
+`need: { owner: roles, id: buyer, field: card, secret: true }` (or `owner: entities` for data that belongs
+to an object), and say in the note what the value is for and what kind of value fits ("a test card the
+payment sandbox accepts"). Then go on with what you can check. Once a person fills it in, the next run gets
+it as `{{roles.buyer.card}}` and starts with `reach()` from where you stopped.
+
 ## The model is a closed world
 
 For a human role, anything not allowed by a confirmed transition or permit is already denied. Do not

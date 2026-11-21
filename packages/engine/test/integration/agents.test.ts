@@ -4,6 +4,7 @@
 import { after, before, describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtemp, writeFile } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
@@ -15,6 +16,7 @@ import { onboard } from '../../src/agents/onboard.ts';
 import { explore } from '../../src/agents/explore.ts';
 import { openBridge } from '../../src/agents/bridge.ts';
 import { McpPool } from '../../src/mcp.ts';
+import { loadActions } from '../../src/actions-loader.ts';
 
 process.env.TC_HOME = await mkdtemp(join(tmpdir(), 'tc-home-'));
 
@@ -134,6 +136,45 @@ describe('the engine sets up state for the explorer', () => {
       assert.ok(log.some((l) => l.includes('⚙️') && l.includes('Ship')), log.join('\n'));
       assert.match(p.evidence[0].summary, /"status":"shipped"/);
       assert.match(p.evidence[1].summary, /"status":"accepted"/);
+    } finally {
+      await own.remove();
+    }
+  });
+});
+
+describe('the explorer leaves a verb behind as library steps', () => {
+  test('write_action() checks the steps live; accepting the op adds it to the library', { timeout: 120_000 }, async () => {
+    const own = await copyWorkspace();
+    try {
+      await writeFile(join(own.root, 'agents/seller-explorer.yaml'), `steps:
+  - call: write_action
+    input:
+      name: order.accept-ui
+      from: paid
+      variant: standard
+      expect: { status: accepted }
+      action:
+        description: Seller accepts the order
+        steps:
+          - open: /orders/{{key}}
+          - click: { testid: action-accept }
+          - wait: { testid: order-status }
+        available: { testid: action-accept }
+  - call: propose
+    input:
+      rationale: accept as steps
+      ops: [{ op: update, kind: action, id: accept, set: { run: order.accept-ui }, evidence: [e1] }]
+`);
+      const w = new Workspace(own.root);
+      const p = await explore(w, 'seller-explorer', { provider: 'scripted' });
+      assert.equal(p.evidence[0].kind, 'action');
+      assert.ok(!existsSync(join(own.root, 'actions/generated/order.accept-ui.yaml')), 'nothing joins the library before a person accepts');
+      const res = await createApp(w).request(`/api/proposals/${p.id}/decide`, {
+        method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ decisions: [{ op: 0, verdict: 'accept' }] }),
+      });
+      assert.equal(res.status, 200, await res.clone().text());
+      const lib = await loadActions(w);
+      assert.ok(lib['order.accept-ui']?.available, 'the accepted steps are in the library, with their availability check');
     } finally {
       await own.remove();
     }

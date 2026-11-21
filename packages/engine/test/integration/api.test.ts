@@ -118,6 +118,20 @@ describe('input checks', () => {
     assert.equal(res.status, 400);
   });
 
+  test('filling in data an agent lacked puts the field on the role; a secret goes to .env.local', async () => {
+    const w = new Workspace(ws.root);
+    await w.saveProposal({
+      id: 'need', agent: 'client-explorer', createdAt: new Date().toISOString(), baseRevision: '', rationale: '', evidence: [], ops: [], status: 'decided', decisions: [], resolutions: [],
+      findings: [{ kind: 'gap', note: 'Checkout needs a test card', refs: [], evidence: [], need: { owner: 'roles', id: 'client', field: 'card', secret: true } }],
+    });
+    assert.equal((await app.request('/api/proposals/need/findings/0/data', json('POST', { value: '4242 4242' }))).status, 200);
+    const client = (await w.project()).roles.find((r) => r.id === 'client')!;
+    assert.deepEqual(client.fields.find((f) => f.id === 'card'), { id: 'card', value: '{{env.TC_ROLE_CLIENT_CARD}}', secret: true });
+    assert.equal(w.env().TC_ROLE_CLIENT_CARD, '4242 4242');
+    assert.equal((await w.proposal('need')).resolutions[0].verdict, 'answered');
+    assert.equal((await app.request('/api/proposals/syn-none/findings/0/data', json('POST', { value: 'x' }))).status >= 400, true);
+  });
+
   test('answering yes to a synonym question files it in the glossary', async () => {
     const w = new Workspace(ws.root);
     await w.saveProposal({

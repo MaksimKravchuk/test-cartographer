@@ -8,10 +8,11 @@ import { z } from 'zod';
 import {
   arrange, checkRoles, dataContext, dataValues, Finding, Op, Proposal, redactFields, resolveRuntime, scrubSecrets, secretValues, toYaml, type Evidence, type RuntimeOverride, type Workspace,
 } from '@tc/model';
-import { McpPool, getPath, template } from '../mcp.ts';
+import { McpPool, getPath, mismatches, template } from '../mcp.ts';
 import { listOf, runAgent, type Tool } from './runtime.ts';
 import { loadActions } from '../actions-loader.ts';
 import { execute } from '../runtime/index.ts';
+import { StepsAction, stepsAction, type ActionDef } from '../runtime/actions.ts';
 import { skillsPrompt, skillTool } from './skills.ts';
 import { browserTools } from './browser.ts';
 
@@ -33,6 +34,7 @@ const SKILLS = [
   'planning-investigation',
   'exploring-app',
   'asking-questions',
+  'writing-actions',
   'proposing-model-changes',
   'proposing-model-changes/references/entity-elements.md',
 ];
@@ -70,8 +72,9 @@ export async function explore(ws: Workspace, agentId: string, opts: ExploreOptio
   const catalog = await ws.catalog();
   // Fields of every role and entity: real values for the engine (sign-in,
   // fill), references in place of secrets for anything the model reads.
-  const data = dataValues(project.roles, Object.values(catalog), process.env);
-  const secrets = secretValues(project.roles, Object.values(catalog), process.env);
+  const env = ws.env();
+  const data = dataValues(project.roles, Object.values(catalog), env);
+  const secrets = secretValues(project.roles, Object.values(catalog), env);
   // Evidence files land in the workspace and may be committed: they get the same
   // redaction as what the model reads. (A screenshot can't be scrubbed.)
   const scrub = (text: string) => scrubSecrets(text, secrets);
@@ -106,7 +109,7 @@ export async function explore(ws: Workspace, agentId: string, opts: ExploreOptio
     log(`🔑 signing in as ${role.title}`);
     await login.run({
       page, role, iface, variant: '', key: '', entity: {}, related: {}, data,
-      args: template(role.login.args, { env: process.env, ...data }),
+      args: template(role.login.args, { env: env, ...data }),
       open: async (path = '') => {
         await page.goto(base + path);
       },
@@ -176,6 +179,35 @@ export async function explore(ws: Workspace, agentId: string, opts: ExploreOptio
     },
   });
 
+  // Runs the model's own setup for a state, with no model call: see reach().
+  const reachState = async (state: string, variant: string) => {
+        const plan = arrange(entity, variant, state, new Set(), { catalog, project });
+        if (!plan) throw new Error(`The model has no way to reach “${state}” (${variant}): no setup tool for it and no confirmed path from one. Get there through the UI, or note it as a gap.`);
+        const done: string[] = [];
+        const readers = Object.fromEntries(Object.values(catalog).map((e) => [e.id, e.reader]));
+        const relations = Object.fromEntries(entity.relations.map((r) => [r.id, { entity: r.entity, field: r.field }]));
+        const inst = await execute({ entity: { id: entity.id, key: entity.key, reader }, readers, relations }, plan.steps, variant, actions, { root: ws.root, project, mcp, data, env }, chrome, {
+          step: async (title, fn) => {
+            log(`⚙️ ${title}`);
+            done.push(title);
+            await fn();
+          },
+          annotate: () => {},
+          attach: async () => {},
+        });
+        if (inst.key) key = inst.key;
+        relatedKeys = inst.related;
+    return { inst, done };
+  };
+  // An action as code the agent wrote, run live as the agent's role.
+  const runAction = (a: ActionDef, variant: string, k: string) =>
+    a.run({
+      page, role, iface, variant, key: k, entity: {}, related: relatedKeys, data, args: {},
+      open: async (path = '') => {
+        await page.goto(base + path);
+      },
+    });
+
   const variants = entity.variants.filter((v) => v.status === 'confirmed').map((v) => v.id);
   const prepareTools = Object.entries(project.mcp).flatMap(([s, cfg]) => cfg.allow.prepare.map((t) => `${s}.${t}`));
   const triggerTools = Object.entries(project.mcp).flatMap(([s, cfg]) => cfg.allow.trigger.map((t) => `${s}.${t}`));
@@ -187,10 +219,10 @@ export async function explore(ws: Workspace, agentId: string, opts: ExploreOptio
       input: z.object({}),
       run: async () =>
         toYaml({
-          roles: redactFields('roles', project.roles, process.env),
+          roles: redactFields('roles', project.roles, env),
           glossary: project.glossary,
-          entity: redactFields('entities', [entity], process.env)[0],
-          related: redactFields('entities', [...related].flatMap((id) => (catalog[id] ? [catalog[id]] : [])), process.env).map((e) => ({
+          entity: redactFields('entities', [entity], env)[0],
+          related: redactFields('entities', [...related].flatMap((id) => (catalog[id] ? [catalog[id]] : [])), env).map((e) => ({
             id: e.id, title: e.title, description: e.description, key: e.key, relations: e.relations, fields: e.fields,
             states: e.states.map((s) => ({ id: s.id, title: s.title, match: s.match })),
             actions: e.actions.map((a) => ({ id: a.id, title: a.title })),
@@ -244,50 +276,62 @@ export async function explore(ws: Workspace, agentId: string, opts: ExploreOptio
         variant: z.string().optional().describe(`One of: ${variants.join(', ')}; defaults to ${variants[0] ?? 'none'}`),
       }),
       run: async ({ state, variant = variants[0] ?? '' }) => {
-        const plan = arrange(entity, variant, state, new Set(), { catalog, project });
-        if (!plan) throw new Error(`The model has no way to reach “${state}” (${variant}): no setup tool for it and no confirmed path from one. Get there through the UI, or note it as a gap.`);
-        const done: string[] = [];
-        const readers = Object.fromEntries(Object.values(catalog).map((e) => [e.id, e.reader]));
-        const relations = Object.fromEntries(entity.relations.map((r) => [r.id, { entity: r.entity, field: r.field }]));
-        const inst = await execute({ entity: { id: entity.id, key: entity.key, reader }, readers, relations }, plan.steps, variant, actions, { root: ws.root, project, mcp, data }, chrome, {
-          step: async (title, fn) => {
-            log(`⚙️ ${title}`);
-            done.push(title);
-            await fn();
-          },
-          annotate: () => {},
-          attach: async () => {},
-        });
-        if (inst.key) key = inst.key;
-        relatedKeys = inst.related;
+        const { inst, done } = await reachState(state, variant);
         return JSON.stringify({ key: inst.key, related: inst.related, state, variant, steps: done }, null, 2);
       },
     },
-    ...(Object.keys(actions).length
-      ? [{
-          name: 'act',
-          description:
-            `Run an action from the project's action library as your role, in your browser: code that already knows the clicks. ` +
-            'Returns what it returned (a new key for a creating action) and the page URL. Snapshot afterwards to see the result.',
-          input: z.object({
-            action: z.string().describe(`One of: ${Object.entries(actions).map(([n, a]) => (a.description ? `${n} (${a.description})` : n)).join('; ')}`),
-            key: z.string().optional().describe('Instance key; defaults to the most recently prepared one'),
-            variant: z.string().optional(),
-          }),
-          run: async ({ action, key: k, variant = variants[0] ?? '' }: { action: string; key?: string; variant?: string }) => {
-            const a = actions[action];
-            if (!a) throw new Error(`No action “${action}” in the library`);
-            const result = await a.run({
-              page, role, iface, variant, key: k ?? key ?? '', entity: {}, related: relatedKeys, data, args: {},
-              open: async (path = '') => {
-                await page.goto(base + path);
-              },
-            });
-            if (typeof result === 'string' && result) key = result;
-            return JSON.stringify({ result: result ?? null, url: page.url() });
-          },
-        }]
-      : []),
+    {
+      name: 'act',
+      description:
+        `Run an action from the project's action library as your role, in your browser: code that already knows the clicks. ` +
+        'Returns what it returned (a new key for a creating action) and the page URL. Snapshot afterwards to see the result.',
+      input: z.object({
+        action: z.string().describe(`One of: ${Object.entries(actions).map(([n, a]) => (a.description ? `${n} (${a.description})` : n)).join('; ') || 'none yet'}`),
+        key: z.string().optional().describe('Instance key; defaults to the most recently prepared one'),
+        variant: z.string().optional(),
+      }),
+      run: async ({ action, key: k, variant = variants[0] ?? '' }) => {
+        const a = actions[action];
+        if (!a) throw new Error(`No action “${action}” in the library`);
+        const result = await runAction(a, variant, k ?? key ?? '');
+        if (typeof result === 'string' && result) key = result;
+        return JSON.stringify({ result: result ?? null, url: page.url() });
+      },
+    },
+    {
+      name: 'write_action',
+      description:
+        'Turn a verb you have done through the UI into steps for the action library, so tests and later runs repeat it with no model. ' +
+        'The engine checks it live: it reaches `from` (or starts from nothing for @new), runs the steps as your role, reads the ' +
+        'instance and compares it with `expect`. Returns an `action` evidence id to cite on the action op that sets `run: <name>`.',
+      input: z.object({
+        name: z.string().regex(/^[a-z0-9][\w.-]*$/).describe('Library name, like order.pay'),
+        from: z.string().describe('State the action starts in, or @new for one that creates the instance'),
+        variant: z.string().optional(),
+        expect: z.record(z.string(), z.unknown()).describe('Fields the read must show after the action, like { status: paid }'),
+        action: StepsAction,
+      }),
+      run: async ({ name, from, variant = variants[0] ?? '', expect, action }) => {
+        if (!Object.keys(expect).length) throw new Error('`expect` needs at least one field to check');
+        if (actions[name]) throw new Error(`The library already has “${name}”: use act() for it, or pick another name`);
+        const a = stepsAction(action);
+        const file = `${evidenceDir}/${name}.action.yaml`;
+        await writeFile(ws.path(file), toYaml(action));
+        let k = '';
+        if (from !== '@new') k = (await reachState(from, variant)).inst.key ?? '';
+        const result = await runAction(a, variant, k);
+        if (from === '@new') {
+          if (typeof result !== 'string' || !result) throw new Error('A creating action must return the new instance key');
+          k = result;
+        }
+        key = k;
+        const after = (await mcp.call(reader.tool, template(reader.args, { key: k }), 'read')) as Record<string, unknown>;
+        const wrong = mismatches(after, expect);
+        if (wrong.length) throw new Error(`Ran, but the instance doesn't match: ${JSON.stringify(wrong)}. Read: ${JSON.stringify(after)}`);
+        const id = addEvidence({ kind: 'action', summary: `action ${name}: checked live, ${from} → ${JSON.stringify(expect)}`, path: file });
+        return `evidence ${id}: ${name} works. Cite it on the action op with run: ${name}.`;
+      },
+    },
     ...browser.tools,
     {
       name: 'login',
@@ -355,7 +399,7 @@ export async function explore(ws: Workspace, agentId: string, opts: ExploreOptio
       system: system({
         roleTitle: role.title, roleId: role.id, iface: iface.title, baseUrl: iface.baseUrl, entity: entity.title, goal: agent.goal,
         prepare: prepareTools, contracts: project.contracts.map((c) => `${c.id} (${c.title})`),
-        data: dataContext(project.roles, Object.values(catalog), process.env, role.id),
+        data: dataContext(project.roles, Object.values(catalog), env, role.id),
         skills: skillsPrompt(SKILLS, tools.map((t) => t.name)),
       }),
       prompt: `Start exploring. Goal: ${agent.goal}`,

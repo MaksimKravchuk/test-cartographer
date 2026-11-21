@@ -80,3 +80,33 @@ test('validate: a duplicate field id is an error on a role and on an entity', ()
   const e = Entity.parse({ ...lineItem, fields: dup });
   assert.ok(validateEntity(e, project).some((i) => i.level === 'error' && i.path === 'fields.login'));
 });
+
+test('a secret typed in as a value moves to .env.local; the YAML and history keep only the reference', async () => {
+  const { mkdtemp, readFile, rm, writeFile } = await import('node:fs/promises');
+  const { tmpdir } = await import('node:os');
+  const { join } = await import('node:path');
+  const { Workspace } = await import('../src/index.ts');
+  const root = await mkdtemp(join(tmpdir(), 'tc-env-'));
+  try {
+    const ws = new Workspace(root);
+    await writeFile(join(root, '.gitignore'), 'node_modules/');
+    const card = '4242 4242 4242 4242 "x" # y';
+    const p = Project.parse({ ...project, roles: [...project.roles, { id: 'buyer', title: 'Buyer', interface: 'ui', fields: [{ id: 'card', value: card, secret: true }, { id: 'login', value: 'bob' }] }] });
+    await ws.saveProject(p);
+    await ws.saveProject(p); // saving again doesn't duplicate the line
+    const saved = await ws.project();
+    const fields = saved.roles.find((r) => r.id === 'buyer')!.fields;
+    assert.deepEqual(fields.map((f) => f.value), ['{{env.TC_ROLE_BUYER_CARD}}', 'bob']);
+    assert.equal(dataValues(saved.roles, [], ws.env()).roles.buyer.card, card);
+    assert.doesNotMatch(await readFile(join(root, 'cartographer.yaml'), 'utf8') + (await readFile(join(root, 'history.jsonl'), 'utf8').catch(() => '')), /4242/);
+    assert.equal((await readFile(join(root, '.env.local'), 'utf8')).match(/TC_ROLE_BUYER_CARD/g)?.length, 1);
+    assert.equal(await readFile(join(root, '.gitignore'), 'utf8'), 'node_modules/\n.env.local\n');
+    // A literal already in the YAML (a demo account) is left where it is.
+    const yaml = (await readFile(join(root, 'cartographer.yaml'), 'utf8')).replace('{{env.TC_ROLE_BUYER_CARD}}', 'demo-card');
+    await writeFile(join(root, 'cartographer.yaml'), yaml);
+    await ws.saveProject(await ws.project());
+    assert.equal((await ws.project()).roles.find((r) => r.id === 'buyer')!.fields[0].value, 'demo-card');
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
