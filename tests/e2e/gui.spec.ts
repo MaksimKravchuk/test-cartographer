@@ -139,6 +139,11 @@ test('a review lands in the Inbox and on the action it is about', async ({ page 
   // The source menu narrows the queue to what one source says.
   await page.getByLabel('Source').selectOption({ label: 'Shop code' });
   await expect(finding).toBeVisible();
+  // Sources counts what waits per source, and the counter opens the Inbox filtered to it.
+  await place(page, 'Sources').click();
+  await page.getByRole('button', { name: /waiting in Inbox from Shop code/ }).click();
+  await expect(page.getByLabel('Source')).toHaveValue(/./);
+  await expect(finding).toBeVisible();
   if (process.env.TC_SHOT) await page.screenshot({ path: process.env.TC_SHOT, fullPage: true });
 
   // On the model, the agent's rule sits on the action itself, dashed, and links back to the Inbox.

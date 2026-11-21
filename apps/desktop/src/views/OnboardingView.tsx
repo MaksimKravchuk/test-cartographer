@@ -1,12 +1,16 @@
 import { useEffect, useState } from 'react';
 import type { DragEvent } from 'react';
-import type { FileSourceKind, Source, SourceKind } from '@tc/model';
-import { api, type ProjectState, type SourceCheck, type SourceInfo } from '../api.ts';
+import type { Disagreement, FileSourceKind, Source, SourceKind } from '@tc/model';
+import { api, type ProjectState, type ProposalState, type SourceCheck, type SourceInfo } from '../api.ts';
 import { MenuItem, Modal, Popup } from '../ui.tsx';
+import { findingSources, proposalSources } from './InboxView.tsx';
 
 type Props = {
   project: ProjectState;
+  proposals: ProposalState[];
   reloadToken: number;
+  // Opens the Inbox showing only what this source says.
+  onOpenInbox(source: string): void;
   onError(m: string): void;
 };
 type Adding = 'file' | 'code' | 'mcp' | null;
@@ -28,7 +32,7 @@ function readAsText(file: File): Promise<string> {
 // code folders, systems behind MCP (Confluence, Jira). Each has a priority —
 // who wins when sources disagree — and an access check. Adding a source opens
 // one form at a time from the Add source menu. Agents start from Ask agent.
-export function OnboardingView({ project, reloadToken, onError }: Props) {
+export function OnboardingView({ project, proposals, reloadToken, onOpenInbox, onError }: Props) {
   const [adding, setAdding] = useState<Adding>(null);
   const [sources, setSources] = useState<SourceInfo[] | null>(null);
   const [kind, setKind] = useState<FileSourceKind>('doc');
@@ -46,10 +50,16 @@ export function OnboardingView({ project, reloadToken, onError }: Props) {
   const [busy, setBusy] = useState(false);
   const [confirmRemove, setConfirmRemove] = useState<string | null>(null);
   const [viewing, setViewing] = useState<{ source: Source; text: string } | null>(null);
+  const [findings, setFindings] = useState<Disagreement[]>([]);
   const load = () => {
     api.sources().then((r) => { setSources(r.sources); setUsePriority(r.usePriority); }).catch((e) => onError((e as Error).message));
   };
   useEffect(() => { load(); }, [reloadToken]);
+  useEffect(() => { api.report().then((r) => setFindings(r.disagreements)).catch((e) => onError((e as Error).message)); }, [reloadToken, proposals]);
+  // What waits in the Inbox per source: each open item once under every source it quotes.
+  const waiting: Record<string, number> = {};
+  for (const ids of [...findings.filter((d) => !d.resolution).map(findingSources), ...proposals.filter((p) => p.status === 'pending').map(proposalSources)])
+    for (const id of new Set(ids)) waiting[id] = (waiting[id] ?? 0) + 1;
 
   const addFiles = async (files: FileList | File[]) => {
     const list = Array.from(files);
@@ -170,7 +180,7 @@ export function OnboardingView({ project, reloadToken, onError }: Props) {
       <div className="sources-list">
         <table className="grid">
           <thead>
-            <tr><th>On</th><th>Priority</th><th>Source</th><th>Kind</th><th>Where</th><th>Access</th><th /></tr>
+            <tr><th>On</th><th>Priority</th><th>Source</th><th>Kind</th><th>Where</th><th>Access</th><th>Inbox</th><th /></tr>
           </thead>
           <tbody>
             {sources?.map((s) => (
@@ -192,6 +202,11 @@ export function OnboardingView({ project, reloadToken, onError }: Props) {
                   ) : <span className="access muted"><span className="dot" /> not checked</span>}
                 </td>
                 <td>
+                  {waiting[s.id] ? (
+                    <button className="btn small ghost" aria-label={`${waiting[s.id]} waiting in Inbox from ${s.title}`} onClick={() => onOpenInbox(s.id)}>{waiting[s.id]} waiting</button>
+                  ) : <span className="muted">none</span>}
+                </td>
+                <td>
                   <div className="row" style={{ justifyContent: 'end' }}>
                     {s.file && <button className="btn small ghost" onClick={() => view(s.id)}>View</button>}
                     {confirmRemove === s.id ? (
@@ -207,8 +222,8 @@ export function OnboardingView({ project, reloadToken, onError }: Props) {
                 </td>
               </tr>
             ))}
-            {sources?.length === 0 && <tr><td colSpan={7} className="muted">No sources yet. Use Add source to bring in docs, code or a system through MCP.</td></tr>}
-            {!sources && <tr><td colSpan={7} className="muted">Loading…</td></tr>}
+            {sources?.length === 0 && <tr><td colSpan={8} className="muted">No sources yet. Use Add source to bring in docs, code or a system through MCP.</td></tr>}
+            {!sources && <tr><td colSpan={8} className="muted">Loading…</td></tr>}
           </tbody>
         </table>
       </div>
