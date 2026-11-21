@@ -28,7 +28,8 @@ const runtimes: Record<AgentProvider, { title: string; run(h: Harness): Promise<
 
 export type { RuntimeStatus } from './bridge.ts';
 
-export type Tool = { name: string; description: string; input: z.ZodObject; run(input: any): Promise<string> };
+// `schema` shows the agent a tool whose arguments someone else checks (Playwright's browser tools).
+export type Tool = { name: string; description: string; input: z.ZodObject; schema?: Record<string, unknown>; run(input: any): Promise<string> };
 
 // A list argument the agent is shown as `item[]` — its fields, enums and
 // required keys in the tool's JSON Schema — but that is parsed only as a list
@@ -146,7 +147,7 @@ export async function runAgent(run: AgentRun): Promise<void> {
   const runtime = { ...run.runtime, subagents: !!run.runtime.subagents && SUBAGENTS.includes(run.runtime.provider) };
   const bridge = await openBridge(
     run.tools.map((t) => {
-      const { $schema: _, ...inputSchema } = z.toJSONSchema(t.input, { io: 'input' }) as Record<string, unknown>;
+      const { $schema: _, ...inputSchema } = t.schema ?? (z.toJSONSchema(t.input, { io: 'input' }) as Record<string, unknown>);
       return { name: t.name, description: t.description, inputSchema };
     }),
     invoke,

@@ -5,29 +5,29 @@ steps:
   - say: Preparing a paid digital order.
     call: prepare
     input: { tool: shop.create_order, args: { variant: digital, status: paid } }
-  - call: open
-    input: { path: "/orders/{{key}}" }
-  - call: snapshot
+  - call: browser_navigate
+    input: { url: "/orders/{{key}}" }
+  - call: browser_snapshot
     input: { note: "Paid digital order: the only action is “Issue key”" }
-  - call: click
-    input: { testId: action-deliver-key }
+  - call: browser_click
+    input: { element: action-deliver-key, target: "getByTestId('action-deliver-key')" }
   - call: read
     input: {}
   - say: Preparing a paid pre-order.
     call: prepare
     input: { tool: shop.create_order, args: { variant: preorder, status: paid } }
-  - call: open
-    input: { path: "/orders/{{key}}" }
-  - call: snapshot
+  - call: browser_navigate
+    input: { url: "/orders/{{key}}" }
+  - call: browser_snapshot
     input: { note: "Paid pre-order: “Accept pre-order” and “Reject” are available" }
-  - call: click
-    input: { testId: action-accept }
+  - call: browser_click
+    input: { element: action-accept, target: "getByTestId('action-accept')" }
   - call: read
     input: {}
-  - call: snapshot
+  - call: browser_snapshot
     input: { note: "Pre-order after acceptance: status “Awaiting stock”, “Stock arrived” is available" }
-  - call: click
-    input: { testId: action-stock }
+  - call: browser_click
+    input: { element: action-stock, target: "getByTestId('action-stock')" }
   - call: read
     input: {}
   - call: contract

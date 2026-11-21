@@ -19,7 +19,7 @@
     "@hono/node-server": "^2.1.8",
     "@modelcontextprotocol/sdk": "^1.32.2",
     "@openai/codex-sdk": "^0.157.1",
-    "@playwright/test": "^1.56.0",
+    "@playwright/test": "^1.63.0",
     "@pydantic/genai-prices": "^0.2.3",
     "@tc/model": "workspace:*",
     "hono": "^4.13.18",

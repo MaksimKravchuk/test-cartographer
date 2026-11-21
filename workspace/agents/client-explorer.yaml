@@ -5,31 +5,31 @@ steps:
   - say: Checking cancellation of a paid standard order.
     call: prepare
     input: { tool: shop.create_order, args: { variant: standard, status: paid } }
-  - call: open
-    input: { path: "/orders/{{key}}" }
-  - call: snapshot
+  - call: browser_navigate
+    input: { url: "/orders/{{key}}" }
+  - call: browser_snapshot
     input: { note: "Paid standard order: the buyer can “Cancel order”" }
-  - call: click
-    input: { testId: action-cancel }
+  - call: browser_click
+    input: { element: action-cancel, target: "getByTestId('action-cancel')" }
   - call: read
     input: {}
   - say: Checking cancellation of an order the seller already accepted.
     call: prepare
     input: { tool: shop.create_order, args: { variant: standard, status: accepted } }
-  - call: open
-    input: { path: "/orders/{{key}}" }
-  - call: snapshot
+  - call: browser_navigate
+    input: { url: "/orders/{{key}}" }
+  - call: browser_snapshot
     input: { note: "Order accepted by the seller: the buyer can still cancel it" }
-  - call: click
-    input: { testId: action-cancel }
+  - call: browser_click
+    input: { element: action-cancel, target: "getByTestId('action-cancel')" }
   - call: read
     input: {}
   - say: Checking a paid digital order.
     call: prepare
     input: { tool: shop.create_order, args: { variant: digital, status: paid } }
-  - call: open
-    input: { path: "/orders/{{key}}" }
-  - call: snapshot
+  - call: browser_navigate
+    input: { url: "/orders/{{key}}" }
+  - call: browser_snapshot
     input: { note: "Paid digital order: the buyer has no actions" }
   - say: Writing up the proposal.
     call: propose

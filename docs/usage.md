@@ -53,7 +53,7 @@ Three kinds of agent runs, each reading the sources you listed:
 
 - **Research from scratch** proposes a first model: subjects, objects, actions, rules and the backlog, every item backed by an exact quote. An agent can't cite text that isn't in the source; the engine refuses it.
 - **Review the model** checks what you have against every source and proposes confirmations, what's missing, and contradictions ("the overview says a buyer can't cancel a paid order; `domain.ts` lets them"), quoting both sides (`file#Lx-Ly` for code).
-- **Explore the app** has the agent sign in as a role and click through that role's interface, recording snapshots and screenshots as evidence.
+- **Explore the app** has the agent sign in as a role and click through that role's interface with Playwright's own browser tools (the ones Playwright MCP serves), kept to that interface, recording snapshots, screenshots and network requests as evidence.
 
 A run shows its progress and raw log while it works.
 
