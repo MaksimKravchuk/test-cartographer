@@ -14,6 +14,11 @@ cd test-cartographer
 pnpm install
 pnpm exec playwright install chromium   # once
 pnpm demo                               # demo shop on :4400 (the app under exploration)
+```
+
+In a second terminal:
+
+```bash
 pnpm start                              # builds the GUI, starts the engine on :4317 and opens it in your browser
 ```
 

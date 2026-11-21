@@ -14,7 +14,12 @@ cd test-cartographer
 pnpm install
 pnpm exec playwright install chromium
 pnpm demo        # demo shop on http://localhost:4400 (keep it running)
-pnpm start       # in another terminal: builds the app, starts the engine on :4317 and opens it in your browser
+```
+
+In a second terminal:
+
+```bash
+pnpm start       # builds the app, starts the engine on :4317 and opens it in your browser
 ```
 
 The demo project opens on its own. It is the plain folder `workspace/`: everything you do below changes files there, so `git status` shows it and `git checkout workspace` undoes it.

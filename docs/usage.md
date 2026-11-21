@@ -55,7 +55,7 @@ Three kinds of agent runs, each reading the sources you listed:
 - **Review the model** checks what you have against every source and proposes confirmations, what's missing, and contradictions ("the overview says a buyer can't cancel a paid order; `domain.ts` lets them"), quoting both sides (`file#Lx-Ly` for code).
 - **Explore the app** has the agent sign in as a role and click through that role's interface, recording snapshots and screenshots as evidence.
 
-A run shows its progress and raw log while it works. Agents run in your coding agent's sign-in; nothing leaves your machine except what that agent sends to its own vendor.
+A run shows its progress and raw log while it works.
 
 ### 4. Decide: accept or strike out
 
@@ -95,7 +95,7 @@ Run them from the GUI (all, one object, one scenario) or with `pnpm tc run`. A f
 
 ## Starting on your own product
 
-1. Create a project from the project menu: an empty folder with `cartographer.yaml`, anywhere on disk, with a guest and a signed-in role to start from.
+1. Create a project in **Settings › Projects › New project** (**Manage projects…** in the project menu): an empty folder with `cartographer.yaml`, anywhere on disk, with a guest and a signed-in role to start from.
 2. Add your sources and press **Check access**.
 3. Write what you know by hand, or run **Research from scratch**; then **Review the model**.
 4. Work through the Inbox.

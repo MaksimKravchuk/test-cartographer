@@ -24,6 +24,11 @@ To update later: `git pull && pnpm install`.
 
 ```bash
 pnpm demo     # the demo shop on http://localhost:4400, the app under exploration
+```
+
+In a second terminal:
+
+```bash
 pnpm start    # builds the GUI, starts the engine on :4317 and opens it in your browser
 ```
 
