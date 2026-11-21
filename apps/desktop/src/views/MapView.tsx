@@ -9,7 +9,7 @@ import type { Entity, State, Transition } from '@tc/model';
 import { api, type EntityState, type ProjectState, type ProposalState } from '../api.ts';
 import { LifecycleView } from './LifecycleView.tsx';
 import { applies, autoLayout, groupTransitions, nextId, NODE_H, type Selection } from '../graph.ts';
-import { Tip } from '../ui.tsx';
+import { Gear, Tip } from '../ui.tsx';
 
 type Props = {
   entity: Entity;
@@ -143,7 +143,7 @@ function TransitionEdge(props: EdgeProps<Edge<EdgeData>>) {
             onClick={d.onPick}
           >
             {!d.ghost && <span className={`dot ${d.result ?? ''}`}><span className="sr-only">{d.result ?? 'not run'}: </span></span>}
-            {d.systemOnly && <span className="system-marker"><span aria-hidden>⚙</span><span className="sr-only">system: </span></span>}
+            {d.systemOnly && <span className="system-marker"><Gear /><span className="sr-only">system: </span></span>}
             <span>{d.actionTitle}</span>
             <span className="role">{d.roleTitle}</span>
           </button>
@@ -461,7 +461,7 @@ function Map(props: Props) {
         <svg width="34" height="6"><line x1="0" y1="3" x2="34" y2="3" stroke="var(--accent)" strokeWidth="2" strokeDasharray="5 4" /></svg>
         <span>Proposed by an agent</span>
         <svg width="34" height="6"><line x1="0" y1="3" x2="34" y2="3" stroke="var(--fg-2)" strokeWidth="2" strokeDasharray="2 3" /></svg>
-        <span>⚙ System acts on its own — no person involved</span>
+        <span><Gear /> System acts on its own — no person involved</span>
         <span className="legend-fan">← a</span>
         <span>One action from many states, shown on the state</span>
       </div>

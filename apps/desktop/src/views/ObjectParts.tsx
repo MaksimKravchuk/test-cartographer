@@ -5,7 +5,7 @@
 import { useRef, useState } from 'react';
 import type { Attribute, AttributeType, Entity, Role, Transition } from '@tc/model';
 import { lifecycleOrder } from './LifecycleView.tsx';
-import { Tip } from '../ui.tsx';
+import { roleHue, Tip } from '../ui.tsx';
 
 const NEW = '@new';
 const TYPES: AttributeType[] = ['text', 'number', 'money', 'date', 'bool', 'enum', 'link', 'file', 'other'];
@@ -117,7 +117,7 @@ export function AttributesTable(props: {
             <th scope="col">Type</th>
             <th scope="col">Values</th>
             {roles.map((r) => (
-              <th key={r.id} scope="col" className="who">{r.title}</th>
+              <th key={r.id} scope="col" className="who" style={roleHue(roles, r.id)}>{r.title}</th>
             ))}
             <th aria-label="Row actions" />
           </tr>
@@ -249,7 +249,7 @@ export function LifecycleTables(props: { entity: Entity; roles: Role[]; onPick(a
                             {xs.map((t) => (
                               <Tip key={t.id} tip={`${t.title}, by ${t.by.map(roleTitle).join(', ')}`}>
                                 <button type="button" className={`lc-pill ${t.status}`} onClick={() => props.onPick(t.action)}>
-                                  {actionTitle(t.action)} <span className="muted">{who(t)}</span>
+                                  {actionTitle(t.action)} <span className="who-tag" style={t.by.length === 1 ? roleHue(props.roles, t.by[0]) : undefined}>{who(t)}</span>
                                 </button>
                               </Tip>
                             ))}

@@ -3,7 +3,7 @@
 // interest-invoked hints, toasts are manual popovers in one region. Features
 // not every target browser has yet (focusgroup, closedby, anchor positioning)
 // get a small fallback here, so views never re-implement them.
-import { cloneElement, useEffect, useId, useRef, useState, type KeyboardEvent, type ReactElement, type ReactNode } from 'react';
+import { cloneElement, useEffect, useId, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactElement, type ReactNode } from 'react';
 
 declare module 'react' {
   interface ButtonHTMLAttributes<T> {
@@ -313,4 +313,22 @@ function announce(text: string) {
     return;
   }
   region.textContent = text;
+}
+
+// The mark for settings and for system subjects (jobs, reactions): a drawn gear,
+// not the ⚙ character, which some platforms render as a color emoji.
+export function Gear() {
+  return (
+    <svg className="gear" viewBox="0 0 16 16" width="1em" height="1em" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.2">
+      <path strokeLinejoin="round" d="M14.83 6.47L14.83 9.53L12.97 10.1L13.91 11.75L11.75 13.91L10.1 12.97L9.53 14.83L6.47 14.83L5.9 12.97L4.25 13.91L2.09 11.75L3.03 10.1L1.17 9.53L1.17 6.47L3.03 5.9L2.09 4.25L4.25 2.09L5.9 3.03L6.47 1.17L9.53 1.17L10.1 3.03L11.75 2.09L13.91 4.25L12.97 5.9Z" />
+      <circle cx="8" cy="8" r="2.2" />
+    </svg>
+  );
+}
+
+// A subject's color: one of six hues by its place among the project's people, so
+// Buyer is the same color on every screen. System subjects stay neutral (they have the gear).
+export function roleHue(roles: readonly { id: string; kind?: string }[], id: string): CSSProperties | undefined {
+  const i = roles.filter((r) => r.kind !== 'system').findIndex((r) => r.id === id);
+  return i < 0 ? undefined : ({ '--role': `var(--role-${(i % 6) + 1})` } as CSSProperties);
 }
