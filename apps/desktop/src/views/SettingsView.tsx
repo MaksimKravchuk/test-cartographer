@@ -5,7 +5,8 @@ import { nextId } from '../graph.ts';
 
 type Props = { project: ProjectState; onSaved(): void; onError(m: string): void };
 
-// Interfaces and roles of the project. Agent runtimes live on the Agents page;
+// Name and interfaces of the project. How each subject signs in is on its page in
+// Model; agent runtimes live on the Agents page;
 // MCP servers stay in cartographer.yaml — they hold commands and keys that are
 // safer to edit in a file.
 export function SettingsView({ project, onSaved, onError }: Props) {
@@ -16,8 +17,6 @@ export function SettingsView({ project, onSaved, onError }: Props) {
 
   const setIface = (i: number, patch: Partial<Project['interfaces'][number]>) =>
     setDraft({ ...draft, interfaces: draft.interfaces.map((x, n) => (n === i ? { ...x, ...patch } : x)) });
-  const setRole = (i: number, patch: Partial<Project['roles'][number]>) =>
-    setDraft({ ...draft, roles: draft.roles.map((x, n) => (n === i ? { ...x, ...patch } : x)) });
 
   const save = async () => {
     setBusy(true);
@@ -30,8 +29,6 @@ export function SettingsView({ project, onSaved, onError }: Props) {
       setBusy(false);
     }
   };
-
-  const loginActions = project.actions.map((a) => a.name);
 
   return (
     <div className="page settings">
@@ -46,7 +43,7 @@ export function SettingsView({ project, onSaved, onError }: Props) {
       </label>
 
       <h2>Interfaces</h2>
-      <p className="muted">Each role works through one interface. Actions open paths relative to its base URL.</p>
+      <p className="muted">Each subject works through one interface (set on its page in Model). Actions open paths relative to its base URL.</p>
       <table className="grid">
         <thead><tr><th>ID</th><th>Title</th><th>Base URL</th><th /></tr></thead>
         <tbody>
@@ -57,7 +54,7 @@ export function SettingsView({ project, onSaved, onError }: Props) {
               <td><input className="text" value={x.baseUrl} onChange={(e) => setIface(i, { baseUrl: e.target.value })} /></td>
               <td>
                 {draft.roles.some((r) => r.interface === x.id) ? (
-                  <span className="muted">Used by a role</span>
+                  <span className="muted">Used by a subject</span>
                 ) : (
                   <button type="button" className="btn small" disabled={draft.interfaces.length === 1} onClick={() => setDraft({ ...draft, interfaces: draft.interfaces.filter((_, n) => n !== i) })}>
                     Remove
@@ -70,86 +67,6 @@ export function SettingsView({ project, onSaved, onError }: Props) {
       </table>
       <button className="btn small" onClick={() => setDraft({ ...draft, interfaces: [...draft.interfaces, { id: nextId('interface', draft.interfaces.map((x) => x.id)), title: 'New interface', baseUrl: 'http://localhost:3000' }] })}>
         Add interface
-      </button>
-
-      <h2>Roles</h2>
-      <p className="muted">
-        A human role works through an interface and may sign in before it acts; without a sign-in action it acts as a guest — rules like “only
-        signed-in users” are checked with it. A system role (cron, scheduler, integration) has no interface and acts only through actions with an
-        invoke tool. Use <span className="id">{'{{env.NAME}}'}</span> in credentials to keep real passwords out of the file.
-      </p>
-      <table className="grid">
-        <thead><tr><th>ID</th><th>Title</th><th>Kind</th><th>Interface</th><th>Sign-in action</th><th>Credentials</th><th /></tr></thead>
-        <tbody>
-          {draft.roles.map((r, i) => (
-            <tr key={i}>
-              <td><input className="text id" value={r.id} onChange={(e) => setRole(i, { id: e.target.value })} /></td>
-              <td><input className="text" value={r.title} onChange={(e) => setRole(i, { title: e.target.value })} /></td>
-              <td>
-                <select
-                  className="text"
-                  style={{ minWidth: 100 }}
-                  value={r.kind}
-                  onChange={(e) => {
-                    const kind = e.target.value as 'human' | 'system';
-                    setRole(i, kind === 'system' ? { kind, interface: undefined, login: undefined } : { kind, interface: r.interface ?? draft.interfaces[0]?.id });
-                  }}
-                >
-                  <option value="human">Person</option>
-                  <option value="system">System</option>
-                </select>
-              </td>
-              <td>
-                {r.kind === 'human' ? (
-                  <select className="text" value={r.interface} onChange={(e) => setRole(i, { interface: e.target.value })}>
-                    {draft.interfaces.map((x) => <option key={x.id} value={x.id}>{x.title}</option>)}
-                  </select>
-                ) : (
-                  <span className="muted">— no interface —</span>
-                )}
-              </td>
-              <td>
-                {r.kind === 'human' ? (
-                  <select
-                    className="text"
-                    value={r.login?.action ?? ''}
-                    onChange={(e) => setRole(i, { login: e.target.value ? { action: e.target.value, args: r.login?.args ?? {} } : undefined })}
-                  >
-                    <option value="">Guest — no sign-in</option>
-                    {[...new Set([...loginActions, ...(r.login ? [r.login.action] : [])])].map((a) => <option key={a} value={a}>{a}</option>)}
-                  </select>
-                ) : (
-                  <span className="muted">—</span>
-                )}
-              </td>
-              <td>
-                {r.login && (
-                  <input
-                    className="text id"
-                    value={Object.entries(r.login.args).map(([k, v]) => `${k}=${v}`).join(', ')}
-                    placeholder="username=buyer, password={{env.BUYER_PASSWORD}}"
-                    onChange={(e) =>
-                      setRole(i, {
-                        login: {
-                          action: r.login!.action,
-                          args: Object.fromEntries(
-                            e.target.value.split(',').map((p) => p.trim()).filter((p) => p.includes('=')).map((p) => [p.slice(0, p.indexOf('=')).trim(), p.slice(p.indexOf('=') + 1).trim()]),
-                          ),
-                        },
-                      })
-                    }
-                  />
-                )}
-              </td>
-              <td>
-                <button className="btn small" disabled={draft.roles.length === 1} onClick={() => setDraft({ ...draft, roles: draft.roles.filter((_, n) => n !== i) })}>Remove</button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      <button className="btn small" onClick={() => setDraft({ ...draft, roles: [...draft.roles, { id: nextId('role', draft.roles.map((x) => x.id)), title: 'New role', kind: 'human', interface: draft.interfaces[0].id, fields: [] }] })}>
-        Add role
       </button>
 
       <h2>Data tools (MCP)</h2>

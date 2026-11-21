@@ -29,7 +29,8 @@ type Props = {
 
 type Report = { disagreements: Disagreement[]; lint: Lint[]; sources: Source[]; usePriority: boolean };
 type FindingKind = 'contradiction' | 'question' | 'gap' | 'source';
-type Item = { key: string; kind: FindingKind | 'proposal'; title: string; where: string; d?: Disagreement; p?: ProposalState };
+// sources: what the item quotes; the app itself (an explorer's evidence) counts as no source.
+type Item = { key: string; kind: FindingKind | 'proposal'; title: string; where: string; sources: string[]; d?: Disagreement; p?: ProposalState };
 type Filter = 'all' | Item['kind'];
 
 type Answer = { v: Resolution['verdict']; title: string; key: string; note?: string };
@@ -71,6 +72,8 @@ export function InboxView(props: Props) {
   const { proposals, project, entities } = props;
   const [report, setReport] = useState<Report | null>(null);
   const [filter, setFilter] = useState<Filter>('all');
+  // Only what one source says, instead of a separate by-source page.
+  const [source, setSource] = useState('');
   const [showSettled, setShowSettled] = useState(false);
   const [current, setCurrent] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -96,14 +99,16 @@ export function InboxView(props: Props) {
         kind: findingKind(d),
         title: d.finding.note,
         where: where(d.finding.refs, d.entity),
+        sources: d.quotes.flatMap((q) => (q.evidence.source ? [q.evidence.source] : [])),
         d,
       })),
     ...proposals
       .filter((p) => showSettled || p.status === 'pending')
-      .map((p): Item => ({ key: `p:${p.id}`, kind: 'proposal', title: agentTitle(p.agent), where: `${entityTitle(p.entity)} · ${p.ops.length} changes`, p })),
+      .map((p): Item => ({ key: `p:${p.id}`, kind: 'proposal', title: agentTitle(p.agent), where: `${entityTitle(p.entity)} · ${p.ops.length} changes`, sources: p.evidence.flatMap((e) => (e.source ? [e.source] : [])), p })),
   ];
   const ordered = groups.flatMap((g) => items.filter((i) => i.kind === g.kind));
-  const visible = ordered.filter((i) => filter === 'all' || i.kind === filter);
+  const visible = ordered.filter((i) => (filter === 'all' || i.kind === filter) && (!source || i.sources.includes(source)));
+  const quoted = (report?.sources ?? []).filter((x) => items.some((i) => i.sources.includes(x.id)));
   const item = visible.find((i) => i.key === current) ?? visible[0];
   const count = (k: Item['kind']) => items.filter((i) => i.kind === k).length;
   useEffect(() => setAnswer(''), [item?.key]);
@@ -165,6 +170,12 @@ export function InboxView(props: Props) {
           {groups.map((g) => count(g.kind) > 0 && (
             <button key={g.kind} aria-pressed={filter === g.kind} onClick={() => setFilter(g.kind)}>{g.title} {count(g.kind)}</button>
           ))}
+          {quoted.length > 0 && (
+            <select className="text source-filter" aria-label="Source" value={source} onChange={(e) => setSource(e.target.value)}>
+              <option value="">Any source</option>
+              {quoted.map((x) => <option key={x.id} value={x.id}>{x.title}</option>)}
+            </select>
+          )}
         </div>
         {groups.map((g) => {
           const list = visible.filter((i) => i.kind === g.kind);

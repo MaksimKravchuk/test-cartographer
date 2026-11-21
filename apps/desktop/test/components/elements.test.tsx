@@ -3,7 +3,6 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { KeyValues, Lines, RoleMultiSelect, StatusField } from '../../src/views/InspectorElements.tsx';
-import { ScenarioList, SegBar } from '../../src/views/BacklogElements.tsx';
 
 afterEach(cleanup);
 
@@ -52,26 +51,5 @@ describe('Lines', () => {
     fireEvent.change(box, { target: { value: '  open the order \n\n click Pay' } });
     fireEvent.blur(box);
     expect(onChange).toHaveBeenCalledWith(['open the order', 'click Pay']);
-  });
-});
-
-describe('ScenarioList', () => {
-  it('shows titles from the index and falls back to the id', () => {
-    render(<ScenarioList ids={['order/pay', 'order/ship']} index={{ 'order/pay': { title: 'Buyer pays', status: 'passed' } }} />);
-    expect(screen.getByText('Buyer pays')).toBeInTheDocument();
-    expect(screen.getByText('order/ship')).toBeInTheDocument();
-  });
-
-  it('says when there is nothing to show', () => {
-    render(<ScenarioList ids={[]} index={{}} />);
-    expect(screen.getByText('No scenarios.')).toBeInTheDocument();
-  });
-});
-
-describe('SegBar', () => {
-  it('draws one segment per non-zero status, sized by share', () => {
-    const { container } = render(<SegBar totals={{ scenarios: 4, passed: 3, failed: 1, blocked: 0, skipped: 0, 'not-run': 0 }} />);
-    const segs = container.querySelectorAll('.seg-bar i');
-    expect([...segs].map((s) => [s.className, (s as HTMLElement).style.width])).toEqual([['passed', '75%'], ['failed', '25%']]);
   });
 });

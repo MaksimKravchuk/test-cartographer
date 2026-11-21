@@ -5,7 +5,7 @@ import { resolveRuntime, SUBAGENTS } from '@tc/model/schema';
 import { api, runtimeTitle, type Job, type ProjectState, type ProposalState, type RuntimeStatus } from '../api.ts';
 import { jobTitle } from './Shell.tsx';
 
-// The Agent place: pick a task, tune this run (provider, model, effort,
+// The "Ask agent" dialog: pick a task, tune this run (provider, model, effort,
 // subagents, steps), start it, and watch what it hands in as it goes.
 // Defaults and agent definitions stay in Settings › Agents.
 
@@ -122,8 +122,7 @@ export function RunView({ project, proposals, job, startedAt, log, onOpenInbox, 
   const elapsed = running && startedAt ? Math.max(0, Math.floor((now - startedAt) / 1000)) : 0;
 
   return (
-    <div className="page settings run-page">
-      <h1>Agent</h1>
+    <div className="settings run-page">
       <p className="lede">
         Pick a task and how this run should go. Defaults and the agents themselves live in{' '}
         <button className="btn link" onClick={onOpenSettings}>Settings › Agents</button>.

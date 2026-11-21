@@ -44,8 +44,8 @@ New here? The [quickstart](docs/quickstart.md) walks this loop on the bundled de
 The app is built around one loop. A person and agents keep adding to the same model of the product until it describes the system well enough to test it:
 
 1. **Sources** — list everything known about the product: uploaded docs and tracker exports, code folders, systems behind MCP (Confluence, Jira). Give each a priority (requirements outrank code by default) and press **Check access**.
-2. **Model** — subjects (roles) and objects (entities) in an outline, and for each object who performs which action. Click an action to see and write its rules in plain words, with R / C / A marks for what the requirements, the code and the app say; a rule doesn't need a transition or conditions to be useful.
-3. **Agents research** — from **Ask agent**: **Research from scratch** proposes a model from the sources; **Review the model** checks the existing one, quoting the docs and the code (`file#Lx-Ly`), and proposes what's missing; **Explore the app** clicks through a role's interface. Findings appear in place on the Model page, decided as *Requirement*, *Observed* (that's how it works, but not a requirement), *Planned* or *Strike out* (agents won't propose it again). Each op can be decided on its own.
+2. **Model** — subjects (roles), objects (entities) and the glossary in an outline. An object's page lists its states and its actions, with who performs each and what it changes; everything not listed is forbidden. Click an action to edit who and what it changes and to see and write its rules in plain words, with R / C / A marks for what the requirements, the code and the app say; a rule doesn't need a transition or conditions to be useful.
+3. **Agents research** — from **Ask agent**: **Research from scratch** proposes a model from the sources; **Review the model** checks the existing one, quoting the docs and the code (`file#Lx-Ly`), and proposes what's missing; **Explore the app** clicks through a role's interface. Findings show in place on the Model page, dashed, and are decided in the Inbox as *Requirement*, *Observed* (that's how it works, but not a requirement), *Planned* or *Strike out* (agents won't propose it again). Each op can be decided on its own.
 4. **Inbox** — one queue for every contradiction, gap, question and proposed change, with the quotes from each side and the side that stands by priority. Settle a disagreement as *Bug in the product*, *Requirements are outdated* or *Not a problem*, answer a question yes, no or in words, from the keyboard if you like. Can't answer an item as written? *Need more context* sends an agent to dig into it and replace it with questions you can answer, one topic each.
 5. **Spec** — the confirmed model as one Markdown document (`export/spec.md`): subjects, objects, every action with who performs it and its rules with sources, open questions and known defects. Tests are generated from the same model.
 
@@ -55,9 +55,9 @@ You can enter the loop anywhere: write the model by hand, start with research, o
 
 The app is organized as **project → entities → scenarios**.
 
-- **Project** — a workspace folder with `cartographer.yaml`. The app remembers recent projects (`~/.test-cartographer/projects.json`), opens existing ones and creates new ones from a template with a guest and a signed-in role. **Settings › Projects** (“Manage projects…” in the project menu) lists them all: open, create, star as a favorite, remove from the list (the folder stays), or delete — which moves the folder to `~/.test-cartographer/trash`. Favorites stay pinned at the top of the project menu and are never trimmed from the recent list. A project anywhere on disk gets a link to the engine in its own `node_modules`, so its generated tests and action library resolve `@tc/engine`.
+- **Project** — a workspace folder with `cartographer.yaml`. The app remembers recent projects (`~/.test-cartographer/projects.json`), opens existing ones and creates new ones from a template with a guest and a signed-in role. **Manage projects…** in the project menu lists them all: open, create, star as a favorite, remove from the list (the folder stays), or delete — which moves the folder to `~/.test-cartographer/trash`. Favorites stay pinned at the top of the project menu and are never trimmed from the recent list. A project anywhere on disk gets a link to the engine in its own `node_modules`, so its generated tests and action library resolve `@tc/engine`.
 - **Knowledge sources and the backlog** — a project can also hold what a person uploaded about the system (`sources.yaml` + `sources/`) and a backlog of epics, features and stories (`backlog.yaml`) — a view over the model, not a second one. See Onboarding and Backlog below.
-- **Entities** — one file each in `entities/`: an order, a quota, a user account. **Tests › Overview** shows the catalog with the size of each model and how its tests stand; **Model › Map** shows them as a map of object cards, parts drawn inside their parent and arrows for references. Removing an entity moves its files to `entities/.trash`.
+- **Entities** — one file each in `entities/`: an order, a quota, a user account. **Tests** shows the catalog with the size of each model and how its tests stand, and each object's scenarios and coverage. Removing an entity moves its files to `entities/.trash`.
 - **Scenarios** of an entity come in four kinds:
   - **generated** from the model: one per confirmed transition and one per permit, for each role that may perform it and each variant;
   - **deny** — the closed world's negative matrix: for every human role, action and state not allowed by a confirmed transition or permit, a scenario asserts the action stays unavailable. A cell only an `observed`/`proposed` element allows is left undecided, not planned;
@@ -99,7 +99,7 @@ roles:
 ## Layout
 
 ```
-apps/desktop      GUI: map (React Flow), inspector, proposals, coverage; Electron shell
+apps/desktop      GUI: model, inbox, spec, scenarios and coverage; Electron shell
 packages/engine   engine: local API, MCP clients, test compiler and runner, agents
 packages/model    model schema, reachability, plan, coverage, proposals, Markdown — no browser I/O
 demo/shop         demo shop (buyer storefront + Marketplace) and its MCP server
@@ -148,7 +148,7 @@ The GUI stores nothing on its own: workspace files are the source of truth. The 
   - `rule:<entity>.<id>` — that rule's own scenario and any scenario whose `rules` include it;
   - `journey:<entity>.<id>` — that journey's scenario.
 
-  A story with no `covers` ref that resolves is **unmapped** — a requirement not in the model yet; `tc backlog` and the GUI's Backlog view both call these out.
+  A story with no `covers` ref that resolves is **unmapped** — a requirement not in the model yet; `tc backlog` calls these out.
 - **Coverage** rolls up from each entity's plan: a feature's totals are its actions' scenarios plus its stories' scenarios (deduplicated); an epic's totals are the union of its features' and its own direct stories'. Totals count passed / failed / blocked / not-run, the same statuses as entity coverage.
 
 Compiled scenarios carry their backlog trace as `@epic:<id>`, `@feature:<id>`, `@story:<key or id>` tags and matching annotations, so Allure TestOps groups results the same way.
