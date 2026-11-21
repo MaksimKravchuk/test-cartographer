@@ -57,9 +57,9 @@ export function OnboardingView({ project, proposals, reloadToken, onOpenInbox, o
   useEffect(() => { load(); }, [reloadToken]);
   useEffect(() => { api.report().then((r) => setFindings(r.disagreements)).catch((e) => onError((e as Error).message)); }, [reloadToken, proposals]);
   // What waits in the Inbox per source: each open item once under every source it quotes.
-  const waiting: Record<string, number> = {};
+  const waiting = new Map<string, number>();
   for (const ids of [...findings.filter((d) => !d.resolution).map(findingSources), ...proposals.filter((p) => p.status === 'pending').map(proposalSources)])
-    for (const id of new Set(ids)) waiting[id] = (waiting[id] ?? 0) + 1;
+    for (const id of new Set(ids)) waiting.set(id, (waiting.get(id) ?? 0) + 1);
 
   const addFiles = async (files: FileList | File[]) => {
     const list = Array.from(files);
@@ -202,8 +202,8 @@ export function OnboardingView({ project, proposals, reloadToken, onOpenInbox, o
                   ) : <span className="access muted"><span className="dot" /> not checked</span>}
                 </td>
                 <td>
-                  {waiting[s.id] ? (
-                    <button className="btn small ghost" aria-label={`${waiting[s.id]} waiting in Inbox from ${s.title}`} onClick={() => onOpenInbox(s.id)}>{waiting[s.id]} waiting</button>
+                  {waiting.get(s.id) ? (
+                    <button className="btn small ghost" aria-label={`${waiting.get(s.id)} waiting in Inbox from ${s.title}`} onClick={() => onOpenInbox(s.id)}>{waiting.get(s.id)} waiting</button>
                   ) : <span className="muted">none</span>}
                 </td>
                 <td>
