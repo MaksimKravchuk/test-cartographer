@@ -28,7 +28,7 @@ type Route =
   | { page: 'spec' }
   | { page: 'entity'; id: string; tab: EntityTab }
   | { page: 'onboarding' }
-  | { page: 'proposals' }
+  | { page: 'proposals'; source?: string }
   | { page: 'agents' }
   | { page: 'settings' };
 
@@ -309,7 +309,7 @@ export function App() {
         {route.page === 'spec' && <SpecView reloadToken={reloadToken} onError={(m) => notify(m, true)} />}
 
         {route.page === 'onboarding' && (
-          <OnboardingView project={project} reloadToken={reloadToken} onError={(m) => notify(m, true)} />
+          <OnboardingView project={project} proposals={proposals} reloadToken={reloadToken} onOpenInbox={(source) => go({ page: 'proposals', source })} onError={(m) => notify(m, true)} />
         )}
 
         {route.page === 'entity' && !entityReady && <div className="page muted">Loading entity…</div>}
@@ -361,6 +361,8 @@ export function App() {
 
         {route.page === 'proposals' && (
           <InboxView
+            key={route.source}
+            source={route.source}
             project={project}
             reloadToken={reloadToken}
             onChanged={() => void reloadAll()}

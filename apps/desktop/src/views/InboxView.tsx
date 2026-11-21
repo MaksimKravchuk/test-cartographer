@@ -25,6 +25,8 @@ type Props = {
   onDecided(s: EntityState | ProjectDecideResult): void;
   onChanged(): void;
   onError(m: string): void;
+  // Opened from a source's counter on the Sources page.
+  source?: string;
 };
 
 type Report = { disagreements: Disagreement[]; lint: Lint[]; sources: Source[]; usePriority: boolean };
@@ -32,6 +34,10 @@ type FindingKind = 'contradiction' | 'question' | 'gap' | 'source';
 // sources: what the item quotes; the app itself (an explorer's evidence) counts as no source.
 type Item = { key: string; kind: FindingKind | 'proposal'; title: string; where: string; sources: string[]; d?: Disagreement; p?: ProposalState };
 type Filter = 'all' | Item['kind'];
+
+// The sources an Inbox item quotes; the Sources page counts what waits per source with these.
+export const findingSources = (d: Disagreement) => d.quotes.flatMap((q) => (q.evidence.source ? [q.evidence.source] : []));
+export const proposalSources = (p: ProposalState) => p.evidence.flatMap((e) => (e.source ? [e.source] : []));
 
 type Answer = { v: Resolution['verdict']; title: string; key: string; note?: string };
 const triad: Answer[] = [
@@ -73,7 +79,7 @@ export function InboxView(props: Props) {
   const [report, setReport] = useState<Report | null>(null);
   const [filter, setFilter] = useState<Filter>('all');
   // Only what one source says, instead of a separate by-source page.
-  const [source, setSource] = useState('');
+  const [source, setSource] = useState(props.source ?? '');
   const [showSettled, setShowSettled] = useState(false);
   const [current, setCurrent] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -99,12 +105,12 @@ export function InboxView(props: Props) {
         kind: findingKind(d),
         title: d.finding.note,
         where: where(d.finding.refs, d.entity),
-        sources: d.quotes.flatMap((q) => (q.evidence.source ? [q.evidence.source] : [])),
+        sources: findingSources(d),
         d,
       })),
     ...proposals
       .filter((p) => showSettled || p.status === 'pending')
-      .map((p): Item => ({ key: `p:${p.id}`, kind: 'proposal', title: agentTitle(p.agent), where: `${entityTitle(p.entity)} · ${p.ops.length} changes`, sources: p.evidence.flatMap((e) => (e.source ? [e.source] : [])), p })),
+      .map((p): Item => ({ key: `p:${p.id}`, kind: 'proposal', title: agentTitle(p.agent), where: `${entityTitle(p.entity)} · ${p.ops.length} changes`, sources: proposalSources(p), p })),
   ];
   const ordered = groups.flatMap((g) => items.filter((i) => i.kind === g.kind));
   const quoted = (report?.sources ?? []).filter((x) => items.some((i) => i.sources.includes(x.id)));
