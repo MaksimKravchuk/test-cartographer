@@ -17,9 +17,20 @@ pnpm start                              # builds the GUI, starts the engine on :
 
 For GUI development: `pnpm tc serve` (engine on :4317) and `pnpm ui` (GUI with hot reload on :5173).
 
-As a native window: `pnpm app` (builds the GUI and launches Electron; the engine starts automatically). The web GUI is the same app and works on every OS.
+As a native window: `pnpm app` (builds the GUI and launches Electron; the engine starts automatically).
 
-As a macOS app with nothing else to install: `pnpm --filter @tc/desktop package:mac` builds `apps/desktop/release/Test Cartographer-<version>-arm64.dmg` (CI also attaches it to every run as `test-cartographer-mac`). The app carries its own engine and the demo shop. On first launch it copies the demo project to `~/Documents/Test Cartographer/Demo shop` and starts the shop on :4400, so you can run its tests straight away; set `TC_WORKSPACE` to open another project. It downloads Playwright's browser on first launch. The build isn't notarized yet: the first time, open it from Finder with right-click → Open.
+### Platforms
+
+Test Cartographer has no installer: you clone it, build it and run it from source, on Linux, Windows or macOS.
+
+| | Linux | Windows | macOS |
+|---|---|---|---|
+| CLI, engine, web GUI (`pnpm start`) | ✓ | ✓ | ✓ |
+| Native window (`pnpm app`) | ✓ | not tested in CI | ✓ |
+
+Every ✓ runs in CI on that OS. The one exception is `arazzo-tool` (Arazzo chains as command tools), which runs on macOS and Linux only.
+
+On a Mac you can also build a standalone `.app` for yourself: `pnpm --filter @tc/desktop package:mac` writes `apps/desktop/release/Test Cartographer-<version>-arm64.dmg`, which carries its own engine and the demo shop (copied to `~/Documents/Test Cartographer/Demo shop` on first launch; set `TC_WORKSPACE` to open another project). It is ad-hoc signed, so open it the first time with right-click → Open.
 
 Engine CLI — `pnpm tc <command>`:
 

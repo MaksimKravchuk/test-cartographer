@@ -15,18 +15,14 @@ pnpm install
 pnpm exec playwright install chromium
 ```
 
-Start the demo shop (the app under test) and Test Cartographer, each in its own terminal:
+Works the same on Linux, Windows and macOS. Start the demo shop (the app under test) and Test Cartographer, each in its own terminal:
 
 ```bash
 pnpm demo        # demo shop on http://localhost:4400
 ```
 
 ```bash
-pnpm tc serve    # engine on :4317
-```
-
-```bash
-pnpm ui          # the app on http://localhost:5173 — open it
+pnpm start       # builds the app, starts the engine on :4317 and opens it in your browser
 ```
 
 The demo project opens on its own. It is the plain folder `workspace/`: everything you do below changes files there, so `git status` shows it and `git checkout workspace` undoes it.
