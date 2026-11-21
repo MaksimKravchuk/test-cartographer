@@ -12,6 +12,7 @@ import { McpPool, getPath, template } from '../mcp.ts';
 import { listOf, runAgent, type Tool } from './runtime.ts';
 import { loadActions } from '../actions-loader.ts';
 import { skillsPrompt, skillTool } from './skills.ts';
+import { browserTools } from './browser.ts';
 
 export type ExploreOptions = {
   onLog?: (line: string) => void;
@@ -89,9 +90,8 @@ export async function explore(ws: Workspace, agentId: string, opts: ExploreOptio
   await mkdir(ws.path(evidenceDir), { recursive: true });
 
   const mcp = new McpPool(project, ws.root);
-  const browser = await chromium.launch({ headless: !opts.headed });
-  const page: Page = await (await browser.newContext()).newPage();
-  const origin = new URL(iface.baseUrl).origin;
+  const chrome = await chromium.launch({ headless: !opts.headed });
+  const page: Page = await (await chrome.newContext()).newPage();
   const base = iface.baseUrl.replace(/\/$/, '');
 
   // The agent explores as a signed-in user when its role has a login. An app
@@ -111,27 +111,6 @@ export async function explore(ws: Workspace, agentId: string, opts: ExploreOptio
     });
   };
   await signIn();
-
-  // A ref from the latest snapshot() ([ref=…]) reaches elements a test id or a
-  // role and name can't: an icon-only menu button, an input whose label isn't
-  // tied to it. Refs go stale once the page changes; snapshot() again for new ones.
-  const target = (t: { ref?: string; testId?: string; role?: string; name?: string; label?: string; placeholder?: string }) => {
-    if (t.ref) return page.locator(`aria-ref=${t.ref}`);
-    if (t.testId) return page.getByTestId(t.testId);
-    if (t.role) return page.getByRole(t.role as Parameters<Page['getByRole']>[0], t.name ? { name: t.name } : {});
-    if (t.label) return page.getByLabel(t.label);
-    if (t.placeholder) return page.getByPlaceholder(t.placeholder);
-    return null;
-  };
-  // Single-page apps render after `load`: let the network go quiet first, but
-  // don't wait on apps that poll forever.
-  const settle = () => page.waitForLoadState('networkidle', { timeout: 3_000 }).catch(() => {});
-  // A click or a key press may follow a link off the interface: go back and refuse.
-  const stayInside = async () => {
-    if (new URL(page.url()).origin === origin) return;
-    await page.goBack();
-    throw new Error('Navigation outside the interface was cancelled');
-  };
 
   const evidence: Evidence[] = [];
   const addEvidence = (e: Omit<Evidence, 'id'>) => {
@@ -174,6 +153,25 @@ export async function explore(ws: Workspace, agentId: string, opts: ExploreOptio
     await ws.saveProposal(p);
     return (last = p);
   };
+
+  const browser = await browserTools(page, {
+    base: iface.baseUrl,
+    fill: (text) => template(text, data),
+    onSnapshot: async (text) => {
+      const n = evidence.length + 1;
+      const testIds = await page.$$eval('[data-testid]', (els) => els.map((e) => `${e.getAttribute('data-testid')}: ${(e.textContent ?? '').trim().slice(0, 60)}`));
+      await page.screenshot({ path: ws.path(`${evidenceDir}/e${n}.png`), fullPage: true });
+      await writeFile(ws.path(`${evidenceDir}/e${n}.aria.yaml`), scrub(text));
+      const id = addEvidence({ kind: 'screenshot', summary: `snapshot ${page.url()}`, path: `${evidenceDir}/e${n}.png`, url: page.url() });
+      return clip(`evidence ${id}\ntest ids:\n${testIds.map((t) => `  ${t}`).join('\n')}\n\n${text}`);
+    },
+    onNetwork: async (text) => {
+      const file = `${evidenceDir}/e${evidence.length + 1}.network.md`;
+      await writeFile(ws.path(file), scrub(text));
+      const id = addEvidence({ kind: 'network', summary: `requests on ${page.url()}`, path: file, url: page.url() });
+      return clip(`evidence ${id}\n${text}`);
+    },
+  });
 
   const prepareTools = Object.entries(project.mcp).flatMap(([s, cfg]) => cfg.allow.prepare.map((t) => `${s}.${t}`));
   const triggerTools = Object.entries(project.mcp).flatMap(([s, cfg]) => cfg.allow.trigger.map((t) => `${s}.${t}`));
@@ -230,94 +228,7 @@ export async function explore(ws: Workspace, agentId: string, opts: ExploreOptio
         return `evidence ${id}\n${text}`;
       },
     },
-    {
-      name: 'open',
-      description: 'Open an interface page by a path relative to baseUrl, e.g. "/" or "/orders/<id>".',
-      input: z.object({ path: z.string() }),
-      run: async ({ path }) => {
-        if (/^[a-z]+:/i.test(path)) throw new Error('Only relative paths within the interface');
-        await page.goto(base + (path.startsWith('/') ? path : `/${path}`));
-        return `opened ${page.url()}`;
-      },
-    },
-    {
-      name: 'snapshot',
-      description:
-        'Snapshot of the current page: URL, accessibility tree with element refs ([ref=…]) and button test ids. Saved as evidence (screenshot + snapshot).',
-      input: z.object({ note: z.string().optional().describe('What is visible on the page') }),
-      run: async ({ note }) => {
-        const n = evidence.length + 1;
-        await settle();
-        const aria = scrub((await page.ariaSnapshot({ mode: 'ai' })).replaceAll(' [cursor=pointer]', ''));
-        const testIds = await page.$$eval('[data-testid]', (els) => els.map((e) => `${e.getAttribute('data-testid')}: ${(e.textContent ?? '').trim().slice(0, 60)}`));
-        await page.screenshot({ path: ws.path(`${evidenceDir}/e${n}.png`), fullPage: true });
-        await writeFile(ws.path(`${evidenceDir}/e${n}.aria.yaml`), aria);
-        const id = addEvidence({ kind: 'screenshot', summary: note ?? `snapshot ${page.url()}`, path: `${evidenceDir}/e${n}.png`, url: page.url() });
-        return clip(`evidence ${id}\nurl: ${page.url()}\ntest ids:\n${testIds.map((t) => `  ${t}`).join('\n')}\n\n${aria}`);
-      },
-    },
-    {
-      name: 'click',
-      description: 'Click an element by its ref from the latest snapshot, by data-testid, or by ARIA role and name.',
-      input: z.object({
-        ref: z.string().optional().describe('Element ref from the latest snapshot, e.g. "f1e42"'),
-        testId: z.string().optional(),
-        role: z.string().optional().describe('ARIA role: button, link, menuitem, tab, checkbox, radio, option…'),
-        name: z.string().optional(),
-      }),
-      run: async ({ ref, testId, role: r, name }) => {
-        const loc = target({ ref, testId, role: r, name });
-        if (!loc) throw new Error('Provide ref, testId or role (+ name)');
-        await loc.first().click({ timeout: 5_000 });
-        await page.waitForLoadState();
-        await settle();
-        await stayInside();
-        return `ok, url: ${page.url()}`;
-      },
-    },
-    {
-      name: 'fill',
-      description:
-        'Type into an input by its ref from the latest snapshot, data-testid, label or placeholder. `value` may hold {{roles.<id>.<field>}} / {{entities.<id>.<field>}} references to data from your instructions — the engine types the real value.',
-      input: z.object({
-        ref: z.string().optional(),
-        testId: z.string().optional(),
-        label: z.string().optional(),
-        placeholder: z.string().optional(),
-        value: z.string(),
-      }),
-      run: async ({ ref, testId, label, placeholder, value }) => {
-        const loc = target({ ref, testId, label, placeholder });
-        if (!loc) throw new Error('Provide ref, testId, label or placeholder');
-        await loc.first().fill(template(value, data), { timeout: 5_000 });
-        return `filled ${ref ?? testId ?? label ?? placeholder}`;
-      },
-    },
-    {
-      name: 'select',
-      description:
-        'Pick an option of a native <select> by its ref, data-testid or label. For a custom dropdown, click() it open and click() the option instead.',
-      input: z.object({ ref: z.string().optional(), testId: z.string().optional(), label: z.string().optional(), option: z.string().describe('Option label or value') }),
-      run: async ({ ref, testId, label, option }) => {
-        const loc = target({ ref, testId, label });
-        if (!loc) throw new Error('Provide ref, testId or label');
-        const picked = await loc.first().selectOption(option, { timeout: 5_000 });
-        await settle();
-        return `selected ${picked.join(', ')}`;
-      },
-    },
-    {
-      name: 'press',
-      description: 'Press a key on the focused element, e.g. "Enter" to submit or "Escape" to close a menu or dialog.',
-      input: z.object({ key: z.string() }),
-      run: async ({ key: k }) => {
-        await page.keyboard.press(k);
-        await page.waitForLoadState();
-        await settle();
-        await stayInside();
-        return `pressed ${k}, url: ${page.url()}`;
-      },
-    },
+    ...browser.tools,
     {
       name: 'login',
       description: 'Sign in again as your role — when the app has signed you out (a forbidden action, an expired session).',
@@ -398,6 +309,7 @@ export async function explore(ws: Workspace, agentId: string, opts: ExploreOptio
     });
   } finally {
     await browser.close();
+    await chrome.close();
     await mcp.close();
   }
   if (!proposal) throw new Error('The agent finished without an accepted proposal (propose was never called or was rejected)');
