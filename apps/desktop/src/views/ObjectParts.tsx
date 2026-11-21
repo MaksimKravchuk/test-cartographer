@@ -3,7 +3,7 @@
 // subject that may change something, or one that must be refused.
 import { useRef, useState } from 'react';
 import type { Attribute, AttributeType, Entity, Role } from '@tc/model';
-import { Tip } from '../ui.tsx';
+import { roleHue, Tip } from '../ui.tsx';
 
 const TYPES: AttributeType[] = ['text', 'number', 'money', 'date', 'bool', 'enum', 'link', 'file', 'other'];
 
@@ -104,7 +104,7 @@ export function AttributesTable(props: {
             <th scope="col">Type</th>
             <th scope="col">Values</th>
             {roles.map((r) => (
-              <th key={r.id} scope="col" className="who">{r.title}</th>
+              <th key={r.id} scope="col" className="who" style={roleHue(roles, r.id)}>{r.title}</th>
             ))}
             <th aria-label="Row actions" />
           </tr>

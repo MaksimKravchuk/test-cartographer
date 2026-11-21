@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import type { Action, Entity, HistoryEntry, Lint, Op, ReviewCell, ReviewMarks, Role, Rule } from '@tc/model';
 import { api, type EntityState, type ProjectState, type ProposalState } from '../api.ts';
 import { DeleteButton, Editable, HistoryList, originText } from './ModelHistory.tsx';
-import { Tip } from '../ui.tsx';
+import { roleHue, Tip } from '../ui.tsx';
 import { AttributesTable, GoneRow, rowKeys, useStableRows, type ProposedAttribute } from './ObjectParts.tsx';
 import { TechDetails } from './TechDetails.tsx';
 import { SubjectConnection } from './SubjectConnection.tsx';
@@ -606,7 +606,7 @@ export function ModelView({ project, proposals, reloadToken, onOpenTests, onOpen
     <aside className="model-tree" aria-label="Model outline">
       <div className="tree-h">Subjects</div>
       {roles.map((r) => (
-        <button key={r.id} type="button" className="tree-item" aria-current={subject === r.id ? 'true' : undefined} onClick={() => setSubject(r.id)}>
+        <button key={r.id} type="button" className="tree-item" style={roleHue(roles, r.id)} aria-current={subject === r.id ? 'true' : undefined} onClick={() => setSubject(r.id)}>
           <span>{r.title}</span> {r.kind === 'system' && <span className="sys"><span aria-hidden>SYS</span><span className="sr-only">system: background jobs and integrations</span></span>}
         </button>
       ))}
