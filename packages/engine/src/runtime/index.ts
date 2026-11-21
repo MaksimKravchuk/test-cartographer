@@ -23,7 +23,7 @@ export type Suite = {
   scenarios: (Scenario & { trace: { epics: string[]; features: string[]; stories: string[] } })[];
 };
 
-type Worker = { root: string; project: Project; mcp: McpPool; data: DataValues };
+export type Worker = { root: string; project: Project; mcp: McpPool; data: DataValues };
 
 export const test = base.extend<object, { tcWorkspace: string; tc: Worker }>({
   tcWorkspace: [process.env.TC_WORKSPACE ?? '.', { option: true, scope: 'worker' }],
@@ -64,7 +64,7 @@ function stepTitle(s: Step): string {
 
 // One entity instance a scenario works with: the main one, or a related one
 // prepared for it. Each has its own key, reader and related instances.
-type Instance = {
+export type Instance = {
   entity: string;
   variant: string;
   reader?: ToolCall;
@@ -76,7 +76,27 @@ type Instance = {
   baseline: Record<string, Record<string, unknown>>;
 };
 
+// How a run reports its steps: to Playwright Test (runScenario) or, for an
+// agent that has the engine set up state for it, to the run's log.
+export type Hooks = {
+  step(title: string, fn: () => Promise<void>): Promise<void>;
+  annotate(type: string, description: string): void;
+  attach(name: string, json: unknown): Promise<void>;
+};
+
 export async function runScenario(suite: Suite, sc: Scenario, actions: Actions, tc: Worker, browser: Browser, info: TestInfo) {
+  await execute(suite, sc.steps, sc.variant, actions, tc, browser, {
+    step: (title, fn) => test.step(title, fn),
+    annotate: (type, description) => void info.annotations.push({ type, description }),
+    attach: (name, json) => info.attach(name, { body: JSON.stringify(json, null, 2), contentType: 'application/json' }),
+  });
+}
+
+// Runs planned steps with no model involved: prepare tools, library actions in
+// each role's own browser context, state checks. Returns the main instance.
+export async function execute(
+  suite: Pick<Suite, 'entity' | 'readers' | 'relations'>, steps: Step[], variant: string, actions: Actions, tc: Worker, browser: Browser, hooks: Hooks,
+): Promise<Instance> {
   const runTag = process.env.TC_RUN_ID ?? 'local';
   const pages = new Map<string, { context: BrowserContext; page: Page }>();
 
@@ -133,7 +153,7 @@ export async function runScenario(suite: Suite, sc: Scenario, actions: Actions, 
     // A role with a login signs in once per browser context, before it acts.
     if (fresh && role.login) {
       const args = template(role.login.args, { env: process.env, variant: inst.variant, runTag, ...tc.data });
-      await test.step(`Sign in: ${role.title}`, () => action(role.login!.action).run({ ...ctx, args }).then(() => undefined));
+      await hooks.step(`Sign in: ${role.title}`, () => action(role.login!.action).run({ ...ctx, args }).then(() => undefined));
     }
     return ctx;
   };
@@ -152,7 +172,7 @@ export async function runScenario(suite: Suite, sc: Scenario, actions: Actions, 
   // role's browser context (a human role). Returns whatever came back — only
   // a creating transition's `run` result is used, by the 'transition' case.
   const performAct = async (step: { role: string; run?: string; invoke?: ToolCall }, inst: Instance): Promise<void | string | unknown> => {
-    if (step.invoke) return tc.mcp.call(step.invoke.tool, template(step.invoke.args, { key: inst.key, variant: inst.variant, runTag, rel: inst.related }), 'trigger');
+    if (step.invoke) return tc.mcp.call(step.invoke.tool, template(step.invoke.args, { ...tc.data, key: inst.key, variant: inst.variant, runTag, rel: inst.related }), 'trigger');
     if (!step.run) throw new Error(`Role “${step.role}” has no run or invoke binding for this act`);
     return action(step.run).run(await contextFor(step.role, inst));
   };
@@ -160,7 +180,7 @@ export async function runScenario(suite: Suite, sc: Scenario, actions: Actions, 
   const runSteps = async (steps: (Step & { phase?: keyof typeof phaseTitle })[], inst: Instance, prefix = ''): Promise<void> => {
     for (const step of steps) {
       const title = `${prefix}${step.phase ? `${phaseTitle[step.phase]}: ` : ''}${stepTitle(step)}`;
-      await test.step(title, async () => {
+      await hooks.step(title, async () => {
         switch (step.do) {
           case 'related': {
             const child: Instance = {
@@ -170,17 +190,17 @@ export async function runScenario(suite: Suite, sc: Scenario, actions: Actions, 
             await runSteps(step.steps, child, `${step.entity} › `);
             if (!child.key) throw new Error(`Preparing the related ${step.entity} produced no key`);
             inst.related[step.relation] = child.key;
-            info.annotations.push({ type: `tc-related:${step.relation}`, description: child.key });
+            hooks.annotate(`tc-related:${step.relation}`, child.key);
             break;
           }
           case 'prepare': {
-            const args = template(step.args, { variant: inst.variant, runTag, rel: inst.related });
+            const args = template(step.args, { ...tc.data, variant: inst.variant, runTag, rel: inst.related });
             const result = await tc.mcp.call(step.tool, args, 'prepare');
             const value = getPath(result, step.key);
             if (typeof value !== 'string' && typeof value !== 'number')
               throw new Error(`${step.tool} did not return a key in field “${step.key}”`);
             inst.key = String(value);
-            if (inst === main) info.annotations.push({ type: 'tc-key', description: inst.key });
+            if (inst === main) hooks.annotate('tc-key', inst.key);
             break;
           }
           case 'expectState':
@@ -190,10 +210,7 @@ export async function runScenario(suite: Suite, sc: Scenario, actions: Actions, 
             await expect
               .poll(async () => mismatches(await read(inst), match), { message: stepTitle(step), timeout: 5_000 })
               .toEqual([]);
-            await info.attach(`state:${inst.entity}:${step.do === 'expectField' ? step.field : step.do === 'expectInvariant' ? step.invariant : step.state}`, {
-              body: JSON.stringify(inst.snapshot, null, 2),
-              contentType: 'application/json',
-            });
+            await hooks.attach(`state:${inst.entity}:${step.do === 'expectField' ? step.field : step.do === 'expectInvariant' ? step.invariant : step.state}`, inst.snapshot);
             break;
           }
           case 'transition': {
@@ -203,7 +220,7 @@ export async function runScenario(suite: Suite, sc: Scenario, actions: Actions, 
               if (typeof created !== 'string' || !created)
                 throw new Error(`Action “${step.action}” creates the instance but didn't return its key`);
               inst.key = created;
-              if (inst === main) info.annotations.push({ type: 'tc-key', description: inst.key });
+              if (inst === main) hooks.annotate('tc-key', inst.key);
             }
             break;
           }
@@ -228,7 +245,7 @@ export async function runScenario(suite: Suite, sc: Scenario, actions: Actions, 
                 return getPath(snapshot, step.field);
               }, { message: `${step.description} (${step.relation}.${step.field})`, timeout: 5_000 })
               .toEqual(expected);
-            await info.attach(`state:${rel.entity}:${step.field}`, { body: JSON.stringify(snapshot, null, 2), contentType: 'application/json' });
+            await hooks.attach(`state:${rel.entity}:${step.field}`, snapshot);
             break;
           }
           case 'expectUnavailable': {
@@ -239,7 +256,7 @@ export async function runScenario(suite: Suite, sc: Scenario, actions: Actions, 
             break;
           }
           case 'manual':
-            info.annotations.push({ type: 'manual-check', description: step.description });
+            hooks.annotate('manual-check', step.description);
             break;
         }
       });
@@ -247,11 +264,12 @@ export async function runScenario(suite: Suite, sc: Scenario, actions: Actions, 
   };
 
   const main: Instance = {
-    entity: suite.entity.id, variant: sc.variant, reader: suite.entity.reader, relations: suite.relations,
+    entity: suite.entity.id, variant, reader: suite.entity.reader, relations: suite.relations,
     snapshot: {}, related: {}, baseline: {},
   };
   try {
-    await runSteps(sc.steps, main);
+    await runSteps(steps, main);
+    return main;
   } finally {
     await Promise.all([...pages.values()].map((p) => p.context.close()));
   }

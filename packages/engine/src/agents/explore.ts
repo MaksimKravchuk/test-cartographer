@@ -6,11 +6,12 @@ import { chromium, type Page } from '@playwright/test';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { z } from 'zod';
 import {
-  checkRoles, dataContext, dataValues, Finding, Op, Proposal, redactFields, resolveRuntime, scrubSecrets, secretValues, toYaml, type Evidence, type RuntimeOverride, type Workspace,
+  arrange, checkRoles, dataContext, dataValues, Finding, Op, Proposal, redactFields, resolveRuntime, scrubSecrets, secretValues, toYaml, type Evidence, type RuntimeOverride, type Workspace,
 } from '@tc/model';
 import { McpPool, getPath, template } from '../mcp.ts';
 import { listOf, runAgent, type Tool } from './runtime.ts';
 import { loadActions } from '../actions-loader.ts';
+import { execute } from '../runtime/index.ts';
 import { skillsPrompt, skillTool } from './skills.ts';
 import { browserTools } from './browser.ts';
 
@@ -97,7 +98,8 @@ export async function explore(ws: Workspace, agentId: string, opts: ExploreOptio
   // The agent explores as a signed-in user when its role has a login. An app
   // may sign the user out mid-run (a forbidden call, an expired session), so the
   // agent can ask for it again with login().
-  const login = role.login ? (await loadActions(ws))[role.login.action] : undefined;
+  const actions = await loadActions(ws);
+  const login = role.login ? actions[role.login.action] : undefined;
   if (role.login && !login) throw new Error(`Login action “${role.login.action}” is not in the actions/ library`);
   const signIn = async () => {
     if (!role.login || !login) return;
@@ -119,6 +121,7 @@ export async function explore(ws: Workspace, agentId: string, opts: ExploreOptio
     return id;
   };
   let key: string | undefined;
+  let relatedKeys: Record<string, string> = {};
   let proposal: Proposal | undefined;
   let last: Proposal | undefined;
   let batches = 0;
@@ -173,6 +176,7 @@ export async function explore(ws: Workspace, agentId: string, opts: ExploreOptio
     },
   });
 
+  const variants = entity.variants.filter((v) => v.status === 'confirmed').map((v) => v.id);
   const prepareTools = Object.entries(project.mcp).flatMap(([s, cfg]) => cfg.allow.prepare.map((t) => `${s}.${t}`));
   const triggerTools = Object.entries(project.mcp).flatMap(([s, cfg]) => cfg.allow.trigger.map((t) => `${s}.${t}`));
 
@@ -198,9 +202,10 @@ export async function explore(ws: Workspace, agentId: string, opts: ExploreOptio
       description: 'Create a test instance via an allowed setup tool. Returns the result (JSON); the instance key is remembered for read().',
       input: z.object({ tool: z.string().describe(`One of: ${prepareTools.join(', ')}`), args: z.record(z.string(), z.unknown()) }),
       run: async ({ tool, args }) => {
-        const result = await mcp.call(tool, { ...args, tag: runTag }, 'prepare');
+        const result = await mcp.call(tool, { ...template(args, data), tag: runTag }, 'prepare');
         const k = getPath(result, entity.key);
         if (k !== undefined) key = String(k);
+        relatedKeys = {};
         return scrub(JSON.stringify(result, null, 2));
       },
     },
@@ -210,7 +215,7 @@ export async function explore(ws: Workspace, agentId: string, opts: ExploreOptio
           description: 'Make the system act now through an allowed tool: run a background job, advance a test clock. Returns the result (JSON).',
           input: z.object({ tool: z.string().describe(`One of: ${triggerTools.join(', ')}`), args: z.record(z.string(), z.unknown()).default({}) }),
           run: async ({ tool, args }: { tool: string; args: Record<string, unknown> }) =>
-            scrub(JSON.stringify(await mcp.call(tool, args, 'trigger'), null, 2)),
+            scrub(JSON.stringify(await mcp.call(tool, template(args, data), 'trigger'), null, 2)),
         }]
       : []),
     {
@@ -228,6 +233,61 @@ export async function explore(ws: Workspace, agentId: string, opts: ExploreOptio
         return `evidence ${id}\n${text}`;
       },
     },
+    {
+      name: 'reach',
+      description:
+        `Put a new ${entity.title} instance into a state the model already knows how to reach — the engine runs the setup ` +
+        'tools and library actions itself (each role in its own browser), with no clicking on your part. Returns the key, ' +
+        'remembered for read(). Prefer it to clicking through a path that is already in the model.',
+      input: z.object({
+        state: z.string().describe(`One of: ${entity.states.filter((x) => x.status === 'confirmed').map((x) => x.id).join(', ')}`),
+        variant: z.string().optional().describe(`One of: ${variants.join(', ')}; defaults to ${variants[0] ?? 'none'}`),
+      }),
+      run: async ({ state, variant = variants[0] ?? '' }) => {
+        const plan = arrange(entity, variant, state, new Set(), { catalog, project });
+        if (!plan) throw new Error(`The model has no way to reach “${state}” (${variant}): no setup tool for it and no confirmed path from one. Get there through the UI, or note it as a gap.`);
+        const done: string[] = [];
+        const readers = Object.fromEntries(Object.values(catalog).map((e) => [e.id, e.reader]));
+        const relations = Object.fromEntries(entity.relations.map((r) => [r.id, { entity: r.entity, field: r.field }]));
+        const inst = await execute({ entity: { id: entity.id, key: entity.key, reader }, readers, relations }, plan.steps, variant, actions, { root: ws.root, project, mcp, data }, chrome, {
+          step: async (title, fn) => {
+            log(`⚙️ ${title}`);
+            done.push(title);
+            await fn();
+          },
+          annotate: () => {},
+          attach: async () => {},
+        });
+        if (inst.key) key = inst.key;
+        relatedKeys = inst.related;
+        return JSON.stringify({ key: inst.key, related: inst.related, state, variant, steps: done }, null, 2);
+      },
+    },
+    ...(Object.keys(actions).length
+      ? [{
+          name: 'act',
+          description:
+            `Run an action from the project's action library as your role, in your browser: code that already knows the clicks. ` +
+            'Returns what it returned (a new key for a creating action) and the page URL. Snapshot afterwards to see the result.',
+          input: z.object({
+            action: z.string().describe(`One of: ${Object.entries(actions).map(([n, a]) => (a.description ? `${n} (${a.description})` : n)).join('; ')}`),
+            key: z.string().optional().describe('Instance key; defaults to the most recently prepared one'),
+            variant: z.string().optional(),
+          }),
+          run: async ({ action, key: k, variant = variants[0] ?? '' }: { action: string; key?: string; variant?: string }) => {
+            const a = actions[action];
+            if (!a) throw new Error(`No action “${action}” in the library`);
+            const result = await a.run({
+              page, role, iface, variant, key: k ?? key ?? '', entity: {}, related: relatedKeys, data, args: {},
+              open: async (path = '') => {
+                await page.goto(base + path);
+              },
+            });
+            if (typeof result === 'string' && result) key = result;
+            return JSON.stringify({ result: result ?? null, url: page.url() });
+          },
+        }]
+      : []),
     ...browser.tools,
     {
       name: 'login',
