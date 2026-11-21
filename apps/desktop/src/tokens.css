@@ -25,6 +25,13 @@
   --bad-weak: light-dark(#f8e6e2, #341a15);
   --warn: light-dark(#9a6208, #e0a548);
   --warn-weak: light-dark(#f6ecd9, #33260f);
+  /* Subject colors: only for telling subjects apart (who does what). Text-safe in both themes. */
+  --role-1: light-dark(#0f766e, #4fc4b6);
+  --role-2: light-dark(#6e44c4, #b39af0);
+  --role-3: light-dark(#a8327a, #ea8cc4);
+  --role-4: light-dark(#0b6e8f, #6cc3e0);
+  --role-5: light-dark(#5d6b10, #b9c85a);
+  --role-6: light-dark(#8a5a2b, #d6a578);
   --shadow: 0 12px 32px light-dark(rgb(20 20 18 / 0.12), rgb(0 0 0 / 0.5));
 
   --sans: 'Geist Sans', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;

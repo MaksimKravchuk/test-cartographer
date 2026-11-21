@@ -2,7 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import type { Action, Decision, Disagreement, Entity, HistoryEntry, Lint, Op, ReviewCell, ReviewMarks, Role, Rule } from '@tc/model';
 import { api, type EntityState, type ProjectState, type ProposalState } from '../api.ts';
 import { DeleteButton, Editable, HistoryList, originText } from './ModelHistory.tsx';
-import { Tip } from '../ui.tsx';
+import { roleHue, Tip } from '../ui.tsx';
 import { AttributesTable, GoneRow, Incoming, LifecycleTables, rowKeys, useStableRows, type ProposedAttribute } from './ObjectParts.tsx';
 
 // The model as a person thinks about it: who acts (subjects), on what
@@ -372,7 +372,7 @@ export function ModelView({ project, proposals, reloadToken, running, onOpenEnti
             <tr>
               <th scope="col">Action</th>
               {roles.map((r) => (
-                <th key={r.id} scope="col" className="who">
+                <th key={r.id} scope="col" className="who" style={roleHue(roles, r.id)}>
                   <Tip tip="Everything this subject does"><button type="button" className="link-btn" onClick={() => setSubject(r.id)}>{r.title}</button></Tip>
                 </th>
               ))}
@@ -494,7 +494,7 @@ export function ModelView({ project, proposals, reloadToken, running, onOpenEnti
       <aside className="model-tree" aria-label="Model outline">
         <div className="tree-h">Subjects</div>
         {roles.map((r) => (
-          <button key={r.id} type="button" className="tree-item" aria-current={subject === r.id ? 'true' : undefined} onClick={() => setSubject(r.id)}>
+          <button key={r.id} type="button" className="tree-item" style={roleHue(roles, r.id)} aria-current={subject === r.id ? 'true' : undefined} onClick={() => setSubject(r.id)}>
             <span>{r.title}</span> {r.kind === 'system' && <span className="sys"><span aria-hidden>SYS</span><span className="sr-only">system: background jobs and integrations</span></span>}
           </button>
         ))}

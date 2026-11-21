@@ -3,7 +3,7 @@
 // interest-invoked hints, toasts are manual popovers in one region. Features
 // not every target browser has yet (focusgroup, closedby, anchor positioning)
 // get a small fallback here, so views never re-implement them.
-import { cloneElement, useEffect, useId, useRef, useState, type KeyboardEvent, type ReactElement, type ReactNode } from 'react';
+import { cloneElement, useEffect, useId, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactElement, type ReactNode } from 'react';
 
 declare module 'react' {
   interface ButtonHTMLAttributes<T> {
@@ -324,4 +324,11 @@ export function Gear() {
       <circle cx="8" cy="8" r="2.2" />
     </svg>
   );
+}
+
+// A subject's color: one of six hues by its place among the project's people, so
+// Buyer is the same color on every screen. System subjects stay neutral (they have the gear).
+export function roleHue(roles: readonly { id: string; kind?: string }[], id: string): CSSProperties | undefined {
+  const i = roles.filter((r) => r.kind !== 'system').findIndex((r) => r.id === id);
+  return i < 0 ? undefined : ({ '--role': `var(--role-${(i % 6) + 1})` } as CSSProperties);
 }

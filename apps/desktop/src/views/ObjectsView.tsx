@@ -1,5 +1,5 @@
-import { Gear } from '../ui.tsx';
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { Gear, roleHue } from '../ui.tsx';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import {
   BaseEdge, EdgeLabelRenderer, Handle, MarkerType, Position, ReactFlow, ReactFlowProvider, Controls,
   applyNodeChanges, getBezierPath, useReactFlow,
@@ -29,7 +29,7 @@ type CardData = {
   entity: EntitySummary;
   hasChildren: boolean;
   selected: boolean;
-  roles: { id: string; title: string; system: boolean }[];
+  roles: { id: string; title: string; system: boolean; style?: CSSProperties }[];
   onMeasure(id: string, height: number): void;
 };
 
@@ -86,7 +86,7 @@ function ObjectCard({ data }: NodeProps<Node<CardData>>) {
         {data.roles.length > 0 && (
           <div className="object-chips">
             {data.roles.map((r) => (
-              <span key={r.id} className={`chip role-chip ${r.system ? 'system' : ''}`}>{r.system && <><Gear />{' '}</>}{r.title}</span>
+              <span key={r.id} className={`chip role-chip ${r.system ? 'system' : ''}`} style={r.style}>{r.system && <><Gear />{' '}</>}{r.title}</span>
             ))}
           </div>
         )}
@@ -158,7 +158,7 @@ function refLabel(r: EntitySummary['relations'][number]) {
 
 function roleInfo(project: ProjectState, id: string) {
   const r = project.project.roles.find((x) => x.id === id);
-  return { id, title: r?.title ?? id, system: (r?.kind ?? 'human') === 'system' };
+  return { id, title: r?.title ?? id, system: (r?.kind ?? 'human') === 'system', style: roleHue(project.project.roles, id) };
 }
 
 function Objects({ project, entities, onOpen, onCreated, onDeleted, onChanged, onOpenOnboarding, onError }: Props) {
@@ -341,6 +341,7 @@ function Objects({ project, entities, onOpen, onCreated, onDeleted, onChanged, o
         <button
           key={r.id}
           className={`chip role-chip ${r.kind === 'system' ? 'system' : ''}`}
+          style={roleHue(project.project.roles, r.id)}
           aria-pressed={subjectId === r.id}
           onClick={() => (subjectId === r.id ? setSubject(null) : openSubject(r.id))}
         >
@@ -516,7 +517,7 @@ function DetailPanel({
         {roles.length > 0 && (
           <div className="object-chips">
             {roles.map((r) => (
-              <button key={r.id} className={`chip role-chip ${r.system ? 'system' : ''}`} onClick={() => onSelectSubject(r.id)}>
+              <button key={r.id} className={`chip role-chip ${r.system ? 'system' : ''}`} style={r.style} onClick={() => onSelectSubject(r.id)}>
                 {r.system && <><Gear />{' '}</>}{r.title}
               </button>
             ))}

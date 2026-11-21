@@ -1061,7 +1061,7 @@ table.grid :is(th, td):first-child { padding-left: 0; }
 }
 .lc-pill + .lc-pill { margin-top: var(--s1); }
 .lc-pill:hover { border-color: var(--fg-3); }
-.lc-pill .muted { margin-left: auto; font-size: 0.6875rem; white-space: nowrap; }
+.lc-pill .who-tag { margin-left: auto; font-size: 0.6875rem; white-space: nowrap; }
 .lc-pill.observed { border-style: dotted; }
 .lc-pill.proposed { border-style: dashed; border-color: var(--accent); color: var(--accent); background: var(--accent-weak); }
 .sec-head { display: flex; align-items: center; gap: var(--s3); flex-wrap: wrap; }
@@ -1257,3 +1257,10 @@ button.access-cell { border: 0; padding: 0; font: inherit; font-size: 0.75rem; c
 .map:has(> .lifecycle-scroll) > .map-toolbar { position: static; padding: var(--s3); }
 .map > .lifecycle-scroll { position: static; flex: 1; min-height: 0; }
 .gear { vertical-align: -0.125em; flex: none; }
+
+/* ── Subject colors (see --role-* in tokens.css) ─────────── */
+.who-tag { color: var(--role, var(--fg-3)); font-weight: 500; }
+th.who[style] { color: var(--role); }
+th.who[style] .link-btn { color: inherit; }
+.chip.role-chip[style] { color: var(--role); border-color: color-mix(in srgb, var(--role) 45%, transparent); background: color-mix(in srgb, var(--role) 10%, var(--surface)); }
+.model-tree .tree-item[style] > span:first-child::before { content: ''; display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--role); margin-right: var(--s2); vertical-align: 0.05em; }
