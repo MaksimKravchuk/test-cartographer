@@ -1,4 +1,3 @@
-import { Gear, roleHue } from '../ui.tsx';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import {
   BaseEdge, EdgeLabelRenderer, Handle, MarkerType, Position, ReactFlow, ReactFlowProvider, Controls,
@@ -8,6 +7,7 @@ import {
 import '@xyflow/react/dist/style.css';
 import type { Field } from '@tc/model';
 import { api, type EntitySummary, type ProjectState } from '../api.ts';
+import { Gear, roleHue } from '../ui.tsx';
 import { nextId, objectCardHeight, objectsLayout, OBJECT_W, type ObjectBox } from '../graph.ts';
 import { FieldsEditor } from './FieldsEditor.tsx';
 

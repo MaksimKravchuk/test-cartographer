@@ -5,6 +5,7 @@ import userEvent from '@testing-library/user-event';
 import type { EntitySummary, ProjectState } from '../../src/api.ts';
 import { OverviewView } from '../../src/views/OverviewView.tsx';
 import { ExportView } from '../../src/views/ExportView.tsx';
+import { roleHue } from '../../src/ui.tsx';
 
 vi.mock('../../src/api.ts', () => ({ api: { exportMarkdown: vi.fn() } }));
 const { api } = await import('../../src/api.ts');
@@ -75,5 +76,14 @@ describe('ExportView', () => {
     await userEvent.click(button);
     expect(onError).toHaveBeenCalledWith('engine is down');
     expect(button).toBeEnabled();
+  });
+});
+
+describe('roleHue', () => {
+  it('colors people by their place among people and leaves system subjects neutral', () => {
+    const roles = [{ id: 'guest' }, { id: 'jobs', kind: 'system' }, { id: 'buyer' }];
+    expect(roleHue(roles, 'buyer')).toEqual({ '--role': 'var(--role-2)' });
+    expect(roleHue(roles, 'jobs')).toBeUndefined();
+    expect(roleHue(roles, 'nobody')).toBeUndefined();
   });
 });
