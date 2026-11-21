@@ -16,7 +16,7 @@ pnpm install
 pnpm exec playwright install chromium   # once
 ```
 
-How to run the demo shop, the engine and the GUI is in the [README](README.md#quick-start).
+How to run the demo shop, the engine and the GUI is in [install and run](docs/install.md).
 
 ## Checks
 
@@ -43,12 +43,12 @@ Integration and e2e tests start the demo shop on port 4400 unless one is already
 
 - Keep a pull request to one change, and describe what it does and why.
 - Add or update a test at the right level (see the table above) when you change logic.
-- If you change how something works for users, update the README in the same pull request.
+- If you change how something works for users, update the docs (README, `docs/install.md`, `docs/usage.md`) in the same pull request.
 - Don't commit real credentials. Workspace values that are secrets should be `{{env.NAME}}` references.
 
 ## Layout
 
-`packages/model` is the model, with no browser or network I/O. `packages/engine` is the local API, the agents, the test compiler and the runner; how the agents work is written as skills in `packages/engine/skills` (its README has the rules for changing them). `apps/desktop` is the GUI. `demo/shop` is the app the example explores. `workspace` is the example project. The README describes each in detail.
+`packages/model` is the model, with no browser or network I/O. `packages/engine` is the local API, the agents, the test compiler and the runner; how the agents work is written as skills in `packages/engine/skills` (its README has the rules for changing them). `apps/desktop` is the GUI. `demo/shop` is the app the example explores. `workspace` is the example project. The [usage guide](docs/usage.md) describes the model and the file formats.
 
 ## GUI and browsers
 

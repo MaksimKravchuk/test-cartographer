@@ -6,20 +6,17 @@ This walks the loop on the bundled demo shop: sources → model → your agent's
 
 ## 0. Install (2 minutes)
 
-You need [Node.js 24+](https://nodejs.org) and [pnpm](https://pnpm.io/installation).
+You need [Node.js 24+](https://nodejs.org) and [pnpm](https://pnpm.io/installation). Details, other ways to run it and platforms are in [install and run](install.md).
 
 ```bash
 git clone https://github.com/MaksimKravchuk/test-cartographer.git
 cd test-cartographer
 pnpm install
 pnpm exec playwright install chromium
+pnpm demo        # demo shop on http://localhost:4400 (keep it running)
 ```
 
-Works the same on Linux, Windows and macOS. Start the demo shop (the app under test) and Test Cartographer, each in its own terminal:
-
-```bash
-pnpm demo        # demo shop on http://localhost:4400
-```
+In a second terminal:
 
 ```bash
 pnpm start       # builds the app, starts the engine on :4317 and opens it in your browser
@@ -31,7 +28,7 @@ The demo project opens on its own. It is the plain folder `workspace/`: everythi
 
 Test Cartographer is not an agent: it drives the coding agent you already use and gives it the tools (read sources, quote them, click through the app, propose changes). Open **Settings** (⚙ at the top right) › **Agents**:
 
-- **With an agent.** Sign in once in a terminal (`claude auth login`, `codex login`, `gh auth login`, or **Sign in** on the Cursor card), pick it as the **Provider** and press **Save settings**. **Test run** checks it end to end. Runs use your own plan; nothing is billed per token here.
+- **With an agent.** Sign in once in a terminal (`claude auth login`, `codex login`, `gh auth login`, or **Sign in** on the Cursor card; see [connect your agent](install.md#connect-your-agent)), pick it as the **Provider** and press **Save settings**. **Test run** checks it end to end. Runs use your own plan; nothing is billed per token here.
 - **Without one.** Pick **None — scripted runs only** and **Save settings**. The steps below then replay the recorded runs.
 
 ## 2. Sources
@@ -86,4 +83,4 @@ The generated tests are a plain Playwright project (`workspace/generated/`), so 
 - On **Model**, write what you know by hand, or use **Ask agent › Research from scratch** to have your agent propose subjects, objects, actions and rules from the sources, then **Review the model** as above.
 - An explorer agent can also click through each role's interface: **Ask agent › Explore the app**, or `pnpm tc explore <agent>`.
 
-The [README](../README.md) describes the model, the agents and the test runtime in full.
+The [usage guide](usage.md) describes the loop, the model, the agents and the test runtime in full.
