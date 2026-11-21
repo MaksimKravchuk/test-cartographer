@@ -723,7 +723,7 @@ export function ModelView({ project, proposals, reloadToken, onOpenTests, onOpen
               <AttributesTable entity={cur.entity} roles={roles} proposed={pendingAttributes(cur.entity.id)} busy={busy} onReview={onOpenInbox} onEdit={(change) => edit(cur.entity.id, change)} />
             </section>
 
-            <TechDetails key={cur.entity.id} state={cur} project={project} onSave={(e) => act(() => api.saveEntity(e, cur.revision))} />
+            <TechDetails key={cur.entity.id} state={cur} project={project} onSave={(e, revision) => act(() => api.saveEntity(e, revision))} />
           </>
         )}
       </div>
