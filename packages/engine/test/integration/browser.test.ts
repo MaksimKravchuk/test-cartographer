@@ -18,7 +18,7 @@ test('browser tools: Playwright MCP narrowed to one interface', async () => {
   const { tools, close } = await browserTools(page, {
     base,
     fill: (text) => text.replace('{{roles.buyer.password}}', 'hunter2'),
-    onSnapshot: async (text) => `evidence e1\n${text}`,
+    onSnapshot: async (text, note) => `evidence e1 ${note}\n${text}`,
     onNetwork: async (text) => `evidence e2\n${text}`,
   });
   const run = (name: string, args: Record<string, unknown>) => tools.find((t) => t.name === name)!.run(args);
@@ -28,8 +28,8 @@ test('browser tools: Playwright MCP narrowed to one interface', async () => {
 
     await run('browser_navigate', { url: '/' });
     assert.equal(page.url(), `${base}/`);
-    const snap = await run('browser_snapshot', {});
-    assert.match(snap, /^evidence e1\n/);
+    const snap = await run('browser_snapshot', { note: 'Start page' });
+    assert.match(snap, /^evidence e1 Start page\n/);
     assert.match(snap, /button "Go" \[ref=e\d+\]/);
     await assert.rejects(run('browser_navigate', { url: 'https://example.com/' }), /own interface/);
 

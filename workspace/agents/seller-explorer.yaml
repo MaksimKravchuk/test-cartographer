@@ -7,8 +7,8 @@ steps:
     input: { tool: shop.create_order, args: { variant: digital, status: paid } }
   - call: browser_navigate
     input: { url: "/orders/{{key}}" }
-  - say: "Paid digital order: the only action is “Issue key”"
-    call: browser_snapshot
+  - call: browser_snapshot
+    input: { note: "Paid digital order: the only action is “Issue key”" }
   - call: browser_click
     input: { element: action-deliver-key, target: "getByTestId('action-deliver-key')" }
   - call: read
@@ -18,14 +18,14 @@ steps:
     input: { tool: shop.create_order, args: { variant: preorder, status: paid } }
   - call: browser_navigate
     input: { url: "/orders/{{key}}" }
-  - say: "Paid pre-order: “Accept pre-order” and “Reject” are available"
-    call: browser_snapshot
+  - call: browser_snapshot
+    input: { note: "Paid pre-order: “Accept pre-order” and “Reject” are available" }
   - call: browser_click
     input: { element: action-accept, target: "getByTestId('action-accept')" }
   - call: read
     input: {}
-  - say: "Pre-order after acceptance: status “Awaiting stock”, “Stock arrived” is available"
-    call: browser_snapshot
+  - call: browser_snapshot
+    input: { note: "Pre-order after acceptance: status “Awaiting stock”, “Stock arrived” is available" }
   - call: browser_click
     input: { element: action-stock, target: "getByTestId('action-stock')" }
   - call: read

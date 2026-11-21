@@ -7,8 +7,8 @@ steps:
     input: { tool: shop.create_order, args: { variant: standard, status: paid } }
   - call: browser_navigate
     input: { url: "/orders/{{key}}" }
-  - say: "Paid standard order: the buyer can “Cancel order”"
-    call: browser_snapshot
+  - call: browser_snapshot
+    input: { note: "Paid standard order: the buyer can “Cancel order”" }
   - call: browser_click
     input: { element: action-cancel, target: "getByTestId('action-cancel')" }
   - call: read
@@ -18,8 +18,8 @@ steps:
     input: { tool: shop.create_order, args: { variant: standard, status: accepted } }
   - call: browser_navigate
     input: { url: "/orders/{{key}}" }
-  - say: "Order accepted by the seller: the buyer can still cancel it"
-    call: browser_snapshot
+  - call: browser_snapshot
+    input: { note: "Order accepted by the seller: the buyer can still cancel it" }
   - call: browser_click
     input: { element: action-cancel, target: "getByTestId('action-cancel')" }
   - call: read
@@ -29,8 +29,8 @@ steps:
     input: { tool: shop.create_order, args: { variant: digital, status: paid } }
   - call: browser_navigate
     input: { url: "/orders/{{key}}" }
-  - say: "Paid digital order: the buyer has no actions"
-    call: browser_snapshot
+  - call: browser_snapshot
+    input: { note: "Paid digital order: the buyer has no actions" }
   - say: Writing up the proposal.
     call: propose
     input:

@@ -157,12 +157,12 @@ export async function explore(ws: Workspace, agentId: string, opts: ExploreOptio
   const browser = await browserTools(page, {
     base: iface.baseUrl,
     fill: (text) => template(text, data),
-    onSnapshot: async (text) => {
+    onSnapshot: async (text, note) => {
       const n = evidence.length + 1;
       const testIds = await page.$$eval('[data-testid]', (els) => els.map((e) => `${e.getAttribute('data-testid')}: ${(e.textContent ?? '').trim().slice(0, 60)}`));
       await page.screenshot({ path: ws.path(`${evidenceDir}/e${n}.png`), fullPage: true });
       await writeFile(ws.path(`${evidenceDir}/e${n}.aria.yaml`), scrub(text));
-      const id = addEvidence({ kind: 'screenshot', summary: `snapshot ${page.url()}`, path: `${evidenceDir}/e${n}.png`, url: page.url() });
+      const id = addEvidence({ kind: 'screenshot', summary: note ?? `snapshot ${page.url()}`, path: `${evidenceDir}/e${n}.png`, url: page.url() });
       return clip(`evidence ${id}\ntest ids:\n${testIds.map((t) => `  ${t}`).join('\n')}\n\n${text}`);
     },
     onNetwork: async (text) => {

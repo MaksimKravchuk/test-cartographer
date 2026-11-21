@@ -28,7 +28,7 @@ type Options = {
   // Replaces {{roles.<id>.<field>}} / {{entities.<id>.<field>}} with the real value.
   fill: (text: string) => string;
   // A snapshot or a request list the agent asked for: save it as evidence, return what the agent reads.
-  onSnapshot: (text: string) => Promise<string>;
+  onSnapshot: (text: string, note?: string) => Promise<string>;
   onNetwork: (text: string) => Promise<string>;
 };
 
@@ -55,6 +55,8 @@ export async function browserTools(page: Page, o: Options): Promise<{ tools: Too
   const call = async (name: string, args: Record<string, unknown>) => {
     // The agent has no disk: results come back as text, never as files.
     delete args.filename;
+    const note = typeof args.note === 'string' ? args.note : undefined;
+    delete args.note;
     if (name === 'browser_navigate') {
       const url = String(args.url ?? '');
       args.url = /^[a-z]+:/i.test(url) ? url : base + (url.startsWith('/') ? url : `/${url}`);
@@ -68,7 +70,7 @@ export async function browserTools(page: Page, o: Options): Promise<{ tools: Too
     const text = r.content.flatMap((c) => (c.type === 'text' && c.text ? [c.text] : [])).join('\n').replace(/^### Snapshot\n- \[Snapshot\]\(.*\)$/gm, '').trim();
     if (r.isError) throw new Error(text);
     await stayInside();
-    if (name === 'browser_snapshot') return o.onSnapshot(text);
+    if (name === 'browser_snapshot') return o.onSnapshot(text, note);
     if (name === 'browser_network_requests') return o.onNetwork(text);
     return text;
   };
@@ -80,6 +82,8 @@ export async function browserTools(page: Page, o: Options): Promise<{ tools: Too
       .map((t) => {
         const { $schema: _, properties, ...schema } = t.inputSchema as Record<string, unknown> & { properties?: Record<string, unknown> };
         const { filename: __, ...shown } = properties ?? {};
+        // A person reads the note as the evidence's caption.
+        if (t.name === 'browser_snapshot') shown.note = { type: 'string', description: 'What is visible on the page' };
         // Playwright checks the arguments itself; the agent is shown its schema.
         return { name: t.name, description: t.description ?? '', input: z.looseObject({}), schema: { ...schema, properties: shown }, run: (args) => call(t.name, { ...args }) };
       }),
