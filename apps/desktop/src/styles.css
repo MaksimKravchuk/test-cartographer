@@ -307,7 +307,8 @@ textarea.text { resize: vertical; min-height: 64px; font-family: var(--mono); fo
 }
 
 /* ── List pages ─────────────────────────────────────── */
-.page { height: 100%; overflow: auto; padding: var(--s5) var(--gutter) var(--s7); }
+/* On screens wider than the content, the column sits in the middle instead of leaving an empty band on the right. */
+.page { height: 100%; overflow: auto; padding: var(--s5) max(var(--gutter), (100% - var(--page-max)) / 2) var(--s7); }
 /* The one large size on a page: everything below it is 13–15px, so the title carries the hierarchy. */
 h1 { font-size: 1.75rem; line-height: 1.1; font-weight: 600; letter-spacing: -0.025em; margin: 0 0 var(--s2); }
 .lede { color: var(--fg-2); margin: 0 0 var(--s5); max-width: 72ch; }
