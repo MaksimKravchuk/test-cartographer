@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { MenuItem, MenuSection, Popup } from '../ui.tsx';
 import { resolveRuntime } from '@tc/model/schema';
+import type { PastUsage } from '@tc/model';
 import { api, runtimeTitle, type Job, type ProjectState } from '../api.ts';
 
 // The top bar's agent side: one "Ask agent" menu for every way to start an
@@ -13,6 +14,11 @@ export const jobTitle = (kind: string) =>
   : kind.startsWith('onboard') ? 'onboarding'
   : kind.replace('explore:', 'exploration: ');
 
+export const usd = (n: number) => `$${n < 0.01 ? n.toFixed(4) : n.toFixed(2)}`;
+// What a finished run took, shown as what to expect of the task's next one.
+export const took = (u: PastUsage) =>
+  `${clock((u.seconds ?? 0) * 1000)}${u.costUsd !== undefined ? ` and ≈ ${usd(u.costUsd)} at API prices` : ''}${u.model ? ` on ${u.model}` : ''}`;
+
 type AskProps = {
   project: ProjectState;
   running: boolean;
@@ -24,14 +30,15 @@ type AskProps = {
 
 export function AskAgent({ project, running, onResearch, onSettings, onError }: AskProps) {
   const explorers = (project.project.agents ?? []).filter((a) => (a.kind ?? 'explore') === 'explore');
+  const detail = (text: string, kind: string) => (project.usage[kind] ? `${text}. Last run: ${took(project.usage[kind])}` : text);
   const pick = (fn: () => unknown) => () => Promise.resolve(fn()).catch((e) => onError((e as Error).message));
   return (
     <Popup menu name="Ask agent" className="menu" triggerClass="btn primary" disabled={running} label={<>Ask agent <span aria-hidden className="caret">▾</span></>}>
-      <MenuItem title="Review the model" detail="Check every element against the sources, list contradictions and gaps" onSelect={pick(() => onResearch('review'))} />
-      <MenuItem title="Research from scratch" detail="Read the sources and propose subjects, objects, actions and rules" onSelect={pick(() => onResearch('onboard'))} />
+      <MenuItem title="Review the model" detail={detail('Check every element against the sources, list contradictions and gaps', 'onboard:review')} onSelect={pick(() => onResearch('review'))} />
+      <MenuItem title="Research from scratch" detail={detail('Read the sources and propose subjects, objects, actions and rules', 'onboard')} onSelect={pick(() => onResearch('onboard'))} />
       {explorers.length > 0 && <MenuSection>Explore the app</MenuSection>}
       {explorers.map((a) => (
-        <MenuItem key={a.id} title={a.title} detail="Click through the app and propose what it saw" onSelect={pick(() => api.explore(a.id, resolveRuntime(project.project, a) ? 'live' : 'scripted'))} />
+        <MenuItem key={a.id} title={a.title} detail={detail('Click through the app and propose what it saw', `explore:${a.id}`)} onSelect={pick(() => api.explore(a.id, resolveRuntime(project.project, a) ? 'live' : 'scripted'))} />
       ))}
       <MenuSection>Model, effort, subagents</MenuSection>
       <MenuItem title="Choose how it runs…" detail="Pick the task and this run’s model, effort and steps" onSelect={pick(onSettings)} />

@@ -2,7 +2,7 @@
 import { after, before, describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
-import { mkdtemp } from 'node:fs/promises';
+import { appendFile, mkdtemp } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Workspace } from '@tc/model';
@@ -32,6 +32,18 @@ describe('project and entities', () => {
     assert.equal(p.root, ws.root);
     assert.deepEqual([...p.entities].sort(), ['line-item', 'listing', 'order']);
     assert.ok(p.actions.length > 0, 'the action library is loaded');
+  });
+
+  test('GET /api/project tells what each agent task’s latest finished run used', async () => {
+    const w = new Workspace(ws.root);
+    await w.saveUsage('explore:client-explorer', { model: 'opus', input: 10, output: 1, costUsd: 2, seconds: 200 });
+    await appendFile(join(ws.root, 'runs', 'agent-usage.jsonl'), '{"task":"explore:cl'); // a write cut short
+    await appendFile(join(ws.root, 'runs', 'agent-usage.jsonl'), '\n');
+    await w.saveUsage('explore:client-explorer', { model: 'sonnet', input: 10, output: 1, costUsd: 1, seconds: 250 });
+    const { usage } = await get('/api/project');
+    assert.deepEqual(Object.keys(usage), ['explore:client-explorer']);
+    assert.partialDeepStrictEqual(usage['explore:client-explorer'], { model: 'sonnet', costUsd: 1, seconds: 250 });
+    assert.ok(usage['explore:client-explorer'].at);
   });
 
   test('GET /api/entities lists every entity with a test plan', async () => {

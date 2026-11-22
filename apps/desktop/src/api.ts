@@ -1,4 +1,4 @@
-import type { AgentProvider, Backlog, BacklogCoverage, Coverage, Decision, Entity, Field, Issue, Plan, Project, Proposal, ScenarioResult, FileSourceKind, Source, Status, Disagreement, Lint, Resolution, ReviewRow, RuntimeOverride, HistoryEntry } from '@tc/model';
+import type { AgentProvider, PastUsage, Backlog, BacklogCoverage, Coverage, Decision, Entity, Field, Issue, Plan, Project, Proposal, ScenarioResult, FileSourceKind, Source, Status, Disagreement, Lint, Resolution, ReviewRow, RuntimeOverride, HistoryEntry } from '@tc/model';
 
 export type EntityState = {
   entity: Entity;
@@ -18,6 +18,8 @@ export type ProjectState = {
   entities: string[];
   actions: { name: string; description: string; checksAvailability: boolean }[];
   jobs: { id: string; kind: string; state: string }[];
+  // What the latest finished run of each agent task used, by job kind.
+  usage: Record<string, PastUsage>;
 };
 
 export type EntitySummary = {

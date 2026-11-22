@@ -147,6 +147,8 @@ export type AgentUsage = {
   context?: { used: number; window?: number };
   seconds?: number;
 };
+// A finished run's usage, as the workspace keeps it (runs/agent-usage.jsonl).
+export type PastUsage = AgentUsage & { at: string };
 
 export const AgentSpec = z.object({
   id: Id,

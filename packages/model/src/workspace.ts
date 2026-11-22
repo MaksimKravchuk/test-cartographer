@@ -5,7 +5,7 @@ import { parseEnv } from 'node:util';
 import { basename, extname, join } from 'node:path';
 import YAML from 'yaml';
 import { diffEntity, diffProject, HistoryEntry, stamp, type Author } from './history.ts';
-import { Backlog, Entity, Project, type Field, Proposal, RunReport, Source, SourceRegistry, isFileSource, type ScenarioResult, type FileSourceKind, type ToolCall } from './schema.ts';
+import { Backlog, Entity, Project, type AgentUsage, type PastUsage, type Field, Proposal, RunReport, Source, SourceRegistry, isFileSource, type ScenarioResult, type FileSourceKind, type ToolCall } from './schema.ts';
 
 // A workspace is a plain folder that is easy to keep in git:
 //   cartographer.yaml     project: interfaces, roles, MCP, agent runtime, agents
@@ -19,7 +19,7 @@ import { Backlog, Entity, Project, type Field, Proposal, RunReport, Source, Sour
 //   actions/*.ts          action library for Playwright
 //   evidence/             screenshots and snapshots collected by agents
 //   generated/            compiled tests
-//   runs/                 run reports
+//   runs/                 run reports; agent-usage.jsonl: what each finished agent run used
 //   .env.local            secret field values typed in the GUI (git-ignored); the YAML keeps {{env.NAME}}
 export class Workspace {
   readonly root: string;
@@ -304,6 +304,28 @@ export class Workspace {
       if (r.success) Object.assign(merged, r.data.results);
     }
     return merged;
+  }
+
+  // One line per finished agent run. The Agent dialog shows a task's latest
+  // as what its next run will likely take.
+  async saveUsage(task: string, usage: AgentUsage) {
+    // shortcut: grows by a line per run and is read whole, trim it if a workspace ever sees thousands of runs.
+    await mkdir(this.path('runs'), { recursive: true });
+    await appendFile(this.path('runs', 'agent-usage.jsonl'), JSON.stringify({ task, at: new Date().toISOString(), ...usage }) + '\n');
+  }
+
+  async lastUsage(): Promise<Record<string, PastUsage>> {
+    const text = await readFile(this.path('runs', 'agent-usage.jsonl'), 'utf8').catch(() => '');
+    const last: Record<string, PastUsage> = {};
+    for (const line of text.split('\n')) {
+      try {
+        const { task, ...usage } = JSON.parse(line);
+        last[task] = usage;
+      } catch {
+        // A blank or half-written line: skip it.
+      }
+    }
+    return last;
   }
 }
 

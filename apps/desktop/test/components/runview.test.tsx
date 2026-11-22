@@ -17,6 +17,7 @@ const project = {
   root: '/p',
   entities: [],
   jobs: [],
+  usage: {},
   project: { name: 'Shop', interfaces: [], roles: [], mcp: {}, contracts: [], glossary: [], agents: [], runtime: { provider: 'claude', maxSteps: 60 } },
 } as unknown as ProjectState;
 const props = { project, proposals: [] as ProposalState[], job: null, startedAt: null, log: [], onOpenInbox: vi.fn(), onOpenSettings: vi.fn(), onError: vi.fn() };
@@ -50,6 +51,12 @@ describe('RunView', () => {
     expect(screen.getByText('1 proposal handed in', { exact: false })).toBeInTheDocument();
     expect(screen.getByText('Checking orders')).toBeInTheDocument();
     expect(screen.getAllByRole('button', { name: 'Review in Inbox' })).toHaveLength(1);
+  });
+
+  it('tells what the task’s last run took before the next one starts', () => {
+    const usage = { 'onboard:review': { at: '2026-11-21T09:00:00Z', model: 'claude-opus-5', input: 1, output: 1, costUsd: 1.95, seconds: 219 } };
+    render(<RunView {...props} project={{ ...project, usage }} />);
+    expect(document.querySelector('.field-hint')).toHaveTextContent('Its last run took 3:39 and ≈ $1.95 at API prices on claude-opus-5.');
   });
 
   it('shows the run’s tokens, context and cost from the latest usage report', () => {

@@ -3,7 +3,7 @@ import type { AgentProvider, AgentUsage, Effort, RuntimeOverride } from '@tc/mod
 // schema.ts only: the package index pulls in Node-only workspace.ts (see AccessMatrix.tsx).
 import { resolveRuntime, SUBAGENTS } from '@tc/model/schema';
 import { api, runtimeTitle, type Job, type ProjectState, type ProposalState, type RuntimeStatus } from '../api.ts';
-import { jobTitle } from './Shell.tsx';
+import { jobTitle, took, usd } from './Shell.tsx';
 
 // The "Ask agent" dialog: pick a task, tune this run (provider, model, effort,
 // subagents, steps), start it, and watch what it hands in as it goes.
@@ -51,7 +51,7 @@ function UsageLine({ log, elapsed }: { log: string[]; elapsed?: number }) {
       {u?.costUsd !== undefined && (
         <div>
           <dt>Cost{u.estimated ? ' (estimate)' : ''}</dt>
-          <dd>≈ ${u.costUsd < 0.01 ? u.costUsd.toFixed(4) : u.costUsd.toFixed(2)} <span className="muted">at API prices; subscriptions don’t bill per token</span></dd>
+          <dd>≈ {usd(u.costUsd)} <span className="muted">at API prices; subscriptions don’t bill per token</span></dd>
         </div>
       )}
       {!!u?.premiumRequests && <div><dt>Premium requests</dt><dd>{+u.premiumRequests.toFixed(2)}</dd></div>}
@@ -115,6 +115,14 @@ export function RunView({ project, proposals, job, startedAt, log, onOpenInbox, 
 
   const start = () => task.start(settings.provider ? settings : undefined).catch((e) => onError((e as Error).message));
   const canDelegate = !!settings.provider && SUBAGENTS.includes(settings.provider);
+
+  // What to expect: this task's latest finished run, or another explorer's while this one has none.
+  const kind = task.id === 'review' ? 'onboard:review' : task.id;
+  const other = task.id.startsWith('explore:')
+    ? Object.entries(project.usage).filter(([k]) => k.startsWith('explore:')).sort(([, a], [, b]) => b.at.localeCompare(a.at))[0]
+    : undefined;
+  const past = project.usage[kind] ?? other?.[1];
+  const pastOf = project.usage[kind] ? 'Its last run' : `Not run yet. The last run of “${tasks.find((t) => t.id === other?.[0])?.title ?? other?.[0]}”`;
 
   const found = job ? proposals : [];
   const said = log.filter((l) => l.startsWith('💬')).map((l) => l.replace(/^💬\s*/, ''));
@@ -202,6 +210,10 @@ export function RunView({ project, proposals, job, startedAt, log, onOpenInbox, 
         </span>
       </label>
       {status && !status.ready && <p className="field-hint bad">{runtimeTitle[status.provider]} isn’t ready: {status.detail}</p>}
+
+      {past && settings.provider && (
+        <p className="field-hint">{pastOf} took {took(past)}.</p>
+      )}
 
       <div className="row" style={{ marginTop: 'var(--s4)' }}>
         <button className="btn primary" disabled={running} onClick={start}>Start {task.title.toLowerCase()}</button>
