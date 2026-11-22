@@ -78,8 +78,15 @@ export function createApp(initial: Workspace) {
     const controller = new AbortController();
     jobs.set(id, { kind, state: 'running', controller });
     emit({ type: 'job', job: id, kind, state: 'running' });
-    fn((line) => emit({ type: 'log', job: id, line }), controller.signal)
-      .then((result) => {
+    // A finished agent run leaves what it used, for the next run's expected price.
+    let usage: string | undefined;
+    const home = ws;
+    fn((line) => {
+      if (line.startsWith('📊')) usage = line;
+      emit({ type: 'log', job: id, line });
+    }, controller.signal)
+      .then(async (result) => {
+        if (usage && /^(explore|onboard)/.test(kind)) await home.saveUsage(kind, JSON.parse(usage.slice(2))).catch(() => {});
         jobs.get(id)!.state = 'done';
         emit({ type: 'job', job: id, kind, state: 'done', result });
       })
@@ -131,6 +138,7 @@ export function createApp(initial: Workspace) {
       entities: await ws.entityIds(),
       actions: Object.entries(actions).map(([name, a]) => ({ name, description: a.description ?? '', checksAvailability: !!a.available })),
       jobs: [...jobs].map(([id, j]) => ({ id, kind: j.kind, state: j.state })),
+      usage: await ws.lastUsage(),
     });
   });
 
